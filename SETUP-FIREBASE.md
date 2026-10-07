@@ -1,44 +1,53 @@
-# Configuration Firebase
+# Configuration Firebase (projet de test `stockage-plan-temp-test`)
 
-L'application (`index.html`) a besoin d'un projet Firebase pour l'authentification et le partage des données en temps réel.
+L'application (accueil `index.html`, `plan.html`, `releves.html`, `admin.html`) a besoin d'un projet Firebase pour l'authentification et le partage des données en temps réel. Ce dépôt de test est branché sur le projet **`stockage-plan-temp-test`**. Sa configuration est déjà présente dans les quatre pages.
 
-## 1. Créer le projet
+## 1. Créer le projet (déjà fait pour le test)
 
 1. Va sur https://console.firebase.google.com et crée un projet (gratuit, offre "Spark").
 2. Dans **Compilation > Authentication**, active la méthode de connexion **E-mail/Mot de passe**.
 3. Dans **Compilation > Firestore Database**, crée une base en **mode production**.
-4. Dans **Paramètres du projet > Général > Tes applications**, ajoute une application **Web** et copie l'objet `firebaseConfig` (apiKey, authDomain, projectId, etc. — ce ne sont pas des secrets, ils peuvent être publics dans le code).
-5. Colle ces valeurs dans `index.html`, à la place des `"REMPLACER..."` (tout en haut du `<script>`, juste après les balises Firebase).
+4. Dans **Paramètres du projet > Général > Tes applications**, ajoute une application **Web** et copie l'objet `firebaseConfig`. Ces valeurs ne sont pas des secrets.
+5. Pour changer de projet, remplace l'objet `firebaseConfig` dans `index.html`, `plan.html`, `releves.html` et `admin.html`. Les quatre doivent être identiques.
 
 ## 2. Publier les règles de sécurité
 
 Dans **Firestore Database > Règles**, colle le contenu du fichier `firestore.rules` de ce dépôt, puis publie.
 
-Ces règles garantissent que :
-- seuls les comptes connectés peuvent lire les données du plan de stockage ;
-- seuls les comptes avec le rôle `editor` ou `admin` peuvent écrire (créer/modifier/supprimer un palox, changer la config des cellules) ;
-- seul un compte `admin` peut lire la liste complète des comptes (collection `users`) et changer le rôle d'un autre compte ;
-- personne ne peut modifier son propre rôle, même un admin (pour éviter de se bloquer soi-même par erreur) — un changement sur son propre compte doit toujours passer par la console Firebase.
+Les règles du plan de stockage sont inchangées :
+- seuls les comptes connectés peuvent lire le plan ;
+- seuls les rôles `editor` et `admin` peuvent l'écrire ;
+- seul un `admin` lit la liste des comptes et change le rôle des autres ;
+- personne ne modifie son propre compte.
 
-Il y a trois rôles possibles :
-- `admin` — tout ce que fait `editor`, plus l'accès à l'onglet "Comptes" pour voir la liste des comptes et changer leur rôle.
-- `editor` — gestion complète du stock (lecture/écriture).
-- `viewer` — consultation seule. C'est le rôle par défaut si aucun document `users/{uid}` n'existe pour ce compte.
+Ajouts pour le module relevés (rôle lu dans le champ `roleReleves` de `users/{uid}`) :
+- `releves` : lecture dès le rôle Consultation, création pour Gestion et Admin, jamais de modification, suppression par un admin pour l'archivage ;
+- `temperatures` : réglages des relevés, écrits par un admin ;
+- `archives` : réservées aux admins, suppression seulement après la date de conservation ;
+- `parametres` : durées de conservation, réservées aux admins.
 
 ## 3. Créer les comptes utilisateurs
 
-1. Dans **Authentication > Users**, clique sur **Ajouter un utilisateur** pour chaque personne (email + mot de passe temporaire — elle pourra le changer plus tard via "mot de passe oublié" si tu actives cette option).
+1. Dans **Authentication > Users**, clique sur **Ajouter un utilisateur** pour chaque personne (email et mot de passe temporaire).
 2. Note l'**UID** généré pour chaque personne.
-3. Dans **Firestore Database > Données**, crée une collection `users`. Pour chaque personne, crée un document dont l'**ID du document est son UID**, avec deux champs :
-   - `email` (string) — son adresse email, utilisée uniquement pour l'afficher dans l'onglet "Comptes"
-   - `role` (string) = `"admin"`, `"editor"` ou `"viewer"`
+3. Dans **Firestore Database > Données**, crée une collection `users`. Pour chaque personne, crée un document dont l'**ID est son UID**, avec les champs suivants :
+   - `email` (string) : son adresse, affichée dans Administration ;
+   - `role` (string) : rôle dans le plan, `"admin"`, `"editor"` ou `"viewer"` ;
+   - `roleReleves` (string, facultatif) : rôle dans les relevés, `"none"`, `"viewer"`, `"editor"` ou `"admin"`. Un champ absent vaut `"none"`.
 
-Crée au moins un compte `admin` de cette façon (le tout premier doit être créé à la main — ensuite, les admins peuvent changer les rôles des autres comptes directement depuis l'onglet "Comptes" de l'application, sans repasser par la console).
+Crée au moins un compte avec `role` = `"admin"` à la main. Ensuite, cet admin attribue les rôles des autres comptes depuis **Administration > Comptes et accès**, sans repasser par la console. Pour son propre compte, il faut toujours passer par la console.
 
 ## 4. Domaines autorisés
 
-Dans **Authentication > Settings > Authorized domains**, ajoute le domaine où `index.html` sera hébergé (ex : `tonorg.github.io` si tu utilises GitHub Pages).
+Dans **Authentication > Settings > Authorized domains**, ajoute le domaine d'hébergement, par exemple `fabianleg29.github.io` pour GitHub Pages. Sans cela, la connexion échoue.
 
-## 5. Tester
+## 5. Premiers pas sur le projet de test
 
-Ouvre `index.html` dans un navigateur, connecte-toi avec un compte `editor` : tu dois pouvoir ajouter/sortir/déplacer des palox, mais pas voir les onglets "Cellules" et "Comptes" (réservés à l'admin). Avec un compte `admin`, tu dois en plus voir ces deux onglets, pouvoir configurer les cellules/lignes et changer le rôle des autres comptes. Avec un compte `viewer`, les actions de gestion doivent être masquées et les onglets "Cellules"/"Comptes" absents.
+1. Connecte-toi avec le compte admin : l'accueil propose Plan de stockage, Relevés des températures et Administration.
+2. **Administration > Plan de stockage > Importer une sauvegarde** : choisis ta sauvegarde JSON du plan. Elle remplace tout le plan du projet de test. Ne dépose jamais ce fichier dans le dépôt GitHub.
+3. **Administration > Relevés de température** : les 15 chambres de la fiche STOC E12.1 sont créées automatiquement à la première ouverture. Ajoute les produits du contrôle à cœur.
+4. **Administration > Comptes et accès** : attribue les rôles des autres comptes.
+5. Vérifie chaque rôle :
+   - avec Gestion relevés : saisie des relevés ;
+   - avec Consultation relevés : historique seul ;
+   - avec Aucun accès : tuile Relevés grisée.

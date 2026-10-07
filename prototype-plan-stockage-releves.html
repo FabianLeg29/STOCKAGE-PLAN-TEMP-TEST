@@ -1688,7 +1688,7 @@ window.firebase = (function(){
     var o = document.createElement('div');
     o.className = 'tb-ovl'; o.style.zIndex = 99; o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
     o.innerHTML = '<div class="tb-app"><div class="tb-top"><h2>Firebase : ce qui a été écrit</h2><button type="button" class="tb-x" aria-label="Fermer">×</button></div>' +
-      '<div class="tb-card"><b>Projet Firebase plan-de-stockage-alliums</b>' +
+      '<div class="tb-card"><b>Projet Firebase stockage-plan-temp-test</b>' +
       '<div class="tb-log"><span></span><span><b>planStockage/main</b> – le stock du module plan de stockage. Jamais lu ni écrit par le module relevés.</span></div>' +
       '<div class="tb-log"><span></span><span><b>releves</b> – ' + FS.releves.length + ' documents (exemples compris). Créés par le module relevés, jamais modifiés ni supprimés.</span></div>' +
       '<div class="tb-log"><span></span><span><b>temperatures/config</b> – listes du module relevés : ' + FS.temperatures.config.frigos.length + ' chambres, ' + FS.temperatures.config.produits.length + ' produits et leurs cibles. Indépendantes des listes Produits et Calibres du plan, qui restent dans planStockage/main.</span></div>' +
@@ -1745,12 +1745,12 @@ window.firebase = (function(){
   // Remplace ces valeurs par la config de ton projet Firebase
   // (Console Firebase > Paramètres du projet > Tes applications > Config SDK)
   const firebaseConfig = {
-    apiKey: "AIzaSyCGd_6bsecftRwLRbxPWr1hwI0fcnOKyjQ",
-    authDomain: "plan-de-stockage-alliums.firebaseapp.com",
-    projectId: "plan-de-stockage-alliums",
-    storageBucket: "plan-de-stockage-alliums.firebasestorage.app",
-    messagingSenderId: "1064637523445",
-    appId: "1:1064637523445:web:3e9363b1bece817269ecbc"
+    apiKey: "AIzaSyCE7V6RSx1akfJsFymsedaKe-uZPSrjps4",
+    authDomain: "stockage-plan-temp-test.firebaseapp.com",
+    projectId: "stockage-plan-temp-test",
+    storageBucket: "stockage-plan-temp-test.firebasestorage.app",
+    messagingSenderId: "1020932560553",
+    appId: "1:1020932560553:web:02fad075d7ba49f65d7bb8"
   };
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();

@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Administration – La Légumière</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #E3DECF;
+    --panel: #FBF9F3;
+    --panel-2: #F1ECDE;
+    --ink: #2B2620;
+    --ink-soft: #6B6355;
+    --line: #D2C9B4;
+    --copper: #963E88;
+    --copper-soft: #EAD7E6;
+    --wave-1: #B23C92;
+    --wave-2: #5B2A66;
+    --green: #4E6647;
+    --green-soft: #DCE4D2;
+    --warn: #A13B2F;
+    --warn-soft: #F1D6CC;
+    --blue: #3E5C76;
+    --blue-soft: #D9E2EA;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(43,38,32,0.06), 0 4px 14px rgba(43,38,32,0.06);
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; }
+  body{ background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
+  .wrap{ max-width: 1320px; margin: 0 auto; padding: 18px 14px 60px; }
+
+  header.app-header{ display:flex; align-items:center; justify-content:space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand svg{ width:36px; height:36px; flex-shrink:0; }
+  .brand h1{ font-family:'Fraunces', serif; font-weight:600; font-size: 20px; margin:0; letter-spacing:-0.01em; }
+  .brand p{ margin:2px 0 0; color: var(--ink-soft); font-size: 12px; }
+  .header-stats{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .stat-pill{ background: var(--panel); border:1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--ink-soft); display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  .stat-pill b{ font-family:'IBM Plex Mono', monospace; color: var(--ink); font-size: 12.5px; font-weight:600; }
+  .dot{ width:7px; height:7px; border-radius:50%; background: var(--copper); }
+  .dot.green{ background: var(--green); }
+  .refresh-btn{ background: var(--panel); border:1px solid var(--line); border-radius: 999px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; color:var(--ink-soft); }
+  .refresh-btn.spin svg{ animation: spin .6s linear; }
+  @keyframes spin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
+
+  nav.tabs{ display:flex; gap:4px; margin-bottom: 16px; background: var(--panel-2); padding: 5px; border-radius: 12px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  nav.tabs button{ font-family:'Inter', sans-serif; font-weight: 600; font-size: 13px; padding: 9px 14px; border:none; background: transparent; color: var(--ink-soft); border-radius: 8px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  nav.tabs button:hover{ color: var(--ink); }
+  nav.tabs button.active{ background: var(--panel); color: var(--copper); box-shadow: var(--shadow); }
+
+  .card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+  .card h2{ font-family:'Fraunces', serif; font-weight: 600; font-size: 17px; margin: 0 0 4px; }
+  .card .sub{ color: var(--ink-soft); font-size: 12.5px; margin: 0 0 14px; }
+
+  .cellule-tabs{ display:flex; gap:6px; margin-bottom:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
+  .cellule-tabs button{ font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; padding:8px 12px; border-radius:7px; border:1.5px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  .cellule-tabs button.active{ background: var(--copper); border-color: var(--copper); color:#fff; }
+  .cellule-tabs button .n{ opacity:.75; font-weight:500; }
+
+  .stockage-toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+
+  .ligne-list{ display:flex; flex-direction:column; gap:10px; }
+  .ligne-list-item{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; cursor:pointer; background:#fff; transition: border-color .15s ease; }
+  .ligne-list-item:hover{ border-color: var(--copper); }
+  .ligne-list-item .lli-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
+  .ligne-list-item h3{ font-family:'Fraunces', serif; font-weight:600; font-size:15.5px; margin:0; }
+  .ligne-list-item .lli-count{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); white-space:nowrap; }
+  .fill-track{ height:12px; border-radius:6px; background: var(--panel-2); overflow:hidden; display:flex; }
+  .fill-seg{ height:100%; flex-shrink:0; }
+  .lli-produits{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .produit-chip{ font-family:'Inter', sans-serif; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; color:#fff; border:none; cursor:pointer; }
+  .produit-chip:hover{ filter: brightness(1.1); }
+  .lli-empty{ font-size:12px; color:var(--ink-soft); margin-top:8px; font-style:italic; }
+
+  .grid-form{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .grid-form.wide-3{ grid-template-columns: repeat(3,1fr); }
+  .grid-form.two{ grid-template-columns: repeat(2,1fr); }
+  @media (max-width: 760px){ .grid-form, .grid-form.wide-3, .grid-form.two{ grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 480px){ .grid-form, .grid-form.wide-3, .grid-form.two{ grid-template-columns: 1fr; } }
+  label.field{ display:flex; flex-direction:column; gap:5px; font-size: 11.5px; font-weight:600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
+  label.field input, label.field select{ font-family:'Inter', sans-serif; font-size: 16px; font-weight: 500; color: var(--ink); background: #fff; border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 10px; text-transform: none; letter-spacing: normal; }
+  label.field input:focus, label.field select:focus{ outline:none; border-color: var(--copper); }
+  label.field.span-2{ grid-column: span 2; }
+  label.field.span-full{ grid-column: 1/-1; }
+  @media (max-width:480px){ label.field.span-2{ grid-column: span 1; } }
+  label.field .hint{ font-size:11px; text-transform:none; letter-spacing:normal; font-weight:500; color:var(--ink-soft); margin-top:2px; }
+  label.field.checkbox-field{ flex-direction:row; align-items:center; gap:8px; }
+  label.field.checkbox-field input[type=checkbox]{ width:18px; height:18px; padding:0; flex:none; }
+
+  .btn{ font-family:'Inter', sans-serif; font-weight: 700; font-size: 13.5px; cursor:pointer; border:none; border-radius: 8px; padding: 11px 18px; }
+  .btn:active{ transform: scale(0.98); }
+  .btn-copper{ background: var(--copper); color: #fff; }
+  .btn-green{ background: var(--green); color: #fff; }
+  .btn-warn{ background: var(--warn); color: #fff; }
+  .btn-blue{ background: var(--blue); color: #fff; }
+  .btn-ghost{ background: transparent; color: var(--ink-soft); border: 1.5px solid var(--line); }
+  .btn-sm{ padding:8px 13px; font-size:12.5px; border-radius:6px; }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-row{ margin-top: 14px; display:flex; align-items:center; gap: 10px; flex-wrap:wrap; }
+  .msg{ font-size: 13px; font-weight: 600; }
+  .msg.ok{ color: var(--green); }
+  .msg.err{ color: var(--warn); }
+
+  .overlay-bg{ display:none; position:fixed; inset:0; background: rgba(43,38,32,0.4); z-index:40; }
+  .overlay-bg.open{ display:block; }
+  .detail-panel{ position:fixed; top:0; right:0; height:100vh; height:100dvh; width:min(560px, 100vw); background: var(--panel); box-shadow: -8px 0 30px rgba(0,0,0,0.15); z-index:41; transform: translateX(100%); transition: transform .2s ease; overflow-y:auto; }
+  .detail-panel.open{ transform: translateX(0); }
+  .detail-header{ padding:16px 16px 12px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel); z-index:2; }
+  .detail-header h3{ font-family:'Fraunces', serif; font-size:17px; margin:0 0 3px; padding-right:30px; }
+  .detail-header p{ margin:0; color:var(--ink-soft); font-size:12px; font-family:'IBM Plex Mono', monospace; }
+  .detail-close{ position:absolute; top:12px; right:12px; background:var(--panel-2); border:none; font-size:20px; width:34px; height:34px; border-radius:50%; cursor:pointer; color:var(--ink-soft); }
+  .detail-body{ padding: 14px 16px 30px; }
+  .lot-card{ background:var(--panel-2); border-radius:8px; padding:13px; margin-bottom:10px; border-left: 5px solid var(--copper); transition: outline .15s ease; }
+  .lot-card .lp-title{ font-weight:700; font-size:14px; margin-bottom:2px; }
+  .badge-poids-sorti{ display:inline-block; font-family:'Inter', sans-serif; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; padding:3px 9px; border-radius:999px; background:var(--copper-soft); color:var(--copper); margin-left:8px; vertical-align:2px; }
+  .lot-card .lp-meta{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
+  .lot-card .lp-meta span{ font-family:'IBM Plex Mono', monospace; }
+  .palox-list{ display:flex; flex-direction:column; gap:4px; margin:8px 0; }
+  .palox-item{ display:flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 8px; border-radius:6px; background:#fff; }
+  .palox-item input{ width:auto; margin:0; }
+  .palox-select-all{ font-weight:700; color:var(--ink-soft); background:transparent; margin-bottom:4px; }
+  .batch-summary{ font-size:11.5px; color:var(--ink-soft); margin-bottom:8px; font-weight:600; }
+  .lot-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .inline-form{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:none; }
+  .inline-form.open{ display:block; }
+  .entree-row{ border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:#fff; }
+  .palox-weights{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .palox-weights .pw-item{ display:flex; flex-direction:column; gap:4px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:7px; min-width:88px; }
+  .palox-weights .pw-item > span{ font-size:9.5px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; text-transform:uppercase; letter-spacing:.03em; }
+  .palox-weights .pw-item input[type=number]{ width:100%; font-family:'IBM Plex Mono'; font-size:12.5px; padding:6px 6px; border:1px solid var(--line); border-radius:6px; }
+  .selection-recap{ font-size:12.5px; color:var(--ink-soft); margin-bottom:10px; background:var(--panel); border-radius:6px; padding:8px 10px; }
+
+  .divider-label{ font-family:'IBM Plex Mono', monospace; font-size: 10.5px; font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing: 0.08em; margin: 14px 0 10px; display:flex; align-items:center; gap:10px; }
+  .divider-label::after{ content:''; flex:1; height:1px; background: var(--line); }
+
+  .table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; margin: 0 -16px; padding: 0 16px; }
+  table.data{ width:100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
+  table.data th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); padding: 8px 9px; border-bottom: 2px solid var(--line); white-space:nowrap; }
+  table.data td{ padding: 9px 9px; border-bottom: 1px solid var(--line); vertical-align:middle; white-space:nowrap; }
+  table.data tr:last-child td{ border-bottom:none; }
+  .mono{ font-family:'IBM Plex Mono', monospace; font-size: 12px; }
+  .tag{ display:inline-block; padding: 3px 9px; border-radius: 6px; font-size: 10.5px; font-weight: 700; text-transform:uppercase; letter-spacing:.02em; }
+  .tag.entree{ background: var(--green-soft); color: var(--green); }
+  .tag.sortie{ background: var(--warn-soft); color: var(--warn); }
+  .tag.deplacement{ background: var(--copper-soft); color: var(--copper); }
+  .tag.modification{ background: var(--blue-soft); color: var(--blue); }
+
+  .search-box{ position:relative; margin-bottom:14px; }
+  .search-box input{ width:100%; font-family:'Inter'; font-size:16px; padding:12px 14px 12px 40px; border-radius:9px; border:1.5px solid var(--line); background:#fff; }
+  .search-box input:focus{ outline:none; border-color:var(--copper); }
+  .search-box svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--ink-soft); }
+
+  .empty-state{ text-align:center; padding: 24px 8px; color: var(--ink-soft); }
+  .empty-state svg{ width:38px; height:38px; margin-bottom:8px; opacity:.6; }
+
+  .config-cellule{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:12px; }
+  .config-cellule .cfg-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; }
+  .config-cellule .cfg-head input{ font-family:'Fraunces'; font-weight:600; font-size:14.5px; border:none; background:transparent; padding:2px 4px; border-radius:4px; min-width:0; flex:1; }
+  .config-cellule .cfg-head input:focus{ outline:1.5px solid var(--copper); background:#fff; }
+  .ligne-row{ display:flex; align-items:center; gap:8px; padding:8px 0; font-size:12.5px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+  .ligne-row:last-of-type{ border-bottom:none; }
+  .ligne-row input[type=text]{ font-family:'Inter'; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:160px; }
+  .ligne-row input[type=number]{ font-family:'IBM Plex Mono'; font-size:12.5px; padding:6px 6px; border:1px solid var(--line); border-radius:6px; width:70px; }
+  .del-btn{ background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px; text-decoration:underline; flex-shrink:0; }
+  .del-btn:hover{ color: var(--warn); }
+  .loading{ text-align:center; padding:60px 0; color: var(--ink-soft); font-family:'Fraunces'; font-size:16px; }
+
+  .login-screen{ display:none; min-height:100vh; align-items:center; justify-content:center; padding: 20px; }
+  .login-card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 24px; width: 100%; max-width: 360px; }
+  .login-card .brand{ justify-content:center; margin-bottom: 4px; }
+  .login-card form{ display:flex; flex-direction:column; gap:12px; }
+  .login-card .btn{ width:100%; margin-top:4px; }
+  .brand-wave{ display:block; width:100%; height:14px; margin:2px 0 18px; }
+  header.app-header .brand-wave{ margin:10px 0 4px; }
+  .role-badge{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding: 5px 10px; border-radius:999px; }
+  .role-badge.editor{ background: var(--green-soft); color: var(--green); }
+  .role-badge.viewer{ background: var(--blue-soft); color: var(--blue); }
+  .role-badge.admin{ background: #8B5FBF; color: #fff; }
+  .readonly-note{ background: var(--panel-2); border:1px dashed var(--line); border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--ink-soft); }
+  .filter-bar{ background: var(--copper-soft); border-radius:8px; padding:8px 12px; font-size:12.5px; color: var(--ink); margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .consult-total{ background: var(--panel-2); border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+  .consult-total span:first-child{ color: var(--ink-soft); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:.04em; }
+  table.data tr.totals-row td{ font-weight:700; border-top:2px solid var(--line); border-bottom:none; }
+  .view-switch{ display:flex; gap:6px; margin-bottom:14px; }
+  .view-switch button{ font-family:'Inter', sans-serif; font-size:12.5px; font-weight:700; padding:8px 14px; border-radius:7px; border:1.5px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
+  .view-switch button.active{ background: var(--copper); border-color: var(--copper); color:#fff; }
+  .produit-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:1px; }
+.adm-wrap{padding:18px 16px 40px;padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));width:100%;max-width:980px;margin:0 auto;box-sizing:border-box}
+.adm-tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px;margin-bottom:14px}
+.adm-tabs button{min-height:46px;border-radius:10px;border:1px solid #D8D3C6;background:#fff;font:600 14px 'Inter',sans-serif;cursor:pointer;color:#2B2620}
+.adm-tabs button[aria-selected="true"]{background:#2B2620;color:#fff;border-color:#2B2620}
+.adm-card{background:#fff;border:1px solid #D8D3C6;border-radius:14px;padding:16px 18px;margin-bottom:14px}
+.adm-card h2{font-size:17px;margin:0 0 6px}
+.adm-muted{color:#5C554A;font-size:13px;margin:4px 0 10px}
+.adm-scroll{overflow-x:auto}
+.adm-card table{border-collapse:collapse;width:100%;font-size:14px}
+@media (max-width:640px){.adm-card table,.adm-card tbody,.adm-card tr,.adm-card td{display:block;width:100%}.adm-card thead{display:none}
+  .adm-card tr{border:1px solid #ECE8DE;border-radius:10px;padding:8px 10px;margin-bottom:8px}.adm-card td{border:none;padding:4px 0}
+  .adm-card td:first-child{font-weight:600;word-break:break-all}.adm-card td select{width:100%}
+  .adm-card td:nth-child(2)::before{content:"Plan de stockage";display:block;font-size:12px;color:#5C554A;margin-bottom:2px}
+  .adm-card td:nth-child(3)::before{content:"Relevés de température";display:block;font-size:12px;color:#5C554A;margin-bottom:2px}}
+.adm-card th,.adm-card td{padding:9px 8px;border-bottom:1px solid #ECE8DE;text-align:left}
+.adm-card th{font-size:12px;color:#5C554A;text-transform:uppercase;letter-spacing:.04em}
+.adm-card .c{text-align:center}
+.adm-card td input[type=checkbox]{width:22px;height:22px}
+.adm-card select,.adm-card input[type=text],.adm-card input[type=number]{font:inherit;font-size:14px;border:1px solid #D2C9B4;border-radius:8px;padding:8px 10px;min-height:40px;background:#FBF9F3;color:#2B2620;box-sizing:border-box}
+.adm-cell{border:1px solid #ECE8DE;border-radius:10px;padding:10px;margin-bottom:10px}
+.adm-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.adm-row.sub{padding-left:18px}
+.adm-row input[type=text]{flex:1;min-width:160px}
+.adm-inline{display:flex;align-items:center;gap:6px;font-size:13px;color:#5C554A}
+.adm-del{background:none;border:none;color:#A13B2F;text-decoration:underline;cursor:pointer;font:500 13px 'Inter',sans-serif;min-height:40px}
+.adm-link{background:none;border:none;color:#963E88;font:600 14px 'Inter',sans-serif;cursor:pointer;padding:8px 0;min-height:40px}
+.adm-actions{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0}
+.adm-save{background:#2B2620;color:#fff;border:none;border-radius:10px;padding:0 18px;min-height:50px;font:700 15px 'Inter',sans-serif;cursor:pointer}
+.adm-sec{background:#fff;color:#2B2620;border:1px solid #D2C9B4;border-radius:10px;padding:0 16px;min-height:50px;font:600 14px 'Inter',sans-serif;cursor:pointer}
+.adm-ok{background:#DCE4D2;color:#1F3320;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:14px}
+.adm-err{background:#F1D6CC;color:#6E1F17;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:14px}
+.adm-head5,.adm-grid5{display:grid;grid-template-columns:minmax(0,2fr) repeat(4,minmax(0,1fr)) 40px;gap:6px;align-items:center}
+.adm-head3,.adm-grid3{display:grid;grid-template-columns:minmax(0,3fr) repeat(2,minmax(0,1fr)) 40px;gap:6px;align-items:center}
+.adm-head5,.adm-head3{font-size:12px;color:#5C554A;margin-bottom:4px}
+.adm-grid5,.adm-grid3{margin-bottom:6px}
+.adm-grid5 input,.adm-grid3 input{width:100%;min-width:0}
+.adm-x{min-height:40px;border:1px solid #D2C9B4;border-radius:8px;background:#FBF9F3;cursor:pointer;font-size:18px;color:#2B2620}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:640px){.adm-tabs{grid-template-columns:1fr}.adm-head5,.adm-head3{display:none}
+  .adm-grid5,.adm-grid3{grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid #ECE8DE;border-radius:10px;padding:8px;margin-bottom:8px}
+  .adm-grid5 input:first-child,.adm-grid3 input:first-child{grid-column:1/-1;font-weight:600}
+  .adm-grid5 .adm-x,.adm-grid3 .adm-x{grid-column:1/-1;justify-self:end;width:44px;min-height:44px}
+  .adm-grid5 input::placeholder,.adm-grid3 input::placeholder{color:#8A8174}}
+.adm-h3{font-size:15px;margin:14px 0 4px}
+.adm-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:6px 0 10px}
+.adm-pair label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5C554A}
+.adm-pair select{width:100%}
+.adm-sec:disabled{opacity:.5;cursor:not-allowed}
+.adm-arch tr.ex td{background:#FBEDEA}
+.adm-acts{white-space:nowrap}
+.adm-acts .adm-link,.adm-acts .adm-del{margin-right:10px}
+.tb-badge{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:7px;background:#F1D6CC;color:#6E1F17;font-size:12px;font-weight:700}
+@media (max-width:640px){.adm-arch td:nth-child(2)::before{content:"Période";display:block;font-size:12px;color:#5C554A}.adm-arch td:nth-child(3)::before{content:"Créée le";display:block;font-size:12px;color:#5C554A}.adm-arch td:nth-child(4)::before{content:"Conserver jusqu’au";display:block;font-size:12px;color:#5C554A}.adm-acts{white-space:normal}}
+  /* Administration : page autonome */
+  body{ background:#F4F2EC; }
+  .adm-wrap .del-btn{ min-height:44px; padding:0 4px; }
+  .adm-wrap .btn-sm{ min-height:44px; }
+  .adm-wrap .ligne-row input[type=text],.adm-wrap .ligne-row input[type=number]{ min-height:44px; font-size:16px; }
+  .adm-wrap .config-cellule .cfg-head{ flex-wrap:wrap; }
+  .adm-wrap .config-cellule .cfg-head input[type=text]{ min-height:44px; min-width:160px; }
+  .adm-wrap .config-cellule .cfg-head input[type=checkbox]{ width:20px; height:20px; }
+  .adm-wrap .config-cellule .cfg-head label{ min-height:44px; }
+  .adm-wrap .card{ box-shadow:none; }
+  .adm-x{ min-width:44px; }
+  @media (max-width:640px){ .adm-wrap .ligne-row input[type=text]{ flex:1 1 100%; width:auto; } }
+  .mod-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:#2B2620;color:#fff;font-family:'Inter',system-ui,sans-serif}
+  .mod-bar .mod-t{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mod-bar .mod-dot{width:12px;height:12px;border-radius:3px;flex:none}
+  .mod-home{display:inline-flex;align-items:center;gap:8px;flex:none;background:#fff;color:#2B2620;border-radius:10px;padding:0 14px;min-height:44px;font:600 14px 'Inter',sans-serif;text-decoration:none}
+  .mod-home:focus-visible{outline:3px solid #fff;outline-offset:2px}
+  @media (max-width:640px){.mod-bar{padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px))}.mod-bar .mod-t{font-size:14px}}
+</style>
+</head>
+<body>
+<div class="mod-bar"><span class="mod-t"><span class="mod-dot" style="background:#D2C9B4"></span>Administration</span><a class="mod-home" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Accueil</a></div>
+<main class="adm-wrap" id="admView"><div class="loading">Chargement…</div></main>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="xlsx-releves.js"></script>
+<script>
+(function(){
+  'use strict';
+  const firebaseConfig = {
+    apiKey: "AIzaSyCE7V6RSx1akfJsFymsedaKe-uZPSrjps4",
+    authDomain: "stockage-plan-temp-test.firebaseapp.com",
+    projectId: "stockage-plan-temp-test",
+    storageBucket: "stockage-plan-temp-test.firebasestorage.app",
+    messagingSenderId: "1020932560553",
+    appId: "1:1020932560553:web:02fad075d7ba49f65d7bb8"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  const DOC_REF = db.collection('planStockage').doc('main');
+  const CONFIG_REF = db.collection('temperatures').doc('config');
+  const CONS_REF = db.collection('parametres').doc('conservation');
+  const RELEVES = db.collection('releves');
+  const ARCHIVES = db.collection('archives');
+  const CONS_DEFAUT = { relArchiveApresMois: 13, relConservationAns: 5, planArchiveApresMois: 0, planConservationAns: 0 };
+  // Chambres de la fiche STOC E12.1, utilisées pour initialiser temperatures/config s'il n'existe pas
+  const CHAMBRES_STOC = [['LP1',3,5],['LP2',6,12],['LP3',3,6],['LBP',2,4],['Zone prépa',6,14],
+    ['Cellule 1',-0.5,1.5],['Cellule 2',-0.5,1.5],['Cellule 3',-0.5,1.5],['Cellule 4',-0.5,1.5],['Cellule 5',-0.5,1.5],
+    ['Cellule 6',-0.5,1.5],['Cellule 7',0,1.5],['Cellule 8',0,1.5],['Cellule ail',-5,0],['Cellule carotte',0,1.5]]
+    .map(function(c){ return { nom: c[0], min: c[1], max: c[2], hrMin: null, hrMax: null }; });
+
+  let me = null, role = 'viewer', roleReleves = 'none';
+  const A = { tab: null, msg: '', err: '' };
+  let planDoc = { loaded: false, exists: false, raw: null, vue: null };   // vue = copie migrée, pour l'affichage seulement
+  let relConfig = null, relDraft = null, relDirty = false;
+  let cons = Object.assign({}, CONS_DEFAUT), consLoaded = false;
+  let comptes = null;            // null = chargement
+  let relAnciens = null;         // relevés à archiver (null = chargement)
+  let archives = null;           // null = chargement
+  let archErr = '';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  const escapeHtml = esc;
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+  function today(){ return new Date().toISOString().slice(0,10); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function num(v){ var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : null; }
+  function val(n){ return n == null ? '' : String(n).replace('.', ','); }
+  function isPlanAdmin(){ return role === 'admin'; }
+  function isRelAdmin(){ return role === 'admin' || roleReleves === 'admin'; }
+  function rubriques(){ var t = []; if (isPlanAdmin()) t.push(['comptes', 'Comptes et accès'], ['plan', 'Plan de stockage']); if (isRelAdmin()) t.push(['rel', 'Relevés de température'], ['arch', 'Archives et conservation']); return t; }
+  function errTxt(e){ return e && e.code === 'permission-denied' ? 'action refusée par les règles Firebase (droits insuffisants)' : (e && e.message) || 'erreur inconnue'; }
+  function telecharger(nom, data, type){ var b = new Blob([data], { type: type }), l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = nom; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(l.href); l.remove(); }, 1000); }
+  function emptyState(title, sub){
+    return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M3 11h18M8 7V4h8v3"/></svg>'+
+      '<div style="font-family:\'Fraunces\';font-size:15px;color:var(--ink);margin-bottom:4px;">'+title+'</div><div style="font-size:13px;">'+sub+'</div></div>';
+  }
+
+  // Normalisation du plan, reprise À L'IDENTIQUE de migrate() du plan de stockage (plan.html).
+  // Utilisée pour l'affichage, l'export et l'import de sauvegarde, comme dans l'ancien onglet Cellules.
+  function migrate(state){
+    // Anciens modèles : ligne { positions, hauteurParPosition }, lot { position, hauteurDebut, nbPalox, poids total }.
+    // Nouveau modèle : ligne { capacite }, lot = UN palox individuel { poids unitaire, batchId }.
+    if(!Array.isArray(state.produits)){
+      state.produits = ['Echalote','Echalion','Echalote de semis','Oignon de Roscoff','Oignon rouge','Oignon jaune'];
+    }
+    if(!Array.isArray(state.calibres)){
+      state.calibres = ['20/40','40/60','60/80'];
+    }
+    state.cellules.forEach(c=>{
+      if(c.nonAchetee==null) c.nonAchetee = !!c.frigo;
+      delete c.frigo;
+      c.lignes.forEach(l=>{
+        if(l.capacite==null){
+          if(Array.isArray(l.hauteurParPosition)) l.capacite = l.hauteurParPosition.reduce((a,b)=>a+b,0) || 50;
+          else l.capacite = 50;
+        }
+        delete l.positions; delete l.hauteurParPosition; delete l.hauteurMax;
+      });
+    });
+    const expanded = [];
+    state.lots.forEach(l=>{
+      delete l.position; delete l.hauteurDebut;
+      if(l.nbPalox!=null){
+        const count = Math.max(1, Math.round(l.nbPalox));
+        const perUnit = l.poids!=null ? l.poids/count : null;
+        const batchId = l.batchId || l.id || uid();
+        for(let i=0;i<count;i++){
+          expanded.push({ id: i===0 ? (l.id||uid()) : uid(), celluleId: l.celluleId, ligneId: l.ligneId, batchId,
+            produit: l.produit, lot: l.lot, parcelle: l.parcelle, calibre: l.calibre, traitement: l.traitement, poidsSorti: l.poidsSorti,
+            poids: perUnit, dateEntree: l.dateEntree, commentaire: l.commentaire });
+        }
+      } else {
+        if(!l.batchId) l.batchId = l.id;
+        expanded.push(l);
+      }
+    });
+    state.lots = expanded;
+    // Fusionne les lots identiques (même produit/lot/calibre/traitement/emplacement) sous un seul batchId,
+    // pour éviter que des modifications successives ne fragmentent artificiellement un même lot.
+    const batchKeyMap = {};
+    state.lots.forEach(l=>{
+      const key = [l.celluleId, l.ligneId, l.produit, l.lot||'', l.lot2||'', l.calibre||'', !!l.traitement, !!l.poidsSorti].join('|');
+      if(batchKeyMap[key]==null) batchKeyMap[key] = l.batchId;
+      else l.batchId = batchKeyMap[key];
+    });
+    return state;
+  }
+  function normalise(raw){ var s = clone(raw || {}); s.cellules = s.cellules || []; s.lots = s.lots || []; s.transactions = s.transactions || []; return migrate(s); }
+
+  // ---------- squelette ----------
+  function draw(){
+    var v = document.getElementById('admView'), h = '';
+    h += '<nav class="adm-tabs" aria-label="Rubriques">' + rubriques().map(function(t){ return '<button type="button" data-t="' + t[0] + '" aria-selected="' + (A.tab === t[0]) + '">' + t[1] + '</button>'; }).join('') + '</nav>';
+    if (A.msg) h += '<div class="adm-ok" role="status">' + esc(A.msg) + '</div>';
+    if (A.err) h += '<div class="adm-err" role="alert">' + esc(A.err) + '</div>';
+    if (A.tab === 'comptes') h += viewComptes();
+    if (A.tab === 'plan') h += viewPlan();
+    if (A.tab === 'rel') h += viewRel();
+    if (A.tab === 'arch') h += viewArch();
+    v.innerHTML = h;
+    v.querySelectorAll('[data-t]').forEach(function(b){ b.onclick = function(){ ouvrirRubrique(b.dataset.t); }; });
+    if (A.tab === 'comptes') bindComptes(v);
+    if (A.tab === 'plan') bindPlan(v);
+    if (A.tab === 'rel') bindRel(v);
+    if (A.tab === 'arch') bindArch(v);
+  }
+  function saisieEnCours(){ var a = document.activeElement; return !!(a && a.closest && a.closest('#admView') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'file'); }
+  function ouvrirRubrique(t){
+    A.tab = t; A.msg = ''; A.err = '';
+    if (t === 'comptes') chargerComptes();
+    if (t === 'rel' && !relDirty) relDraft = relConfig ? clone(relConfig) : null;
+    if (t === 'arch') chargerArchivage();
+    draw(); window.scrollTo(0, 0);
+  }
+
+  // ---------- a) Comptes et accès ----------
+  async function chargerComptes(){
+    comptes = null;
+    try{
+      const snap = await db.collection('users').get();
+      const rows = [];
+      snap.forEach(function(doc){ const d = doc.data() || {};
+        rows.push({ uid: doc.id, email: d.email || '(email non renseigné — uid : '+doc.id+')', role: (d.role==='admin'||d.role==='editor') ? d.role : 'viewer',
+          roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none' }); });
+      rows.sort(function(a, b){ return a.email.localeCompare(b.email, 'fr'); });
+      comptes = rows;
+    }catch(e){ comptes = []; A.err = 'Impossible de charger les comptes : ' + errTxt(e); }
+    if (A.tab === 'comptes') draw();
+  }
+  function viewComptes(){
+    var h = '<section class="adm-card"><h2>Comptes</h2><p class="adm-muted">Un seul compte par personne pour tous les modules. La création d\'un compte (e-mail et mot de passe) se fait dans la console Firebase ; ajoutez-le ensuite dans la collection « users » (champs email et role) pour qu\'il apparaisse ici. Vous ne pouvez pas modifier votre propre compte.</p>';
+    if (comptes === null) return h + '<p class="adm-muted">Chargement des comptes…</p></section>';
+    if (!comptes.length) return h + emptyState('Aucun compte trouvé', 'Ajoute un document dans la collection Firestore « users » pour chaque compte, avec ses champs email et role.') + '</section>';
+    var rows = comptes.map(function(u){
+      var self = u.uid === me.uid;
+      return '<tr><td>' + esc(u.email) + (self ? ' <span class="adm-muted">(vous)</span>' : '') + '</td>' +
+        '<td><label class="sr" for="r-' + esc(u.uid) + '">Rôle plan de ' + esc(u.email) + '</label><select id="r-' + esc(u.uid) + '" data-role="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
+        [['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.role === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td>' +
+        '<td><label class="sr" for="rr-' + esc(u.uid) + '">Rôle relevés de ' + esc(u.email) + '</label><select id="rr-' + esc(u.uid) + '" data-rrole="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
+        [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.roleReleves === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td></tr>';
+    }).join('');
+    return h + '<div class="adm-scroll"><table class="adm-comptes"><thead><tr><th>E-mail</th><th>Plan de stockage : rôle</th><th>Relevés de température : rôle</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      '<p class="adm-muted">Un rôle par module : Consultation = lecture seule, Gestion = saisie, Admin = saisie et réglages du module dans Administration. Pour les relevés, « Aucun accès » masque le module. Le rôle du plan fonctionne comme aujourd\'hui. Les changements sont enregistrés immédiatement.</p></section>';
+  }
+  function bindComptes(v){
+    function maj(sel, champ, libelle){
+      sel.addEventListener('change', async function(){
+        var id = sel.dataset[champ === 'role' ? 'role' : 'rrole'], u = comptes.filter(function(x){ return x.uid === id; })[0];
+        var data = {}; data[champ] = sel.value;
+        try{
+          await db.collection('users').doc(id).set(data, { merge: true });
+          if (u) u[champ] = sel.value;
+          A.err = ''; A.msg = libelle + ' mis à jour pour ' + (u ? u.email : id) + ' : ' + sel.options[sel.selectedIndex].text + '.';
+        }catch(e){ A.msg = ''; A.err = 'Rôle non modifié : ' + errTxt(e); }
+        draw();
+      });
+    }
+    v.querySelectorAll('[data-role]').forEach(function(s){ maj(s, 'role', 'Rôle plan'); });
+    v.querySelectorAll('[data-rrole]').forEach(function(s){ maj(s, 'roleReleves', 'Rôle relevés'); });
+  }
+
+  // ---------- b) Plan de stockage : repris des onglets Cellules et Comptes du plan ----------
+  // Chaque modification est enregistrée immédiatement, par TRANSACTION : relecture de planStockage/main,
+  // puis seuls cellules, produits et calibres sont remplacés. lots et transactions restent à l'identique.
+  const NO_PLAN = 'Le plan de stockage n\'existe pas encore dans ce projet : importez une sauvegarde, ou ouvrez le plan une première fois avec un compte Gestion ou Admin.';
+  function ErrU(m){ var e = new Error(m); e.userMsg = m; return e; }
+  function setSaveStatus(status){
+    var el = document.getElementById('saveStatus'); if (!el) return;
+    if (status === 'saving'){ el.textContent = 'Sauvegarde…'; el.style.color = 'var(--ink-soft)'; }
+    else if (status === 'ok'){ el.textContent = '✓ Sauvegardé'; el.style.color = 'var(--green)'; setTimeout(function(){ if (el.textContent === '✓ Sauvegardé') el.textContent = ''; }, 2000); }
+    else if (status === 'error'){ el.textContent = '⚠ Non sauvegardé'; el.style.color = 'var(--warn)'; }
+  }
+  async function majPlan(mutation){
+    setSaveStatus('saving');
+    try{
+      await db.runTransaction(async function(t){
+        const snap = await t.get(DOC_REF);
+        if (!snap.exists) throw ErrU(NO_PLAN);
+        const actuel = JSON.parse(snap.data().data || '{}');
+        const w = normalise(actuel);
+        mutation(w);
+        actuel.cellules = w.cellules; actuel.produits = w.produits; actuel.calibres = w.calibres;
+        t.set(DOC_REF, { data: JSON.stringify(actuel), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      });
+      setSaveStatus('ok');
+    }catch(e){
+      if (e.userMsg){ setSaveStatus(''); alert(e.userMsg); }
+      else { console.error('Erreur de sauvegarde', e); setSaveStatus('error'); alert('Enregistrement impossible : ' + errTxt(e)); }
+    }
+    if (A.tab === 'plan') draw();
+  }
+  function stockLigne(s, cId, lId){ return s.lots.filter(function(x){ return x.celluleId === cId && x.ligneId === lId; }).length; }
+  function trouverCellule(s, id){ var c = s.cellules.find(function(x){ return x.id === id; }); if (!c) throw ErrU('Cette cellule n\'existe plus : la liste a été modifiée entre-temps.'); return c; }
+  function trouverLigne(s, cId, lId){ var l = trouverCellule(s, cId).lignes.find(function(x){ return x.id === lId; }); if (!l) throw ErrU('Cette ligne n\'existe plus : la liste a été modifiée entre-temps.'); return l; }
+
+  function viewPlan(){
+    const backupSection = '<div class="card"><h2>Sauvegarde manuelle</h2>'+
+      '<p class="sub">En cas de souci avec la sauvegarde automatique, exporte un fichier de secours régulièrement, et importe-le pour restaurer tes données.</p>'+
+      '<div class="btn-row" style="margin-top:0;">'+
+        '<button class="btn btn-blue btn-sm" id="exportBackupBtn"' + (planDoc.exists ? '' : ' disabled') + '>Exporter une sauvegarde (.json)</button>'+
+        '<label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer;">Importer une sauvegarde<input type="file" id="importBackupInput" accept="application/json" style="display:none;"></label>'+
+      '</div></div>';
+    const statut = '<p class="adm-muted" style="margin:0 0 10px;">Enregistrement immédiat de chaque modification dans planStockage/main (cellules, produits, calibres uniquement ; les palox et l\'historique ne sont pas touchés). <span id="saveStatus" style="font-weight:600;"></span></p>';
+    if (!planDoc.loaded) return statut + '<div class="loading">Chargement du plan…</div>';
+    if (!planDoc.exists) return statut + backupSection + '<div class="card">' + emptyState('Plan de stockage introuvable', NO_PLAN) + '</div>';
+    const state = planDoc.vue;
+    const blocks = state.cellules.map(c=>{
+      const lignesHtml = c.lignes.map(l=>{
+        return '<div class="ligne-row" data-ligne-row="'+l.id+'">'+
+            '<input type="text" value="'+escapeHtml(l.nom)+'" data-ligne-nom="'+c.id+'|'+l.id+'" aria-label="Nom de la ligne">'+
+            '<span style="color:var(--ink-soft)">capacité :</span>'+
+            '<input type="number" min="1" value="'+l.capacite+'" data-ligne-cap="'+c.id+'|'+l.id+'" aria-label="Capacité en palox">'+
+            '<span style="color:var(--ink-soft)">palox</span>'+
+            '<button class="del-btn" data-del-ligne="'+c.id+'|'+l.id+'">supprimer la ligne</button>'+
+        '</div>';
+      }).join('');
+      return '<div class="config-cellule" data-cellule-block="'+c.id+'">'+
+        '<div class="cfg-head"><input type="text" value="'+escapeHtml(c.nom)+'" data-cellule-nom="'+c.id+'" aria-label="Nom de la cellule">'+
+        '<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);"><input type="checkbox" data-cellule-non-achetee="'+c.id+'" '+(c.nonAchetee?'checked':'')+' style="width:auto;"> Marchandise extérieure non achetée</label>'+
+        '<button class="del-btn" data-del-cellule="'+c.id+'">supprimer</button></div>'+
+        lignesHtml+
+        '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-add-ligne="'+c.id+'">+ Ajouter une ligne</button>'+
+      '</div>';
+    }).join('');
+    return statut + backupSection+'<div class="card"><h2>Structure des cellules</h2><p class="sub">Configure les cellules, leurs lignes et la capacité de chaque ligne (en nombre de palox). Une cellule ou ligne contenant encore du stock ne peut pas être supprimée.</p>'+
+      blocks+
+      '<button class="btn btn-copper" id="addCellule" style="margin-top:6px;">+ Nouvelle cellule</button></div>' +
+      viewProduitsAdmin(state) + viewCalibresAdmin(state);
+  }
+  function viewProduitsAdmin(state){
+    const list = (state.produits||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
+    const rows = list.map(p=>{
+      return '<div class="ligne-row">'+
+          '<input type="text" value="'+escapeHtml(p)+'" data-produit-old="'+escapeHtml(p)+'" aria-label="Produit">'+
+          '<button class="del-btn" data-del-produit="'+escapeHtml(p)+'">supprimer</button>'+
+      '</div>';
+    }).join('');
+    return '<div class="card"><h2>Produits</h2>'+
+      '<p class="sub">Liste des produits proposés lors d\'une entrée de stock (bouton « + Entrée »), pour que tout le monde saisisse toujours le même intitulé.</p>'+
+      (list.length ? rows : emptyState("Aucun produit", "Ajoute au moins un produit pour pouvoir enregistrer une entrée de stock."))+
+      '<button class="btn btn-copper btn-sm" id="addProduit" style="margin-top:8px;">+ Nouveau produit</button>'+
+    '</div>';
+  }
+  function viewCalibresAdmin(state){
+    const list = (state.calibres||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
+    const rows = list.map(c=>{
+      return '<div class="ligne-row">'+
+          '<input type="text" value="'+escapeHtml(c)+'" data-calibre-old="'+escapeHtml(c)+'" aria-label="Calibre">'+
+          '<button class="del-btn" data-del-calibre="'+escapeHtml(c)+'">supprimer</button>'+
+      '</div>';
+    }).join('');
+    return '<div class="card"><h2>Calibres</h2>'+
+      '<p class="sub">Liste des calibres proposés lors d\'une entrée ou d\'une modification de stock, pour que tout le monde saisisse toujours le même intitulé.</p>'+
+      (list.length ? rows : emptyState("Aucun calibre", "Ajoute au moins un calibre pour pouvoir le proposer à la saisie."))+
+      '<button class="btn btn-copper btn-sm" id="addCalibre" style="margin-top:8px;">+ Nouveau calibre</button>'+
+    '</div>';
+  }
+  async function exportBackup(){
+    try{
+      const snap = await DOC_REF.get();
+      if (!snap.exists){ alert(NO_PLAN); return; }
+      const state = normalise(JSON.parse(snap.data().data || '{}'));
+      telecharger('sauvegarde-plan-stockage-'+today()+'.json', JSON.stringify(state, null, 2), 'application/json');
+    }catch(e){ alert('Export impossible : ' + errTxt(e)); }
+  }
+  function importBackup(file){
+    if(!isPlanAdmin()){ alert('Réservé aux comptes de gestion.'); return; }
+    const reader = new FileReader();
+    reader.onload = async (ev)=>{
+      try{
+        const parsed = JSON.parse(ev.target.result);
+        if(!parsed.cellules){ alert('Fichier invalide : ce n\'est pas une sauvegarde reconnue.'); return; }
+        if(!confirm('Remplacer les données actuelles par cette sauvegarde ?')) return;
+        const state = parsed;
+        state.lots = state.lots || []; state.transactions = state.transactions || [];
+        migrate(state);
+        setSaveStatus('saving');
+        await DOC_REF.set({ data: JSON.stringify(state), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        setSaveStatus('ok');
+        A.err = ''; A.msg = 'Sauvegarde importée : ' + state.cellules.length + ' cellules, ' + state.lots.length + ' palox, ' + state.transactions.length + ' lignes d\'historique.';
+        draw();
+      }catch(e){ setSaveStatus('error'); alert('Impossible de lire ce fichier : '+errTxt(e)); }
+    };
+    reader.readAsText(file);
+  }
+  function bindPlan(v){
+    const q = function(sel){ return v.querySelectorAll(sel); };
+    const state = planDoc.vue;
+    const imp = document.getElementById('importBackupInput');
+    if (imp) imp.addEventListener('change', (ev)=>{ if(ev.target.files && ev.target.files[0]) importBackup(ev.target.files[0]); ev.target.value = ''; });
+    const exp = document.getElementById('exportBackupBtn'); if (exp) exp.addEventListener('click', exportBackup);
+    if (!planDoc.exists) return;
+    q('[data-cellule-nom]').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const nom = inp.value.trim() || 'Sans nom', id = inp.dataset.celluleNom;
+        majPlan(s=>{ trouverCellule(s, id).nom = nom; });
+      });
+    });
+    q('[data-cellule-non-achetee]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const coche = cb.checked, id = cb.dataset.celluleNonAchetee;
+        majPlan(s=>{ trouverCellule(s, id).nonAchetee = coche; });
+      });
+    });
+    q('[data-ligne-nom]').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const [cId, lId] = inp.dataset.ligneNom.split('|'), nom = inp.value.trim() || 'Sans nom';
+        majPlan(s=>{ trouverLigne(s, cId, lId).nom = nom; });
+      });
+    });
+    q('[data-ligne-cap]').forEach(inp=>{
+      inp.addEventListener('change', ()=>{
+        const [cId, lId] = inp.dataset.ligneCap.split('|');
+        const newVal = Math.max(1, parseInt(inp.value)||1);
+        const occ = stockLigne(state, cId, lId);
+        if(newVal < occ){ alert('Impossible : cette ligne contient déjà '+occ+' palox.'); draw(); return; }
+        majPlan(s=>{
+          const occ2 = stockLigne(s, cId, lId);
+          if(newVal < occ2) throw ErrU('Impossible : cette ligne contient déjà '+occ2+' palox.');
+          trouverLigne(s, cId, lId).capacite = newVal;
+        });
+      });
+    });
+    q('[data-add-ligne]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.dataset.addLigne;
+        majPlan(s=>{ trouverCellule(s, id).lignes.push({ id: uid(), nom: 'Nouvelle ligne', capacite: 50 }); });
+      });
+    });
+    q('[data-del-ligne]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const [cId, lId] = btn.dataset.delLigne.split('|');
+        const MSG = 'Cette ligne contient encore du stock, elle ne peut pas être supprimée.';
+        if(state.lots.some(x=>x.celluleId===cId && x.ligneId===lId)){ alert(MSG); return; }
+        if(!confirm('Supprimer cette ligne ?')) return;
+        majPlan(s=>{
+          if(s.lots.some(x=>x.celluleId===cId && x.ligneId===lId)) throw ErrU(MSG);
+          const c = trouverCellule(s, cId);
+          c.lignes = c.lignes.filter(l=>l.id!==lId);
+        });
+      });
+    });
+    q('[data-del-cellule]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const cId = btn.dataset.delCellule;
+        const MSG = 'Cette cellule contient encore du stock, elle ne peut pas être supprimée.';
+        if(state.lots.some(x=>x.celluleId===cId)){ alert(MSG); return; }
+        if(!confirm('Supprimer cette cellule ?')) return;
+        majPlan(s=>{
+          if(s.lots.some(x=>x.celluleId===cId)) throw ErrU(MSG);
+          s.cellules = s.cellules.filter(c=>c.id!==cId);
+        });
+      });
+    });
+    const addCellule = document.getElementById('addCellule');
+    if (addCellule) addCellule.addEventListener('click', ()=>{
+      const nom = prompt('Nom de la nouvelle cellule :', 'Nouvelle cellule');
+      if(!nom) return;
+      majPlan(s=>{ s.cellules.push({ id: uid(), nom: nom.trim(), lignes: [{ id: uid(), nom: 'Ligne 1', capacite: 50 }] }); });
+    });
+    // Produits et calibres : mêmes contrôles et messages que l'ancien onglet Comptes
+    function listeEditable(cle, attrOld, attrDel, idAdd, libelleNouveau, msgDoublon, msgSuppr){
+      q('[' + attrOld + ']').forEach(inp=>{
+        inp.addEventListener('change', ()=>{
+          const oldName = inp.getAttribute(attrOld);
+          const newName = inp.value.trim();
+          if(!newName){ inp.value = oldName; return; }
+          if(newName!==oldName && (state[cle]||[]).some(p=>p.toLowerCase()===newName.toLowerCase())){
+            alert(msgDoublon); inp.value = oldName; return;
+          }
+          majPlan(s=>{
+            if(newName!==oldName && (s[cle]||[]).some(p=>p.toLowerCase()===newName.toLowerCase())) throw ErrU(msgDoublon);
+            const idx = s[cle].indexOf(oldName);
+            if(idx>-1) s[cle][idx] = newName;
+          });
+        });
+      });
+      q('[' + attrDel + ']').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const nom = btn.getAttribute(attrDel);
+          if(!confirm('Supprimer « '+nom+' » de la liste ? ' + msgSuppr)) return;
+          majPlan(s=>{ s[cle] = s[cle].filter(p=>p!==nom); });
+        });
+      });
+      const add = document.getElementById(idAdd);
+      if(add) add.addEventListener('click', ()=>{
+        const nom = prompt(libelleNouveau, '');
+        if(!nom || !nom.trim()) return;
+        const trimmed = nom.trim();
+        if((state[cle]||[]).some(p=>p.toLowerCase()===trimmed.toLowerCase())){ alert(msgDoublon); return; }
+        majPlan(s=>{
+          if((s[cle]||[]).some(p=>p.toLowerCase()===trimmed.toLowerCase())) throw ErrU(msgDoublon);
+          s[cle].push(trimmed);
+        });
+      });
+    }
+    listeEditable('produits', 'data-produit-old', 'data-del-produit', 'addProduit', 'Nom du nouveau produit :', 'Ce produit existe déjà dans la liste.', 'Les entrées déjà enregistrées avec ce produit ne sont pas affectées.');
+    listeEditable('calibres', 'data-calibre-old', 'data-del-calibre', 'addCalibre', 'Nom du nouveau calibre :', 'Ce calibre existe déjà dans la liste.', 'Les entrées déjà enregistrées avec ce calibre ne sont pas affectées.');
+  }
+
+  // ---------- c) Relevés de température ----------
+  function viewRel(){
+    var r = relDraft, h = '';
+    if (!r) return '<section class="adm-card"><p class="adm-muted">Chargement des réglages des relevés…</p></section>';
+    h += '<section class="adm-card"><h2>Chambres froides et cellules</h2><p class="adm-muted">Liste du module relevés, indépendante du plan de stockage. Laissez une limite vide si elle ne s\'applique pas. Changer une cible ne modifie pas les relevés déjà enregistrés.</p>' +
+      '<div class="adm-head5"><span>Nom</span><span>T° mini</span><span>T° maxi</span><span>Hygro mini %</span><span>Hygro maxi %</span><span></span></div>';
+    r.frigos.forEach(function(f, i){
+      h += '<div class="adm-grid5"><input type="text" aria-label="Nom de la chambre" placeholder="Nom de la chambre" data-rf="' + i + '|nom" value="' + esc(f.nom) + '">' +
+        [['min','T° mini'], ['max','T° maxi'], ['hrMin','HR mini %'], ['hrMax','HR maxi %']].map(function(k){ return '<input type="text" inputmode="decimal" placeholder="' + k[1] + '" aria-label="' + k[1] + ' ' + esc(f.nom) + '" data-rf="' + i + '|' + k[0] + '" value="' + val(f[k[0]]) + '">'; }).join('') +
+        '<button type="button" class="adm-x" aria-label="Supprimer ' + esc(f.nom) + '" data-rfdel="' + i + '">×</button></div>';
+    });
+    h += '<button type="button" class="adm-link" id="admRfAdd">+ Ajouter une chambre</button></section>';
+    h += '<section class="adm-card"><h2>Produits du contrôle à cœur</h2><p class="adm-muted">Liste du module relevés, indépendante des produits du plan. Plage de température à cœur acceptée.</p>' +
+      (r.produits.length ? '<div class="adm-head3"><span>Nom</span><span>Mini °C</span><span>Maxi °C</span><span></span></div>' : '<p class="adm-muted">Aucun produit pour l\'instant.</p>');
+    r.produits.forEach(function(f, i){
+      h += '<div class="adm-grid3"><input type="text" aria-label="Nom du produit" placeholder="Nom du produit" data-rp="' + i + '|nom" value="' + esc(f.nom) + '">' +
+        [['min','Mini °C'], ['max','Maxi °C']].map(function(k){ return '<input type="text" inputmode="decimal" placeholder="' + k[1] + '" aria-label="' + k[1] + ' ' + esc(f.nom) + '" data-rp="' + i + '|' + k[0] + '" value="' + val(f[k[0]]) + '">'; }).join('') +
+        '<button type="button" class="adm-x" aria-label="Supprimer ' + esc(f.nom) + '" data-rpdel="' + i + '">×</button></div>';
+    });
+    h += '<button type="button" class="adm-link" id="admRpAdd">+ Ajouter un produit</button></section>';
+    h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveRel">Enregistrer les réglages des relevés</button>' + (relDirty ? '<button type="button" class="adm-sec" id="admCancelRel">Annuler les modifications</button>' : '') + '</div>' +
+      '<p class="adm-muted">Enregistré dans temperatures/config. Le plan de stockage n\'est pas concerné.</p>';
+    return h;
+  }
+  function bindRel(o){
+    var R = relDraft; if (!R) return;
+    var on = function(sel, ev, f){ o.querySelectorAll(sel).forEach(function(e){ e.addEventListener(ev, function(){ f(e); }); }); };
+    on('[data-rf]', 'input', function(e){ var k = e.dataset.rf.split('|'); R.frigos[+k[0]][k[1]] = e.value; relDirty = true; });
+    on('[data-rp]', 'input', function(e){ var k = e.dataset.rp.split('|'); R.produits[+k[0]][k[1]] = e.value; relDirty = true; });
+    on('[data-rfdel]', 'click', function(e){ R.frigos.splice(+e.dataset.rfdel, 1); relDirty = true; draw(); });
+    on('[data-rpdel]', 'click', function(e){ R.produits.splice(+e.dataset.rpdel, 1); relDirty = true; draw(); });
+    on('#admRfAdd', 'click', function(){ R.frigos.push({ nom: '', min: null, max: null, hrMin: null, hrMax: null }); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rf$="|nom"]'); if (ins.length) ins[ins.length - 1].focus(); });
+    on('#admRpAdd', 'click', function(){ R.produits.push({ nom: '', min: null, max: null }); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rp$="|nom"]'); if (ins.length) ins[ins.length - 1].focus(); });
+    on('#admCancelRel', 'click', function(){ relDraft = clone(relConfig); relDirty = false; A.msg = ''; A.err = ''; draw(); });
+    on('#admSaveRel', 'click', async function(btn){
+      var out = { frigos: [], produits: [] }, noms, i, f, n, bad = null;
+      var lire = function(x, k, nom){ var s = String(x[k] == null ? '' : x[k]).trim(); if (!s) return null; var v = num(s); if (v == null && !bad) bad = nom; return v; };
+      for (i = 0; i < R.frigos.length; i++){ f = R.frigos[i]; n = String(f.nom || '').trim(); if (!n) continue;
+        var o2 = { nom: n }; ['min', 'max', 'hrMin', 'hrMax'].forEach(function(k){ o2[k] = lire(f, k, n); });
+        if (o2.min != null && o2.max != null && o2.min > o2.max){ A.err = 'Pour « ' + n + ' », la T° mini est supérieure à la maxi.'; A.msg = ''; return draw(); }
+        if (o2.hrMin != null && o2.hrMax != null && o2.hrMin > o2.hrMax){ A.err = 'Pour « ' + n + ' », l\'hygro mini est supérieure à la maxi.'; A.msg = ''; return draw(); }
+        out.frigos.push(o2); }
+      for (i = 0; i < R.produits.length; i++){ var pr = R.produits[i], pn = String(pr.nom || '').trim(); if (!pn) continue;
+        var o3 = { nom: pn, min: lire(pr, 'min', pn), max: lire(pr, 'max', pn) };
+        if (o3.min != null && o3.max != null && o3.min > o3.max){ A.err = 'Pour « ' + pn + ' », le mini est supérieur au maxi.'; A.msg = ''; return draw(); }
+        out.produits.push(o3); }
+      if (bad){ A.err = '« ' + bad + ' » : une limite saisie n\'est pas un nombre (ex. 4 ou -0,5).'; A.msg = ''; return draw(); }
+      noms = out.frigos.map(function(x){ return x.nom.toLowerCase(); });
+      if (new Set(noms).size !== noms.length){ A.err = 'Deux chambres portent le même nom.'; A.msg = ''; return draw(); }
+      noms = out.produits.map(function(x){ return x.nom.toLowerCase(); });
+      if (new Set(noms).size !== noms.length){ A.err = 'Deux produits portent le même nom.'; A.msg = ''; return draw(); }
+      btn.disabled = true;
+      try{
+        await CONFIG_REF.set(out);
+        relConfig = clone(out); relDraft = clone(out); relDirty = false;
+        A.err = ''; A.msg = 'Réglages des relevés enregistrés.';
+      }catch(e){ A.msg = ''; A.err = 'Réglages non enregistrés : ' + errTxt(e); }
+      draw();
+    });
+  }
+
+  // ---------- d) Archives et conservation ----------
+  function ajoutMois(d, n){ var x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
+  function ajoutAns(d, n){ var x = new Date(d); x.setFullYear(x.getFullYear() + n); return x; }
+  function fd(v){ if (!v) return '–'; var d = v.toDate ? v.toDate() : new Date(v); return d.toLocaleDateString('fr-FR'); }
+  function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+  function expire(a){ return !!(a.expireLe && a.expireLe.toDate && a.expireLe.toDate() < new Date()); }
+  function limiteReleves(){ return cons.relArchiveApresMois ? ajoutMois(new Date(), -cons.relArchiveApresMois).toISOString() : null; }
+  function aArchiverMouvements(){
+    if (!cons.planArchiveApresMois || !planDoc.exists) return [];
+    var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
+    return ((planDoc.raw && planDoc.raw.transactions) || []).filter(function(t){ return String(t.date || '') < lim; });
+  }
+  async function chargerArchivage(){
+    relAnciens = null; archives = null; archErr = '';
+    var lim = limiteReleves();
+    try{
+      if (lim){ var s = await RELEVES.where('at', '<', lim).orderBy('at').get(); relAnciens = s.docs.map(function(d){ return Object.assign({ _id: d.id }, d.data()); }); }
+      else relAnciens = [];
+    }catch(e){ relAnciens = []; archErr = 'Lecture des relevés impossible : ' + errTxt(e); }
+    try{
+      var q = isPlanAdmin() ? ARCHIVES : ARCHIVES.where('type', '==', 'releves');
+      var sa = await q.get();
+      archives = sa.docs.map(function(d){ return Object.assign({ id: d.id }, d.data()); }).sort(function(a, b){ return a.creeLe < b.creeLe ? 1 : -1; });
+    }catch(e){ archives = []; archErr = (archErr ? archErr + ' ' : '') + 'Lecture des archives impossible : ' + errTxt(e); }
+    if (A.tab === 'arch') draw();
+  }
+  function optMois(sel, liste, zero){ return (zero ? '<option value="0"' + (sel === 0 ? ' selected' : '') + '>' + zero + '</option>' : '') + liste.map(function(n){ return '<option value="' + n + '"' + (sel === n ? ' selected' : '') + '>' + n + ' mois</option>'; }).join(''); }
+  function optAns(sel, liste, zero){ return (zero ? '<option value="0"' + (sel === 0 ? ' selected' : '') + '>' + zero + '</option>' : '') + liste.map(function(n){ return '<option value="' + n + '"' + (sel === n ? ' selected' : '') + '>' + n + ' an' + (n > 1 ? 's' : '') + '</option>'; }).join(''); }
+  function viewArch(){
+    var c = cons, planAdmin = isPlanAdmin(), h = '';
+    var nr = relAnciens ? relAnciens.length : null, nm = planAdmin ? aArchiverMouvements().length : 0;
+    if (archErr) h += '<div class="adm-err" role="alert">' + esc(archErr) + '</div>';
+    h += '<section class="adm-card"><h2>Durées de conservation</h2><p class="adm-muted">Après le délai d\'archivage, les données quittent les écrans du module et passent dans les archives, où elles restent consultables et exportables. À la fin de la durée de conservation, l\'archive peut être supprimée définitivement. Vérifiez les durées exigées par votre démarche qualité et vos clients avant de les fixer.</p>' +
+      '<h3 class="adm-h3">Relevés de température</h3><div class="adm-pair">' +
+      '<label>Archiver les relevés après<select id="cRelA">' + optMois(c.relArchiveApresMois, [6, 12, 13, 18, 24, 36], 'Jamais') + '</select></label>' +
+      '<label>Durée de conservation totale<select id="cRelC">' + optAns(c.relConservationAns, [1, 2, 3, 5, 10], 'Illimitée') + '</select></label></div>';
+    if (planAdmin) h += '<h3 class="adm-h3">Historique des mouvements du plan de stockage</h3><p class="adm-muted">Par défaut « Jamais » : l\'historique du plan reste tel quel. C\'est le seul réglage qui peut modifier les données du plan ; il ne s\'applique qu\'à l\'historique des mouvements, jamais aux palox en stock.</p><div class="adm-pair">' +
+      '<label>Archiver les mouvements après<select id="cPlanA">' + optMois(c.planArchiveApresMois, [12, 24, 36, 60], 'Jamais (par défaut)') + '</select></label>' +
+      '<label>Durée de conservation totale<select id="cPlanC">' + optAns(c.planConservationAns, [3, 5, 10], 'Illimitée') + '</select></label></div>';
+    h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveCons">Enregistrer les durées</button></div></section>';
+    h += '<section class="adm-card"><h2>À archiver</h2>' +
+      '<div class="adm-row"><span style="flex:1 1 220px">Relevés de température plus anciens que ' + (c.relArchiveApresMois ? c.relArchiveApresMois + ' mois' : '— (jamais)') + ' : <b>' + (nr == null ? '…' : nr) + '</b></span><button type="button" class="adm-sec" id="admArchRel"' + (nr ? '' : ' disabled') + '>Archiver maintenant</button></div>' +
+      (planAdmin ? '<div class="adm-row"><span style="flex:1 1 220px">Mouvements du plan plus anciens que ' + (c.planArchiveApresMois ? c.planArchiveApresMois + ' mois' : '— (jamais)') + ' : <b>' + nm + '</b></span><button type="button" class="adm-sec" id="admArchPlan"' + (nm ? '' : ' disabled') + '>Archiver maintenant</button></div>' : '') +
+      '<p class="adm-muted">Firebase gratuit ne permet pas de tâche automatique : l\'archivage se lance ici. Quand il y a des données à archiver, un rappel apparaît sur la tuile Administration de l\'accueil.</p></section>';
+    var liste = archives;
+    h += '<section class="adm-card"><h2>Archives</h2>' + (liste === null ? '<p class="adm-muted">Chargement des archives…</p>' : liste.length ? '<div class="adm-scroll"><table class="adm-arch"><thead><tr><th>Contenu</th><th>Période</th><th>Créée le</th><th>Conserver jusqu\'au</th><th></th></tr></thead><tbody>' +
+      liste.map(function(a){ var ex = expire(a);
+        return '<tr' + (ex ? ' class="ex"' : '') + '><td>' + (a.type === 'releves' ? 'Relevés de température' : 'Mouvements du plan') + ' – ' + a.nb + ' lignes</td><td>' + fd(a.du) + ' au ' + fd(a.au) + '</td><td>' + fd(a.creeLe) + ' par ' + esc(a.par) + '</td>' +
+          '<td>' + (a.expireLe ? fd(a.expireLe) + (ex ? ' <b>– échéance atteinte</b>' : '') : 'Illimitée') + '</td>' +
+          '<td class="adm-acts"><button type="button" class="adm-link" data-axp="' + esc(a.id) + '">' + (a.type === 'releves' ? 'Excel + graphiques' : 'Excel (.csv)') + '</button><button type="button" class="adm-link" data-axj="' + esc(a.id) + '">Sauvegarde (.json)</button>' + (ex ? '<button type="button" class="adm-del" data-adel="' + esc(a.id) + '">Supprimer définitivement</button>' : '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' : '<p class="adm-muted">Aucune archive pour l\'instant.</p>') +
+      '<p class="adm-muted">Relevés : Excel avec le tableau STOC E12.1, un graphique par chambre (température et cibles) et le détail. Sauvegarde JSON : copie complète pour une restauration. Rangez les deux fichiers dans un dossier partagé sauvegardé, jamais dans GitHub. Une archive ne peut être supprimée qu\'une fois sa date de conservation dépassée, et après confirmation.</p></section>';
+    return h;
+  }
+  function expireLe(au, ans){ return ans ? firebase.firestore.Timestamp.fromDate(ajoutAns(au, ans)) : null; }
+  // Relevés : une archive par mois (et par tranche de 450 relevés au plus). Pour chaque archive, la création
+  // et le retrait des relevés correspondants partent dans le MÊME lot d'écritures (tout ou rien).
+  async function archiverReleves(){
+    var data = relAnciens || []; if (!data.length) return;
+    var parMois = {};
+    data.forEach(function(r){ var mk = r.mois || monthKey(new Date(r.at)); (parMois[mk] = parMois[mk] || []).push(r); });
+    var paquets = [];
+    Object.keys(parMois).sort().forEach(function(mk){ var l = parMois[mk]; for (var i = 0; i < l.length; i += 450) paquets.push({ mois: mk, lignes: l.slice(i, i + 450) }); });
+    var fait = 0, nbArch = 0;
+    try{
+      for (var p = 0; p < paquets.length; p++){
+        var lignes = paquets[p].lignes, ds = lignes.map(function(r){ return r.at; }).sort();
+        var batch = db.batch(), ref = ARCHIVES.doc();
+        batch.set(ref, { type: 'releves', mois: [paquets[p].mois], du: ds[0], au: ds[ds.length - 1], nb: lignes.length,
+          creeLe: new Date().toISOString(), par: me.email || me.uid, expireLe: expireLe(ds[ds.length - 1], cons.relConservationAns),
+          donnees: JSON.stringify(lignes.map(function(r){ var x = Object.assign({}, r); x.id = r._id; delete x._id; return x; })) });
+        lignes.forEach(function(r){ batch.delete(RELEVES.doc(r._id)); });
+        await batch.commit();
+        fait += lignes.length; nbArch++;
+      }
+      A.err = ''; A.msg = fait + ' relevés archivés (' + nbArch + ' archive' + (nbArch > 1 ? 's' : '') + ').';
+    }catch(e){
+      A.msg = ''; A.err = 'Archivage interrompu : ' + errTxt(e) + (fait ? ' (' + fait + ' relevés déjà archivés correctement ; relancez pour le reste).' : ' Aucun relevé n\'a été retiré.');
+    }
+    chargerArchivage(); draw();
+  }
+  // Historique du plan : transaction sur planStockage/main ; seul le champ transactions change, les palox restent identiques.
+  async function archiverMouvements(){
+    if (!confirm('Archiver les anciens mouvements de l\'historique du plan ?\n\nIls quittent l\'onglet Historique du plan et restent consultables dans les archives. Les palox en stock ne changent pas.')) return;
+    var n = 0;
+    try{
+      await db.runTransaction(async function(t){
+        var snap = await t.get(DOC_REF); if (!snap.exists) throw ErrU(NO_PLAN);
+        var cur = JSON.parse(snap.data().data || '{}');
+        var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
+        var tous = cur.transactions || [], vieux = tous.filter(function(x){ return String(x.date || '') < lim; });
+        if (!vieux.length) throw ErrU('Aucun mouvement à archiver.');
+        // tranches d'environ 700 Ko au plus (limite Firestore : 1 Mo par document)
+        var tranches = [], cour = [], taille = 0;
+        vieux.slice().sort(function(a, b){ return String(a.date) < String(b.date) ? -1 : 1; }).forEach(function(x){ var s = JSON.stringify(x).length; if (cour.length && taille + s > 700000){ tranches.push(cour); cour = []; taille = 0; } cour.push(x); taille += s; });
+        if (cour.length) tranches.push(cour);
+        if (tranches.length > 400) throw ErrU('Trop de mouvements à archiver en une fois.');
+        tranches.forEach(function(tr){
+          var d = tr.map(function(x){ return String(x.date); });
+          t.set(ARCHIVES.doc(), { type: 'mouvements', mois: [], du: d[0], au: d[d.length - 1], nb: tr.length, creeLe: new Date().toISOString(), par: me.email || me.uid,
+            expireLe: expireLe(d[d.length - 1], cons.planConservationAns), donnees: JSON.stringify(tr) });
+        });
+        cur.transactions = tous.filter(function(x){ return !(String(x.date || '') < lim); });
+        t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        n = vieux.length;
+      });
+      A.err = ''; A.msg = n + ' mouvements archivés. Les palox en stock ne changent pas.';
+    }catch(e){ A.msg = ''; A.err = e.userMsg || ('Archivage impossible : ' + errTxt(e)); }
+    chargerArchivage(); draw();
+  }
+  function nomArchive(a){ return 'archive-' + (a.type === 'releves' ? 'releves' : 'mouvements') + '-' + String(a.du).slice(0, 10) + '_' + String(a.au).slice(0, 10); }
+  function donneesArchive(a){ try{ return JSON.parse(a.donnees || '[]'); }catch(e){ return []; } }
+  function exporterArchive(a){
+    var data = donneesArchive(a);
+    if (a.type === 'releves'){
+      var cf = (relConfig && relConfig.frigos) || [];
+      telecharger(nomArchive(a) + '.xlsx', window.XlsxReleves.construire(data, cf, { titre: 'ARCHIVE – RELEVÉS DE TEMPÉRATURE CHAMBRES FROIDES – STOC E12.1', periode: 'du ' + fd(a.du) + ' au ' + fd(a.au) }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      return;
+    }
+    var cols = ['date', 'type', 'produit', 'lot', 'quantite', 'poids', 'label', 'fromLabel', 'toLabel', 'commentaire', 'responsable'];
+    var q = function(v){ v = v == null ? '' : (typeof v === 'number' ? String(v).replace('.', ',') : String(v)); return '"' + v.replace(/"/g, '""') + '"'; };
+    telecharger(nomArchive(a) + '.csv', '﻿' + cols.join(';') + '\r\n' + data.map(function(r){ return cols.map(function(k){ return q(r[k]); }).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+  }
+  function bindArch(o){
+    var g = function(id){ return document.getElementById(id); };
+    if (g('admSaveCons')) g('admSaveCons').onclick = async function(){
+      var c = cons, n = function(id, cur){ var e = g(id); return e ? parseInt(e.value, 10) : cur; };
+      var nv = { relArchiveApresMois: n('cRelA', c.relArchiveApresMois), relConservationAns: n('cRelC', c.relConservationAns), planArchiveApresMois: n('cPlanA', c.planArchiveApresMois), planConservationAns: n('cPlanC', c.planConservationAns) };
+      if (nv.relConservationAns && nv.relArchiveApresMois && nv.relConservationAns * 12 <= nv.relArchiveApresMois){ A.err = 'Relevés : la durée de conservation doit être plus longue que le délai d\'archivage.'; A.msg = ''; return draw(); }
+      if (nv.planConservationAns && nv.planArchiveApresMois && nv.planConservationAns * 12 <= nv.planArchiveApresMois){ A.err = 'Historique du plan : la durée de conservation doit être plus longue que le délai d\'archivage.'; A.msg = ''; return draw(); }
+      try{ await CONS_REF.set(nv); cons = nv; A.err = ''; A.msg = 'Durées de conservation enregistrées.'; chargerArchivage(); }
+      catch(e){ A.msg = ''; A.err = 'Durées non enregistrées : ' + errTxt(e); }
+      draw();
+    };
+    if (g('admArchRel')) g('admArchRel').onclick = function(){ this.disabled = true; archiverReleves(); };
+    if (g('admArchPlan')) g('admArchPlan').onclick = function(){ archiverMouvements(); };
+    var trouve = function(id){ return (archives || []).filter(function(x){ return x.id === id; })[0]; };
+    o.querySelectorAll('[data-axp]').forEach(function(b){ b.onclick = function(){ var a = trouve(b.dataset.axp); if (a) exporterArchive(a); }; });
+    o.querySelectorAll('[data-axj]').forEach(function(b){ b.onclick = function(){ var a = trouve(b.dataset.axj); if (a) telecharger(nomArchive(a) + '.json', JSON.stringify({ type: a.type, du: a.du, au: a.au, nb: a.nb, creeLe: a.creeLe, par: a.par, expireLe: a.expireLe ? a.expireLe.toDate().toISOString() : null, donnees: donneesArchive(a) }, null, 2), 'application/json'); }; });
+    o.querySelectorAll('[data-adel]').forEach(function(b){ b.onclick = async function(){
+      var a = trouve(b.dataset.adel); if (!a || !expire(a)) return;
+      if (!confirm('Supprimer définitivement cette archive (' + a.nb + ' lignes, ' + fd(a.du) + ' au ' + fd(a.au) + ') ?\n\nCette action est irréversible. Pensez à l\'exporter avant si besoin.')) return;
+      try{ await ARCHIVES.doc(a.id).delete(); A.msg = 'Archive supprimée.'; A.err = ''; }
+      catch(e){ A.msg = ''; A.err = 'Suppression impossible : ' + errTxt(e); }
+      chargerArchivage(); draw(); }; });
+  }
+
+  // ---------- démarrage ----------
+  function bloquer(titre, texte){
+    document.getElementById('admView').innerHTML = '<section class="adm-card"><h2>' + esc(titre) + '</h2><p class="adm-muted">' + esc(texte) + '</p><a class="adm-sec" style="display:inline-flex;align-items:center;text-decoration:none" href="index.html">Retour à l\'accueil</a></section>';
+  }
+  function ecouter(){
+    if (isPlanAdmin()){
+      DOC_REF.onSnapshot(function(snap){
+        planDoc.loaded = true; planDoc.exists = snap.exists;
+        try{ planDoc.raw = snap.exists ? JSON.parse(snap.data().data || '{}') : null; planDoc.vue = snap.exists ? normalise(planDoc.raw) : null; }
+        catch(e){ planDoc.raw = null; planDoc.vue = null; planDoc.exists = false; A.err = 'Document du plan illisible : ' + e.message; }
+        if ((A.tab === 'plan' || A.tab === 'arch') && !saisieEnCours()) draw();
+      }, function(e){ planDoc.loaded = true; A.err = 'Lecture du plan impossible : ' + errTxt(e); if (A.tab === 'plan') draw(); });
+    }
+    if (isRelAdmin()){
+      CONFIG_REF.onSnapshot(function(snap){
+        if (!snap.exists){
+          relConfig = { frigos: clone(CHAMBRES_STOC), produits: [] };
+          CONFIG_REF.set(relConfig).catch(function(e){ console.warn('Initialisation de temperatures/config impossible', e); });
+        } else {
+          var d = snap.data();
+          relConfig = { frigos: Array.isArray(d.frigos) ? d.frigos : [], produits: Array.isArray(d.produits) ? d.produits : [] };
+        }
+        if (!relDirty){ relDraft = clone(relConfig); if (A.tab === 'rel' && !saisieEnCours()) draw(); }
+      }, function(e){ relConfig = { frigos: [], produits: [] }; relDraft = clone(relConfig); A.err = 'Lecture des réglages des relevés impossible : ' + errTxt(e); if (A.tab === 'rel') draw(); });
+      CONS_REF.onSnapshot(function(snap){
+        var avant = JSON.stringify(cons);
+        cons = Object.assign({}, CONS_DEFAUT, snap.exists ? snap.data() : {}); consLoaded = true;
+        if (A.tab === 'arch' && JSON.stringify(cons) !== avant) chargerArchivage();
+        if (A.tab === 'arch' && !saisieEnCours()) draw();
+      }, function(e){ console.warn(e); consLoaded = true; });
+    }
+  }
+  auth.onAuthStateChanged(async function(user){
+    if (!user){ location.replace('index.html'); return; }
+    me = { uid: user.uid, email: user.email };
+    try{
+      var d = await db.collection('users').doc(user.uid).get(), u = d.exists ? d.data() : {};
+      role = (u.role === 'admin' || u.role === 'editor') ? u.role : 'viewer';
+      roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
+    }catch(e){ console.warn(e); }
+    var t = rubriques();
+    if (!t.length){ bloquer('Accès réservé aux administrateurs', 'Votre compte n\'a pas de rôle Admin (plan de stockage ou relevés). Demandez l\'accès à un admin.'); return; }
+    ecouter();
+    ouvrirRubrique(t[0][0]);
+  });
+})();
+</script>
+</body>
+</html>

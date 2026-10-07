@@ -27,5 +27,66 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if canManageStock();
     }
+
+    // ===================================================================
+    // Module relevés de température (ajouté ; les règles ci-dessus sont inchangées).
+    // Rôle relevés : champ roleReleves de users/{uid} — none / viewer / editor / admin.
+    // Champ absent (ou document absent) = none. Le champ role (plan) n'intervient
+    // que pour l'admin du plan, qui a aussi accès à l'Administration des relevés.
+    // ===================================================================
+    function roleReleves() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roleReleves', 'none');
+    }
+    function canReadReleves() {
+      return isSignedIn() && (roleReleves() in ['viewer', 'editor', 'admin'] || userRole() == 'admin');
+    }
+    function canWriteReleves() {
+      return isSignedIn() && roleReleves() in ['editor', 'admin'];
+    }
+    function isRelevesAdmin() {
+      return isSignedIn() && (roleReleves() == 'admin' || userRole() == 'admin');
+    }
+
+    // Un document par relevé : création seule, jamais modifié.
+    // Suppression uniquement par un admin, lors de l'archivage (même lot d'écritures que l'archive).
+    match /releves/{releveId} {
+      allow read: if canReadReleves();
+      allow create: if canWriteReleves()
+        && request.resource.data.type in ['frigo', 'produit']
+        && request.resource.data.at is string
+        && request.resource.data.mois is string
+        && request.resource.data.lieu is string
+        && request.resource.data.operateur is string
+        && request.resource.data.conforme is bool;
+      allow update: if false;
+      allow delete: if isRelevesAdmin();
+    }
+
+    // Réglages du module relevés (temperatures/config : chambres et produits du contrôle à cœur).
+    match /temperatures/{docId} {
+      allow read: if canReadReleves();
+      allow write: if isRelevesAdmin();
+    }
+
+    // Archives : relevés (admin relevés ou admin du plan) ; mouvements du plan (admin du plan seul).
+    // Jamais modifiées ; suppression seulement une fois la date de conservation (expireLe) dépassée.
+    match /archives/{archiveId} {
+      allow read: if isAdmin() || (isRelevesAdmin() && resource.data.type == 'releves');
+      allow create: if (request.resource.data.type == 'releves' && isRelevesAdmin())
+        || (request.resource.data.type == 'mouvements' && isAdmin());
+      allow update: if false;
+      allow delete: if (isAdmin() || (isRelevesAdmin() && resource.data.type == 'releves'))
+        && resource.data.expireLe is timestamp
+        && resource.data.expireLe < request.time;
+    }
+
+    // Durées de conservation (parametres/conservation).
+    // Un admin relevés qui n'est pas admin du plan ne peut pas changer les durées de l'historique du plan.
+    match /parametres/{docId} {
+      allow read: if isRelevesAdmin();
+      allow write: if isAdmin() || (isRelevesAdmin()
+        && request.resource.data.get('planArchiveApresMois', 0) == (resource == null ? 0 : resource.data.get('planArchiveApresMois', 0))
+        && request.resource.data.get('planConservationAns', 0) == (resource == null ? 0 : resource.data.get('planConservationAns', 0)));
+    }
   }
 }

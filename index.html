@@ -2,196 +2,75 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Plan de stockage — Échalotes &amp; Oignons</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>La Légumière — Accueil</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg: #E3DECF;
-    --panel: #FBF9F3;
-    --panel-2: #F1ECDE;
-    --ink: #2B2620;
-    --ink-soft: #6B6355;
-    --line: #D2C9B4;
-    --copper: #963E88;
-    --copper-soft: #EAD7E6;
-    --wave-1: #B23C92;
-    --wave-2: #5B2A66;
-    --green: #4E6647;
-    --green-soft: #DCE4D2;
-    --warn: #A13B2F;
-    --warn-soft: #F1D6CC;
-    --blue: #3E5C76;
-    --blue-soft: #D9E2EA;
-    --radius: 10px;
-    --shadow: 0 1px 2px rgba(43,38,32,0.06), 0 4px 14px rgba(43,38,32,0.06);
+    --bg: #E3DECF; --panel: #FBF9F3; --ink: #2B2620; --ink-soft: #6B6355; --line: #D2C9B4;
+    --copper: #963E88; --wave-1: #B23C92; --wave-2: #5B2A66; --warn: #A13B2F;
+    --radius: 10px; --shadow: 0 1px 2px rgba(43,38,32,0.06), 0 4px 14px rgba(43,38,32,0.06);
   }
-  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   html,body{ margin:0; padding:0; }
-  body{ background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; font-size: 15px; line-height: 1.5; min-height: 100vh; }
-  .wrap{ max-width: 1320px; margin: 0 auto; padding: 18px 14px 60px; }
+  body{ background:var(--bg); color:var(--ink); font-family:'Inter', system-ui, sans-serif; font-size:15px; line-height:1.5; min-height:100vh; }
+  .hidden{ display:none !important; }
 
-  header.app-header{ display:flex; align-items:center; justify-content:space-between; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
-  .brand{ display:flex; align-items:center; gap:12px; }
+  /* Connexion (même présentation que le plan de stockage) */
+  .login-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .login-card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:28px 24px; width:100%; max-width:360px; }
+  .brand{ display:flex; align-items:center; gap:12px; justify-content:center; margin-bottom:4px; }
   .brand svg{ width:36px; height:36px; flex-shrink:0; }
-  .brand h1{ font-family:'Fraunces', serif; font-weight:600; font-size: 20px; margin:0; letter-spacing:-0.01em; }
-  .brand p{ margin:2px 0 0; color: var(--ink-soft); font-size: 12px; }
-  .header-stats{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
-  .stat-pill{ background: var(--panel); border:1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--ink-soft); display:flex; align-items:center; gap:6px; white-space:nowrap; }
-  .stat-pill b{ font-family:'IBM Plex Mono', monospace; color: var(--ink); font-size: 12.5px; font-weight:600; }
-  .dot{ width:7px; height:7px; border-radius:50%; background: var(--copper); }
-  .dot.green{ background: var(--green); }
-  .refresh-btn{ background: var(--panel); border:1px solid var(--line); border-radius: 999px; width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; color:var(--ink-soft); }
-  .refresh-btn.spin svg{ animation: spin .6s linear; }
-  @keyframes spin{ from{transform:rotate(0)} to{transform:rotate(360deg)} }
-
-  nav.tabs{ display:flex; gap:4px; margin-bottom: 16px; background: var(--panel-2); padding: 5px; border-radius: 12px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
-  nav.tabs button{ font-family:'Inter', sans-serif; font-weight: 600; font-size: 13px; padding: 9px 14px; border:none; background: transparent; color: var(--ink-soft); border-radius: 8px; cursor:pointer; white-space:nowrap; flex-shrink:0; }
-  nav.tabs button:hover{ color: var(--ink); }
-  nav.tabs button.active{ background: var(--panel); color: var(--copper); box-shadow: var(--shadow); }
-
-  .card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
-  .card h2{ font-family:'Fraunces', serif; font-weight: 600; font-size: 17px; margin: 0 0 4px; }
-  .card .sub{ color: var(--ink-soft); font-size: 12.5px; margin: 0 0 14px; }
-
-  .cellule-tabs{ display:flex; gap:6px; margin-bottom:14px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:2px; }
-  .cellule-tabs button{ font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; padding:8px 12px; border-radius:7px; border:1.5px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; white-space:nowrap; flex-shrink:0; }
-  .cellule-tabs button.active{ background: var(--copper); border-color: var(--copper); color:#fff; }
-  .cellule-tabs button .n{ opacity:.75; font-weight:500; }
-
-  .stockage-toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
-
-  .ligne-list{ display:flex; flex-direction:column; gap:10px; }
-  .ligne-list-item{ border:1px solid var(--line); border-radius:10px; padding:14px 16px; cursor:pointer; background:#fff; transition: border-color .15s ease; }
-  .ligne-list-item:hover{ border-color: var(--copper); }
-  .ligne-list-item .lli-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
-  .ligne-list-item h3{ font-family:'Fraunces', serif; font-weight:600; font-size:15.5px; margin:0; }
-  .ligne-list-item .lli-count{ font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft); white-space:nowrap; }
-  .fill-track{ height:12px; border-radius:6px; background: var(--panel-2); overflow:hidden; display:flex; }
-  .fill-seg{ height:100%; flex-shrink:0; }
-  .lli-produits{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
-  .produit-chip{ font-family:'Inter', sans-serif; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; color:#fff; border:none; cursor:pointer; }
-  .produit-chip:hover{ filter: brightness(1.1); }
-  .lli-empty{ font-size:12px; color:var(--ink-soft); margin-top:8px; font-style:italic; }
-
-  .grid-form{ display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-  .grid-form.wide-3{ grid-template-columns: repeat(3,1fr); }
-  .grid-form.two{ grid-template-columns: repeat(2,1fr); }
-  @media (max-width: 760px){ .grid-form, .grid-form.wide-3, .grid-form.two{ grid-template-columns: 1fr 1fr; } }
-  @media (max-width: 480px){ .grid-form, .grid-form.wide-3, .grid-form.two{ grid-template-columns: 1fr; } }
-  label.field{ display:flex; flex-direction:column; gap:5px; font-size: 11.5px; font-weight:600; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
-  label.field input, label.field select{ font-family:'Inter', sans-serif; font-size: 16px; font-weight: 500; color: var(--ink); background: #fff; border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 10px; text-transform: none; letter-spacing: normal; }
-  label.field input:focus, label.field select:focus{ outline:none; border-color: var(--copper); }
-  label.field.span-2{ grid-column: span 2; }
-  label.field.span-full{ grid-column: 1/-1; }
-  @media (max-width:480px){ label.field.span-2{ grid-column: span 1; } }
-  label.field .hint{ font-size:11px; text-transform:none; letter-spacing:normal; font-weight:500; color:var(--ink-soft); margin-top:2px; }
-  label.field.checkbox-field{ flex-direction:row; align-items:center; gap:8px; }
-  label.field.checkbox-field input[type=checkbox]{ width:18px; height:18px; padding:0; flex:none; }
-
-  .btn{ font-family:'Inter', sans-serif; font-weight: 700; font-size: 13.5px; cursor:pointer; border:none; border-radius: 8px; padding: 11px 18px; }
-  .btn:active{ transform: scale(0.98); }
-  .btn-copper{ background: var(--copper); color: #fff; }
-  .btn-green{ background: var(--green); color: #fff; }
-  .btn-warn{ background: var(--warn); color: #fff; }
-  .btn-blue{ background: var(--blue); color: #fff; }
-  .btn-ghost{ background: transparent; color: var(--ink-soft); border: 1.5px solid var(--line); }
-  .btn-sm{ padding:8px 13px; font-size:12.5px; border-radius:6px; }
-  .btn:disabled{ opacity:.4; cursor:not-allowed; }
-  .btn-row{ margin-top: 14px; display:flex; align-items:center; gap: 10px; flex-wrap:wrap; }
-  .msg{ font-size: 13px; font-weight: 600; }
-  .msg.ok{ color: var(--green); }
-  .msg.err{ color: var(--warn); }
-
-  .overlay-bg{ display:none; position:fixed; inset:0; background: rgba(43,38,32,0.4); z-index:40; }
-  .overlay-bg.open{ display:block; }
-  .detail-panel{ position:fixed; top:0; right:0; height:100vh; height:100dvh; width:min(560px, 100vw); background: var(--panel); box-shadow: -8px 0 30px rgba(0,0,0,0.15); z-index:41; transform: translateX(100%); transition: transform .2s ease; overflow-y:auto; }
-  .detail-panel.open{ transform: translateX(0); }
-  .detail-header{ padding:16px 16px 12px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--panel); z-index:2; }
-  .detail-header h3{ font-family:'Fraunces', serif; font-size:17px; margin:0 0 3px; padding-right:30px; }
-  .detail-header p{ margin:0; color:var(--ink-soft); font-size:12px; font-family:'IBM Plex Mono', monospace; }
-  .detail-close{ position:absolute; top:12px; right:12px; background:var(--panel-2); border:none; font-size:20px; width:34px; height:34px; border-radius:50%; cursor:pointer; color:var(--ink-soft); }
-  .detail-body{ padding: 14px 16px 30px; }
-  .lot-card{ background:var(--panel-2); border-radius:8px; padding:13px; margin-bottom:10px; border-left: 5px solid var(--copper); transition: outline .15s ease; }
-  .lot-card .lp-title{ font-weight:700; font-size:14px; margin-bottom:2px; }
-  .badge-poids-sorti{ display:inline-block; font-family:'Inter', sans-serif; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em; padding:3px 9px; border-radius:999px; background:var(--copper-soft); color:var(--copper); margin-left:8px; vertical-align:2px; }
-  .lot-card .lp-meta{ font-size:12px; color:var(--ink-soft); margin-bottom:8px; }
-  .lot-card .lp-meta span{ font-family:'IBM Plex Mono', monospace; }
-  .palox-list{ display:flex; flex-direction:column; gap:4px; margin:8px 0; }
-  .palox-item{ display:flex; align-items:center; gap:8px; font-size:12.5px; padding:5px 8px; border-radius:6px; background:#fff; }
-  .palox-item input{ width:auto; margin:0; }
-  .palox-select-all{ font-weight:700; color:var(--ink-soft); background:transparent; margin-bottom:4px; }
-  .batch-summary{ font-size:11.5px; color:var(--ink-soft); margin-bottom:8px; font-weight:600; }
-  .lot-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-  .inline-form{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:none; }
-  .inline-form.open{ display:block; }
-  .entree-row{ border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:10px; background:#fff; }
-  .palox-weights{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
-  .palox-weights .pw-item{ display:flex; flex-direction:column; gap:4px; background:#fff; border:1px solid var(--line); border-radius:8px; padding:7px; min-width:88px; }
-  .palox-weights .pw-item > span{ font-size:9.5px; color:var(--ink-soft); font-family:'IBM Plex Mono', monospace; text-transform:uppercase; letter-spacing:.03em; }
-  .palox-weights .pw-item input[type=number]{ width:100%; font-family:'IBM Plex Mono'; font-size:12.5px; padding:6px 6px; border:1px solid var(--line); border-radius:6px; }
-  .selection-recap{ font-size:12.5px; color:var(--ink-soft); margin-bottom:10px; background:var(--panel); border-radius:6px; padding:8px 10px; }
-
-  .divider-label{ font-family:'IBM Plex Mono', monospace; font-size: 10.5px; font-weight:600; color: var(--ink-soft); text-transform:uppercase; letter-spacing: 0.08em; margin: 14px 0 10px; display:flex; align-items:center; gap:10px; }
-  .divider-label::after{ content:''; flex:1; height:1px; background: var(--line); }
-
-  .table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; margin: 0 -16px; padding: 0 16px; }
-  table.data{ width:100%; border-collapse: collapse; font-size: 13px; min-width: 640px; }
-  table.data th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--ink-soft); padding: 8px 9px; border-bottom: 2px solid var(--line); white-space:nowrap; }
-  table.data td{ padding: 9px 9px; border-bottom: 1px solid var(--line); vertical-align:middle; white-space:nowrap; }
-  table.data tr:last-child td{ border-bottom:none; }
-  .mono{ font-family:'IBM Plex Mono', monospace; font-size: 12px; }
-  .tag{ display:inline-block; padding: 3px 9px; border-radius: 6px; font-size: 10.5px; font-weight: 700; text-transform:uppercase; letter-spacing:.02em; }
-  .tag.entree{ background: var(--green-soft); color: var(--green); }
-  .tag.sortie{ background: var(--warn-soft); color: var(--warn); }
-  .tag.deplacement{ background: var(--copper-soft); color: var(--copper); }
-  .tag.modification{ background: var(--blue-soft); color: var(--blue); }
-
-  .search-box{ position:relative; margin-bottom:14px; }
-  .search-box input{ width:100%; font-family:'Inter'; font-size:16px; padding:12px 14px 12px 40px; border-radius:9px; border:1.5px solid var(--line); background:#fff; }
-  .search-box input:focus{ outline:none; border-color:var(--copper); }
-  .search-box svg{ position:absolute; left:13px; top:50%; transform:translateY(-50%); width:16px; height:16px; color:var(--ink-soft); }
-
-  .empty-state{ text-align:center; padding: 24px 8px; color: var(--ink-soft); }
-  .empty-state svg{ width:38px; height:38px; margin-bottom:8px; opacity:.6; }
-
-  .config-cellule{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:12px; }
-  .config-cellule .cfg-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; }
-  .config-cellule .cfg-head input{ font-family:'Fraunces'; font-weight:600; font-size:14.5px; border:none; background:transparent; padding:2px 4px; border-radius:4px; min-width:0; flex:1; }
-  .config-cellule .cfg-head input:focus{ outline:1.5px solid var(--copper); background:#fff; }
-  .ligne-row{ display:flex; align-items:center; gap:8px; padding:8px 0; font-size:12.5px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
-  .ligne-row:last-of-type{ border-bottom:none; }
-  .ligne-row input[type=text]{ font-family:'Inter'; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:160px; }
-  .ligne-row input[type=number]{ font-family:'IBM Plex Mono'; font-size:12.5px; padding:6px 6px; border:1px solid var(--line); border-radius:6px; width:70px; }
-  .del-btn{ background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px; text-decoration:underline; flex-shrink:0; }
-  .del-btn:hover{ color: var(--warn); }
-  .loading{ text-align:center; padding:60px 0; color: var(--ink-soft); font-family:'Fraunces'; font-size:16px; }
-
-  .login-screen{ display:none; min-height:100vh; align-items:center; justify-content:center; padding: 20px; }
-  .login-card{ background: var(--panel); border:1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 24px; width: 100%; max-width: 360px; }
-  .login-card .brand{ justify-content:center; margin-bottom: 4px; }
-  .login-card form{ display:flex; flex-direction:column; gap:12px; }
-  .login-card .btn{ width:100%; margin-top:4px; }
+  .brand h1{ font-family:'Fraunces', serif; font-weight:600; font-size:20px; margin:0; letter-spacing:-0.01em; }
+  .brand p{ margin:2px 0 0; color:var(--ink-soft); font-size:12px; }
   .brand-wave{ display:block; width:100%; height:14px; margin:2px 0 18px; }
-  header.app-header .brand-wave{ margin:10px 0 4px; }
-  .role-badge{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding: 5px 10px; border-radius:999px; }
-  .role-badge.editor{ background: var(--green-soft); color: var(--green); }
-  .role-badge.viewer{ background: var(--blue-soft); color: var(--blue); }
-  .role-badge.admin{ background: #8B5FBF; color: #fff; }
-  .readonly-note{ background: var(--panel-2); border:1px dashed var(--line); border-radius:8px; padding:10px 12px; font-size:12.5px; color:var(--ink-soft); }
-  .filter-bar{ background: var(--copper-soft); border-radius:8px; padding:8px 12px; font-size:12.5px; color: var(--ink); margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-  .consult-total{ background: var(--panel-2); border-radius:8px; padding:10px 14px; margin-top:12px; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-  .consult-total span:first-child{ color: var(--ink-soft); font-weight:600; text-transform:uppercase; font-size:11px; letter-spacing:.04em; }
-  table.data tr.totals-row td{ font-weight:700; border-top:2px solid var(--line); border-bottom:none; }
-  .view-switch{ display:flex; gap:6px; margin-bottom:14px; }
-  .view-switch button{ font-family:'Inter', sans-serif; font-size:12.5px; font-weight:700; padding:8px 14px; border-radius:7px; border:1.5px solid var(--line); background:#fff; color:var(--ink-soft); cursor:pointer; }
-  .view-switch button.active{ background: var(--copper); border-color: var(--copper); color:#fff; }
-  .produit-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:1px; }
+  .login-card form{ display:flex; flex-direction:column; gap:12px; }
+  label.field{ display:flex; flex-direction:column; gap:5px; font-size:11.5px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; }
+  label.field input{ font-family:'Inter', sans-serif; font-size:16px; font-weight:500; color:var(--ink); background:#fff; border:1.5px solid var(--line); border-radius:8px; padding:10px; min-height:44px; text-transform:none; letter-spacing:normal; }
+  label.field input:focus{ outline:none; border-color:var(--copper); }
+  .btn{ font-family:'Inter', sans-serif; font-weight:700; font-size:14px; cursor:pointer; border:none; border-radius:8px; padding:11px 18px; min-height:44px; }
+  .btn-copper{ background:var(--copper); color:#fff; width:100%; margin-top:4px; }
+  .msg{ font-size:13px; font-weight:600; }
+  .msg.err{ color:var(--warn); }
+
+  /* Accueil */
+  .home{ min-height:100vh; display:flex; flex-direction:column; align-items:center; gap:28px; padding:24px 16px; padding-top:calc(24px + env(safe-area-inset-top,0px)); padding-bottom:calc(24px + env(safe-area-inset-bottom,0px)); }
+  .home > :first-child{ margin-top:auto; } .home > :last-child{ margin-bottom:auto; }
+  .home h1{ font-family:'Fraunces', Georgia, serif; font-size:30px; font-weight:600; margin:0; text-align:center; }
+  .home p.who{ margin:4px 0 0; color:var(--ink-soft); font-size:14px; text-align:center; overflow-wrap:anywhere; }
+  .tiles{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:18px; width:100%; max-width:1100px; }
+  .tile{ text-align:left; border-radius:18px; padding:26px 24px; min-height:200px; display:flex; flex-direction:column; gap:10px; font-family:inherit; text-decoration:none; cursor:pointer; }
+  a.tile:hover{ transform:translateY(-2px); }
+  .tile:focus-visible{ outline:3px solid var(--ink); outline-offset:3px; }
+  .tile .ic{ width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; }
+  .tile b{ font-size:22px; }
+  .tile span.d{ font-size:14px; line-height:1.45; }
+  .tile span.go{ margin-top:auto; font-weight:600; font-size:14px; }
+  .tile.plan{ background:#FBF9F3; border:2px solid #963E88; color:#2B2620; }
+  .tile.plan .ic{ background:#EAD7E6; } .tile.plan span.d{ color:#5C554A; } .tile.plan span.go{ color:#963E88; }
+  .tile.rel{ background:#EEF3F3; border:2px solid #1F5C63; color:#13323A; }
+  .tile.rel .ic{ background:#D3E8E9; } .tile.rel span.d{ color:#3E555B; } .tile.rel span.go{ color:#1F5C63; }
+  .tile.adm{ background:#fff; border:2px solid #2B2620; color:#2B2620; }
+  .tile.adm .ic{ background:#ECE8DE; } .tile.adm span.d{ color:#5C554A; } .tile.adm span.go{ color:#2B2620; }
+  .tile.off{ opacity:.5; cursor:not-allowed; }
+  .tile.off span.go{ color:#6B6355; }
+  .badge{ display:inline-block; align-self:flex-start; padding:4px 8px; border-radius:7px; background:#F1D6CC; color:#6E1F17; font-size:12px; font-weight:700; }
+  .foot{ font-size:13px; color:var(--ink-soft); text-align:center; max-width:620px; display:flex; flex-direction:column; align-items:center; gap:12px; }
+  .logout{ background:transparent; color:var(--ink-soft); border:1.5px solid var(--line); border-radius:8px; padding:0 16px; min-height:44px; font:600 14px 'Inter', sans-serif; cursor:pointer; }
+  .loading{ text-align:center; padding:60px 0; color:var(--ink-soft); font-family:'Fraunces', serif; font-size:16px; }
+  @media (max-width:640px){
+    .tiles{ grid-template-columns:1fr; }
+    .home{ justify-content:flex-start; } .home h1{ font-size:24px; }
+    .tile{ min-height:0; padding:18px; } .tile b{ font-size:19px; }
+  }
 </style>
 </head>
 <body>
-<div class="login-screen" id="loginScreen">
+
+<div class="loading" id="loadingScreen">Chargement…</div>
+
+<div class="login-screen hidden" id="loginScreen">
   <div class="login-card">
     <div class="brand">
       <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -205,7 +84,7 @@
         </defs>
       </svg>
       <div>
-        <h1>Plan de stockage</h1>
+        <h1>La Légumière</h1>
         <p>Connexion requise</p>
       </div>
     </div>
@@ -224,1436 +103,85 @@
   </div>
 </div>
 
-<div class="wrap" id="mainWrap" style="display:none;">
-  <header class="app-header">
-    <div class="brand">
-      <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="18" cy="29" rx="11" ry="12" fill="url(#gOnionHeader)"/>
-        <path d="M18 17C16.5 12 15 9 12 6" stroke="#4E6647" stroke-width="2" stroke-linecap="round"/>
-        <ellipse cx="32" cy="27" rx="8.5" ry="14" fill="url(#gShallotHeader)"/>
-        <path d="M32 13C31 8 30.5 5 29 2" stroke="#4E6647" stroke-width="2" stroke-linecap="round"/>
-        <defs>
-          <linearGradient id="gOnionHeader" x1="7" y1="17" x2="29" y2="41"><stop stop-color="#B23C92"/><stop offset="1" stop-color="#5B2A66"/></linearGradient>
-          <linearGradient id="gShallotHeader" x1="23.5" y1="13" x2="40.5" y2="41"><stop stop-color="#8C8577"/><stop offset="1" stop-color="#5C564A"/></linearGradient>
-        </defs>
-      </svg>
-      <div>
-        <h1>Plan de stockage</h1>
-        <p>Partagé en temps réel · cellules et lignes</p>
-      </div>
-    </div>
-    <div class="header-stats" id="headerStats"></div>
-  </header>
-  <svg class="brand-wave" viewBox="0 0 300 24" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M0 14 C40 22, 80 4, 130 12 C180 20, 220 2, 300 10" style="stroke:url(#waveGradHeader)" stroke-width="4" fill="none" stroke-linecap="round"/>
-    <defs><linearGradient id="waveGradHeader" x1="0" y1="0" x2="300" y2="0">
-      <stop offset="0" style="stop-color:var(--wave-1)"/><stop offset="1" style="stop-color:var(--wave-2)"/>
-    </linearGradient></defs>
-  </svg>
-
-  <nav class="tabs" id="tabs">
-    <button data-tab="stockage" class="active">Stockage</button>
-    <button data-tab="recherche">Recherche</button>
-    <button data-tab="global">Stock global</button>
-    <button data-tab="historique">Historique</button>
-    <button data-tab="cellules" id="tabCellules">Cellules</button>
-    <button data-tab="comptes" id="tabComptes">Comptes</button>
-  </nav>
-
-  <div id="app"><div class="loading">Chargement du plan…</div></div>
-</div>
-
-<div class="overlay-bg" id="overlayBg"></div>
-<div class="detail-panel" id="detailPanel"></div>
+<main class="home hidden" id="homeScreen" aria-label="Choix de l'application"></main>
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script>
 (function(){
-  // Remplace ces valeurs par la config de ton projet Firebase
-  // (Console Firebase > Paramètres du projet > Tes applications > Config SDK)
+  'use strict';
   const firebaseConfig = {
-    apiKey: "AIzaSyCGd_6bsecftRwLRbxPWr1hwI0fcnOKyjQ",
-    authDomain: "plan-de-stockage-alliums.firebaseapp.com",
-    projectId: "plan-de-stockage-alliums",
-    storageBucket: "plan-de-stockage-alliums.firebasestorage.app",
-    messagingSenderId: "1064637523445",
-    appId: "1:1064637523445:web:3e9363b1bece817269ecbc"
+    apiKey: "AIzaSyCE7V6RSx1akfJsFymsedaKe-uZPSrjps4",
+    authDomain: "stockage-plan-temp-test.firebaseapp.com",
+    projectId: "stockage-plan-temp-test",
+    storageBucket: "stockage-plan-temp-test.firebasestorage.app",
+    messagingSenderId: "1020932560553",
+    appId: "1:1020932560553:web:02fad075d7ba49f65d7bb8"
   };
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
-  const DOC_REF = db.collection('planStockage').doc('main');
-  let currentRole = 'viewer';
-  function canManageStock(){ return currentRole==='editor' || currentRole==='admin'; }
-  function isAdmin(){ return currentRole==='admin'; }
-  let unsubscribeSnapshot = null;
 
-  // Chaque entrée de state.lots représente UN palox physique (pas un lot agrégé).
-  // Plusieurs palox entrés ensemble partagent le même batchId, pour l'affichage groupé "par lot".
-  let state = { cellules: [], lots: [], transactions: [], produits: [], calibres: [] };
-  let loaded = false;
-  let currentTab = 'stockage';
-  let currentCelluleId = null;
-  let globalByCellule = false;
-  const COLOR_PALETTE = ['#A85C2E','#4E6647','#3E5C76','#8B5FBF','#B0793E','#5C7A6E','#7A4B4B','#5A6B8C','#946846','#3F7161'];
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function show(id){ ['loadingScreen', 'loginScreen', 'homeScreen'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id)); }
+  function ajoutMois(d, n){ const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
 
-  function uid(){ return Math.random().toString(36).slice(2,9); }
-  function today(){ return new Date().toISOString().slice(0,10); }
-  function fmtDate(d){ const dt = new Date(d+"T00:00:00"); return dt.toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'numeric'}); }
-  function fmt(n){ return (Math.round(n*100)/100).toString(); }
-  function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-  function isPanelOpen(){ return document.getElementById('detailPanel').classList.contains('open'); }
+  const ICONES = {
+    plan: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#963E88" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>',
+    rel: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F5C63" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></svg>',
+    adm: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M17 11h4M19 9v4"/></svg>'
+  };
 
-  function applyIncomingState(raw){
-    if(raw){ try{ state = JSON.parse(raw); }catch(e){ state = { cellules:[], lots:[], transactions:[], produits:[], calibres:[] }; } }
-    migrate();
-    if(!currentCelluleId || !getCellule(currentCelluleId)) currentCelluleId = state.cellules[0] ? state.cellules[0].id : null;
+  function renderHome(user, role, roleReleves){
+    const okR = roleReleves !== 'none';
+    const okA = role === 'admin' || roleReleves === 'admin';
+    const bloque = '<span class="go">Accès non autorisé – à demander à un admin</span>';
+    const el = document.getElementById('homeScreen');
+    el.innerHTML = '<div><h1>Que voulez-vous faire ?</h1><p class="who">Connecté : ' + esc(user.email || '') + ' – La Légumière</p></div>' +
+      '<div class="tiles">' +
+        '<a class="tile plan" href="plan.html"><span class="ic">' + ICONES.plan + '</span><b>Plan de stockage</b>' +
+          '<span class="d">Échalotes et oignons : cellules, lignes, palox. Entrées, sorties, déplacements, recherche et stock global.</span><span class="go">Ouvrir le plan</span></a>' +
+        (okR
+          ? '<a class="tile rel" href="releves.html"><span class="ic">' + ICONES.rel + '</span><b>Relevés des températures</b>' +
+            '<span class="d">Tournée des chambres froides (T° et hygrométrie), contrôles à cœur des produits, historique du mois et export STOC E12.1.</span><span class="go">Ouvrir les relevés</span></a>'
+          : '<div class="tile rel off" aria-disabled="true"><span class="ic">' + ICONES.rel + '</span><b>Relevés des températures</b>' +
+            '<span class="d">Tournée des chambres froides (T° et hygrométrie), contrôles à cœur des produits, historique du mois et export STOC E12.1.</span>' + bloque + '</div>') +
+        (okA
+          ? '<a class="tile adm" href="admin.html"><span class="ic">' + ICONES.adm + '</span><b>Administration</b>' +
+            '<span class="d">Comptes et accès, réglages du plan de stockage et des relevés, archives et durées de conservation.</span><span id="archBadge"></span><span class="go">Ouvrir l\'administration</span></a>'
+          : '') +
+      '</div>' +
+      '<div class="foot"><span>Un seul compte. Chaque module s\'ouvre selon les accès donnés à votre compte ; les comptes et réglages se gèrent dans Administration. On revient ici avec le bouton « Accueil ».</span>' +
+        '<button type="button" class="logout" id="logoutBtn">Déconnexion</button></div>';
+    document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+    show('homeScreen');
+    if (okA) verifierArchivage(role, roleReleves);
   }
-  function attachSnapshotListener(){
-    if(unsubscribeSnapshot) unsubscribeSnapshot();
-    unsubscribeSnapshot = DOC_REF.onSnapshot(async (snap)=>{
-      if(!snap.exists){
-        state = { cellules: [], lots: [], transactions: [], produits: [], calibres: [] };
-        if(canManageStock()){ seedDefault(); applyIncomingState(null); }
-        loaded = true;
-        render();
-        if(canManageStock()) await saveState();
-        return;
-      }
-      if(isPanelOpen()) return;
-      applyIncomingState(snap.data().data);
-      loaded = true;
-      render();
-    }, (err)=>{
-      console.error("Erreur de synchronisation Firestore", err);
-    });
-  }
-  async function refetchState(){
+
+  // Rappel « Archivage à faire » : lecture seule, en tâche de fond. Une lecture refusée n'affiche simplement rien.
+  async function verifierArchivage(role, roleReleves){
     try{
-      const snap = await DOC_REF.get();
-      if(snap.exists){ applyIncomingState(snap.data().data); render(); }
-    }catch(e){ console.error(e); }
-  }
-  let saveStatusTimer = null;
-  function setSaveStatus(status){
-    const el = document.getElementById('saveStatus');
-    if(!el) return;
-    clearTimeout(saveStatusTimer);
-    if(status==='saving'){ el.textContent = 'Sauvegarde…'; el.style.color = 'var(--ink-soft)'; el.style.display='inline'; }
-    else if(status==='ok'){ el.textContent = '✓ Sauvegardé'; el.style.color = 'var(--green)'; el.style.display='inline'; saveStatusTimer = setTimeout(()=>{ el.style.display='none'; }, 2000); }
-    else if(status==='error'){ el.innerHTML = '⚠ Non sauvegardé <button id="retrySaveBtn" style="border:none;background:none;color:var(--warn);text-decoration:underline;cursor:pointer;font-size:11.5px;font-weight:700;padding:0;">réessayer</button>'; el.style.color = 'var(--warn)'; el.style.display='inline';
-      const rb = document.getElementById('retrySaveBtn'); if(rb) rb.addEventListener('click', ()=>saveState());
-    }
-  }
-  let saveChain = Promise.resolve();
-  function saveState(){
-    saveChain = saveChain.then(()=>doSaveWithRetry(4));
-    return saveChain;
-  }
-  async function doSaveWithRetry(retriesLeft, delay){
-    delay = delay || 1000;
-    setSaveStatus('saving');
-    try{
-      await DOC_REF.set({ data: JSON.stringify(state), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-      setSaveStatus('ok');
-    }catch(e){
-      console.error("Erreur de sauvegarde", e);
-      if(retriesLeft>0){
-        await new Promise(r=>setTimeout(r, delay));
-        return doSaveWithRetry(retriesLeft-1, Math.min(delay*2, 8000));
+      const cs = await db.collection('parametres').doc('conservation').get();
+      const c = Object.assign({ relArchiveApresMois: 13, planArchiveApresMois: 0 }, cs.exists ? cs.data() : {});
+      let afaire = false;
+      if (c.relArchiveApresMois > 0){
+        const lim = ajoutMois(new Date(), -c.relArchiveApresMois).toISOString();
+        const q = await db.collection('releves').where('at', '<', lim).limit(1).get();
+        if (!q.empty) afaire = true;
       }
-      setSaveStatus('error');
-    }
-  }
-  function exportBackup(){
-    const blob = new Blob([JSON.stringify(state, null, 2)], {type: 'application/json'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'sauvegarde-plan-stockage-'+today()+'.json';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  }
-  function importBackup(file){
-    if(!canManageStock()){ alert('Réservé aux comptes de gestion.'); return; }
-    const reader = new FileReader();
-    reader.onload = async (ev)=>{
-      try{
-        const parsed = JSON.parse(ev.target.result);
-        if(!parsed.cellules){ alert('Fichier invalide : ce n\'est pas une sauvegarde reconnue.'); return; }
-        if(!confirm('Remplacer les données actuelles par cette sauvegarde ?')) return;
-        state = parsed;
-        migrate();
-        await saveState();
-        renderHeaderStats();
-        renderTab(currentTab);
-      }catch(e){ alert('Impossible de lire ce fichier : '+e.message); }
-    };
-    reader.readAsText(file);
-  }
-  async function manualRefresh(){
-    const btn = document.getElementById('refreshBtn');
-    if(btn) btn.classList.add('spin');
-    const statusEl = document.getElementById('saveStatus');
-    const hadPendingError = statusEl && statusEl.textContent.indexOf('⚠')===0;
-    await refetchState();
-    if(hadPendingError) saveState();
-    setTimeout(()=>{ if(btn) btn.classList.remove('spin'); }, 500);
-  }
-
-  function migrate(){
-    // Anciens modèles : ligne { positions, hauteurParPosition }, lot { position, hauteurDebut, nbPalox, poids total }.
-    // Nouveau modèle : ligne { capacite }, lot = UN palox individuel { poids unitaire, batchId }.
-    if(!Array.isArray(state.produits)){
-      state.produits = ['Echalote','Echalion','Echalote de semis','Oignon de Roscoff','Oignon rouge','Oignon jaune'];
-    }
-    if(!Array.isArray(state.calibres)){
-      state.calibres = ['20/40','40/60','60/80'];
-    }
-    state.cellules.forEach(c=>{
-      if(c.nonAchetee==null) c.nonAchetee = !!c.frigo;
-      delete c.frigo;
-      c.lignes.forEach(l=>{
-        if(l.capacite==null){
-          if(Array.isArray(l.hauteurParPosition)) l.capacite = l.hauteurParPosition.reduce((a,b)=>a+b,0) || 50;
-          else l.capacite = 50;
-        }
-        delete l.positions; delete l.hauteurParPosition; delete l.hauteurMax;
-      });
-    });
-    const expanded = [];
-    state.lots.forEach(l=>{
-      delete l.position; delete l.hauteurDebut;
-      if(l.nbPalox!=null){
-        const count = Math.max(1, Math.round(l.nbPalox));
-        const perUnit = l.poids!=null ? l.poids/count : null;
-        const batchId = l.batchId || l.id || uid();
-        for(let i=0;i<count;i++){
-          expanded.push({ id: i===0 ? (l.id||uid()) : uid(), celluleId: l.celluleId, ligneId: l.ligneId, batchId,
-            produit: l.produit, lot: l.lot, parcelle: l.parcelle, calibre: l.calibre, traitement: l.traitement, poidsSorti: l.poidsSorti,
-            poids: perUnit, dateEntree: l.dateEntree, commentaire: l.commentaire });
-        }
-      } else {
-        if(!l.batchId) l.batchId = l.id;
-        expanded.push(l);
+      if (!afaire && role === 'admin' && c.planArchiveApresMois > 0){
+        const lim = ajoutMois(new Date(), -c.planArchiveApresMois).toISOString().slice(0, 10);
+        const snap = await db.collection('planStockage').doc('main').get();
+        const p = snap.exists ? JSON.parse(snap.data().data || '{}') : {};
+        if ((p.transactions || []).some(t => String(t.date || '') < lim)) afaire = true;
       }
-    });
-    state.lots = expanded;
-    // Fusionne les lots identiques (même produit/lot/calibre/traitement/emplacement) sous un seul batchId,
-    // pour éviter que des modifications successives ne fragmentent artificiellement un même lot.
-    const batchKeyMap = {};
-    state.lots.forEach(l=>{
-      const key = [l.celluleId, l.ligneId, l.produit, l.lot||'', l.lot2||'', l.calibre||'', !!l.traitement, !!l.poidsSorti].join('|');
-      if(batchKeyMap[key]==null) batchKeyMap[key] = l.batchId;
-      else l.batchId = batchKeyMap[key];
-    });
+      const b = document.getElementById('archBadge');
+      if (b && afaire){ b.className = 'badge'; b.textContent = 'Archivage à faire'; }
+    }catch(e){ console.warn('Rappel d\'archivage indisponible', e); }
   }
 
-  function seedDefault(){
-    function ligne(nom, capacite){ return { id: uid(), nom, capacite }; }
-    function cellule(nom, lignes){ return { id: uid(), nom, lignes }; }
-    state.cellules = [
-      cellule("Cellule 1", [ligne("Ligne 1",50), ligne("Ligne 2",50), ligne("Ligne 3",50)]),
-      cellule("Cellule 2", [ligne("Ligne Gauche",50), ligne("Ligne Milieu",50), ligne("Ligne Droite",50)]),
-      cellule("Cellule 3", [ligne("Ligne Gauche",50), ligne("Ligne Milieu",50), ligne("Ligne Droite",50)]),
-      cellule("Cellule 4 LBP", [ligne("Ligne Gauche",50), ligne("Ligne Milieu",50), ligne("Ligne Droite",50)]),
-      cellule("Cellule 5 LBP", [ligne("Ligne Gauche",50), ligne("Ligne Milieu",50), ligne("Ligne Droite",50)]),
-      cellule("Cellule 6 LBP", [ligne("Ligne Gauche",50), ligne("Ligne Milieu",50), ligne("Ligne Droite",50)]),
-      cellule("Cellule 7 LBP Colle Carotte", [ligne("Ligne Gauche",50), ligne("Ligne Milieu",50), ligne("Ligne Droite",50)]),
-      cellule("Frigo 8 Cocaign", [ligne("Casiers",140)])
-    ];
-  }
-
-  function getCellule(id){ return state.cellules.find(c=>c.id===id); }
-  function getLigne(celluleId, ligneId){ const c = getCellule(celluleId); return c ? c.lignes.find(l=>l.id===ligneId) : null; }
-  function lotsInLigne(celluleId, ligneId){ return state.lots.filter(l=>l.celluleId===celluleId && l.ligneId===ligneId); }
-  function ligneOccupied(celluleId, ligneId){ return lotsInLigne(celluleId, ligneId).length; }
-  function lignePercent(celluleId, ligneId){
-    const l = getLigne(celluleId, ligneId);
-    if(!l || !l.capacite) return 0;
-    return (ligneOccupied(celluleId, ligneId) / l.capacite) * 100;
-  }
-  function paloxById(id){ return state.lots.find(l=>l.id===id); }
-  function caseLabel(celluleId, ligneId){
-    const c = getCellule(celluleId), l = getLigne(celluleId, ligneId);
-    return (c?c.nom:'?') + " — " + (l?l.nom:'?');
-  }
-  function addTx(type, data){
-    const responsable = (auth.currentUser && auth.currentUser.email) || '?';
-    state.transactions.unshift(Object.assign({ id: uid(), type, date: data.date || today(), responsable }, data));
-  }
-  function totalPalox(){ return state.lots.length; }
-  const FIXED_PRODUCT_COLORS = [
-    { test: n=> n.includes('semis') && n.includes('echalote'), color: '#8E6BA8' },   // échalote de semis — mauve
-    { test: n=> n.includes('echalion'), color: '#3D6C96' },                          // échalion — bleu
-    { test: n=> n.includes('roscoff'), color: '#C97B94' },                           // oignon de roscoff — rose
-    { test: n=> n.includes('rouge'), color: '#A83232' },                             // oignon rouge — rouge
-    { test: n=> n.includes('jaune'), color: '#B8933A' },                             // oignon jaune — jaune
-    { test: n=> n.includes('echalote'), color: '#8C8577' }                           // échalote — gris
-  ];
-  function normalizeProduitKey(produit){
-    return (produit||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  }
-  function colorForProduit(produit){
-    const key = normalizeProduitKey(produit);
-    for(let i=0;i<FIXED_PRODUCT_COLORS.length;i++){ if(FIXED_PRODUCT_COLORS[i].test(key)) return FIXED_PRODUCT_COLORS[i].color; }
-    let h=0; for(let i=0;i<key.length;i++){ h = (h*31 + key.charCodeAt(i)) >>> 0; }
-    return COLOR_PALETTE[h % COLOR_PALETTE.length];
-  }
-  function groupByBatch(lots){
-    const map = {}, order = [];
-    lots.forEach(l=>{
-      const key = l.batchId+'|'+l.celluleId+'|'+l.ligneId;
-      if(!map[key]){
-        map[key] = { batchId:l.batchId, celluleId:l.celluleId, ligneId:l.ligneId, produit:l.produit, lot:l.lot, lot2:l.lot2,
-          parcelle:l.parcelle, calibre:l.calibre, traitement:l.traitement, poidsSorti:l.poidsSorti, dateEntree:l.dateEntree, commentaire:l.commentaire, paloxs:[] };
-        order.push(key);
-      }
-      map[key].paloxs.push(l);
-    });
-    return order.map(k=>map[k]);
-  }
-  function batchesInLigne(celluleId, ligneId){ return groupByBatch(lotsInLigne(celluleId, ligneId)); }
-  function paloxTotalPoids(p){
-    if(p.poids==null && p.poidsLot2==null) return null;
-    return (p.poids||0) + (p.poidsLot2||0);
-  }
-  function batchPoidsSummary(batch){
-    const known = batch.paloxs.filter(p=>paloxTotalPoids(p)!=null);
-    const total = known.reduce((s,p)=>s+paloxTotalPoids(p),0);
-    const unknown = batch.paloxs.length - known.length;
-    return { total, unknown };
-  }
-  function produitBreakdownForLigne(celluleId, ligneId){
-    const counts = {}, order = [];
-    lotsInLigne(celluleId, ligneId).forEach(l=>{
-      if(counts[l.produit]==null){ counts[l.produit]=0; order.push(l.produit); }
-      counts[l.produit]++;
-    });
-    return order.map(p=>({ produit:p, count:counts[p] }));
-  }
-
-  // ---------- RENDER ----------
-  function render(){ if(!loaded) return; renderHeaderStats(); renderTab(currentTab); }
-  function renderHeaderStats(){
-    document.getElementById('headerStats').innerHTML =
-      '<div class="stat-pill"><span class="dot green"></span>Palox <b>'+fmt(totalPalox())+'</b></div>'+
-      '<div class="stat-pill"><span class="dot"></span>Cellules <b>'+state.cellules.length+'</b></div>'+
-      '<span class="role-badge '+currentRole+'">'+(currentRole==='admin'?'Admin':currentRole==='editor'?'Gestion':'Consultation')+'</span>'+
-      '<span id="saveStatus" style="font-size:11.5px;font-weight:600;display:none;"></span>'+
-      '<button class="refresh-btn" id="refreshBtn" title="Actualiser">⟳</button>'+
-      '<button class="btn btn-ghost btn-sm" id="logoutBtn">Déconnexion</button>';
-    document.getElementById('refreshBtn').addEventListener('click', manualRefresh);
-    document.getElementById('logoutBtn').addEventListener('click', ()=>auth.signOut());
-    const tabCellules = document.getElementById('tabCellules');
-    if(tabCellules) tabCellules.style.display = isAdmin() ? '' : 'none';
-    const tabComptes = document.getElementById('tabComptes');
-    if(tabComptes) tabComptes.style.display = isAdmin() ? '' : 'none';
-  }
-  function renderTab(tab){
-    if(tab==='cellules' && !isAdmin()) tab = 'stockage';
-    if(tab==='comptes' && !isAdmin()) tab = 'stockage';
-    currentTab = tab;
-    document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
-    const app = document.getElementById('app');
-    if(tab==='stockage') app.innerHTML = viewStockage();
-    if(tab==='recherche') app.innerHTML = viewRecherche();
-    if(tab==='global') app.innerHTML = viewGlobal();
-    if(tab==='historique') app.innerHTML = viewHistorique();
-    if(tab==='cellules') app.innerHTML = viewCellules();
-    if(tab==='comptes') app.innerHTML = viewComptes();
-    bindTabEvents(tab);
-  }
-
-  function viewStockage(){
-    if(state.cellules.length===0){
-      return '<div class="card">'+emptyState("Aucune cellule configurée", isAdmin() ? "Crée une cellule dans l'onglet « Cellules » pour commencer." : "Aucune donnée pour le moment — contacte un compte admin.")+'</div>';
-    }
-    if(!currentCelluleId || !getCellule(currentCelluleId)) currentCelluleId = state.cellules[0].id;
-    const c = getCellule(currentCelluleId);
-
-    const celluleTabsHtml = state.cellules.map(cc=>{
-      const n = state.lots.filter(x=>x.celluleId===cc.id).length;
-      return '<button data-cellule="'+cc.id+'" class="'+(cc.id===c.id?'active':'')+'">'+escapeHtml(cc.nom)+' <span class="n">('+n+')</span></button>';
-    }).join('');
-
-    const toolbar = canManageStock() ?
-      '<div class="stockage-toolbar">'+
-        '<button class="btn btn-green btn-sm" id="openBulkEntree">+ Entrée</button>'+
-      '</div>' : '';
-
-    const lignesHtml = c.lignes.map(l=>{
-      const occ = ligneOccupied(c.id, l.id);
-      const pct = lignePercent(c.id, l.id);
-      const breakdown = produitBreakdownForLigne(c.id, l.id);
-      const segs = breakdown.map(b=>'<div class="fill-seg" style="width:'+((b.count/l.capacite)*100)+'%;background:'+colorForProduit(b.produit)+'" title="'+escapeHtml(b.produit)+' : '+b.count+'"></div>').join('');
-      const chips = breakdown.length ?
-        '<div class="lli-produits">'+breakdown.map(b=>'<button type="button" class="produit-chip" style="background:'+colorForProduit(b.produit)+'" data-produit-jump="'+c.id+'|'+l.id+'|'+encodeURIComponent(b.produit)+'">'+escapeHtml(b.produit)+' ('+b.count+')</button>').join('')+'</div>' :
-        '<div class="lli-empty">Vide</div>';
-      const complet = occ>=l.capacite ? ' <span style="color:var(--warn);font-weight:700;">· Complet</span>' : '';
-      const ligneEntreeBtn = canManageStock() ? '<button type="button" class="btn btn-green btn-sm" data-ligne-entree="'+c.id+'|'+l.id+'">+ Entrée</button>' : '';
-      return '<div class="ligne-list-item" data-cellule="'+c.id+'" data-ligne="'+l.id+'">'+
-        '<div class="lli-head"><h3>'+escapeHtml(l.nom)+'</h3>'+
-          '<div style="display:flex;align-items:center;gap:10px;"><span class="lli-count">'+occ+' / '+l.capacite+' palox · '+Math.round(pct)+'%'+complet+'</span>'+ligneEntreeBtn+'</div>'+
-        '</div>'+
-        '<div class="fill-track">'+segs+'</div>'+
-        chips+
-      '</div>';
-    }).join('');
-
-    return '<div class="cellule-tabs" id="stockageCelluleTabs">'+celluleTabsHtml+'</div>'+
-      toolbar+
-      '<div class="card"><h2>'+escapeHtml(c.nom)+'</h2>'+
-      '<p class="sub">Une ligne = une file de stockage. La barre montre la part de chaque produit. Touche une ligne — ou un produit — pour voir son détail.</p>'+
-      '<div class="ligne-list">'+lignesHtml+'</div>'+
-      '</div>';
-  }
-
-  function emptyState(title, sub){
-    return '<div class="empty-state"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M3 11h18M8 7V4h8v3"/></svg>'+
-      '<div style="font-family:\'Fraunces\';font-size:15px;color:var(--ink);margin-bottom:4px;">'+title+'</div><div style="font-size:13px;">'+sub+'</div></div>';
-  }
-
-  // ---------- DETAIL PANEL (une ligne, détail par lot) ----------
-  function batchCardHtml(batch, visibleIds){
-    const visiblePaloxs = visibleIds ? batch.paloxs.filter(p=>visibleIds.has(p.id)) : batch.paloxs;
-    const summary = batchPoidsSummary({ paloxs: visiblePaloxs });
-    const poidsStr = summary.unknown>0 ?
-      (fmt(summary.total)+' kg connus ('+summary.unknown+' palox sans poids renseigné)') :
-      (fmt(summary.total)+' kg');
-    const rows = batch.paloxs.map((p,idx)=>{
-      if(visibleIds && !visibleIds.has(p.id)) return '';
-      let poidsLabel;
-      if(p.poidsLot2!=null){
-        const tot = paloxTotalPoids(p);
-        poidsLabel = (p.poids!=null? fmt(p.poids):'?')+' kg (lot '+escapeHtml(batch.lot||'1')+') + '+fmt(p.poidsLot2)+' kg (lot '+escapeHtml(batch.lot2||'2')+')'+(tot!=null?' = '+fmt(tot)+' kg':'');
-      } else {
-        poidsLabel = p.poids!=null? fmt(p.poids)+' kg':'poids inconnu';
-      }
-      return '<label class="palox-item"><input type="checkbox" data-palox="'+p.id+'"> Palox '+(idx+1)+' — '+poidsLabel+'</label>';
-    }).join('');
-    return '<div class="lot-card" style="border-left-color:'+colorForProduit(batch.produit)+'" data-batch="'+batch.batchId+'" data-cellule="'+batch.celluleId+'" data-ligne="'+batch.ligneId+'" data-produit="'+escapeHtml((batch.produit||'').toLowerCase())+'">'+
-      '<div class="lp-title">'+escapeHtml(batch.produit)+(batch.poidsSorti?'<span class="badge-poids-sorti">Poids sorti</span>':'')+'</div>'+
-      '<div class="lp-meta">Lot <span>'+escapeHtml(batch.lot||'—')+(batch.lot2? ' + '+escapeHtml(batch.lot2):'')+'</span>'+
-        (batch.parcelle? ' · Parcelle <span>'+escapeHtml(batch.parcelle)+'</span>':'')+
-        (batch.calibre? ' · Calibre <span>'+escapeHtml(batch.calibre)+'</span>':'')+
-        (batch.traitement? ' · Antigerme':'')+
-        '<br>entré le '+fmtDate(batch.dateEntree)+
-        (batch.commentaire? '<br>« '+escapeHtml(batch.commentaire)+' »':'')+
-      '</div>'+
-      (visibleIds ? '<div class="filter-bar" style="margin-bottom:8px;">'+visiblePaloxs.length+' palox isolé(s) par la recherche</div>' : '')+
-      (canManageStock() ? '<label class="palox-item palox-select-all"><input type="checkbox" data-select-all="'+batch.batchId+'"> Tout sélectionner</label>' : '')+
-      '<div class="palox-list">'+rows+'</div>'+
-      '<div class="batch-summary">'+visiblePaloxs.length+' palox · '+poidsStr+'</div>'+
-      (canManageStock() ? (
-        '<div class="lot-actions">'+
-          '<button class="btn btn-sm btn-warn" data-act="sortie" data-batch="'+batch.batchId+'">Sortir la sélection</button>'+
-          '<button class="btn btn-sm btn-blue" data-act="deplacer" data-batch="'+batch.batchId+'">Déplacer la sélection</button>'+
-          '<button class="btn btn-sm btn-copper" data-act="modifier" data-batch="'+batch.batchId+'">Modifier la sélection</button>'+
-          '<button class="btn btn-sm btn-ghost" data-act="supprimer" data-batch="'+batch.batchId+'">Supprimer la sélection</button>'+
-        '</div>'+
-        '<div class="inline-form" id="form-sortie-'+batch.batchId+'"></div>'+
-        '<div class="inline-form" id="form-deplacer-'+batch.batchId+'"></div>'+
-        '<div class="inline-form" id="form-modifier-'+batch.batchId+'"></div>'
-      ) : '')+
-    '</div>';
-  }
-  function ligneDetailBatchesHtml(celluleId, ligneId, filterProduit, searchQuery){
-    let batches = batchesInLigne(celluleId, ligneId);
-    if(filterProduit){
-      const norm = normalizeProduitKey(filterProduit);
-      batches = batches.filter(b => normalizeProduitKey(b.produit)===norm);
-    }
-    const allTokens = (searchQuery||'').toLowerCase().trim().split(/\s+/).filter(t => t && t!=='kg');
-    const weightTokens = allTokens.filter(t => /^\d+([.,]\d+)?$/.test(t));
-    const textTokens = allTokens.filter(t => !/^\d+([.,]\d+)?$/.test(t));
-    const paloxMatchesWeights = (p) => weightTokens.every(t =>
-      (p.poids!=null && String(p.poids).includes(t)) || (p.poidsLot2!=null && String(p.poidsLot2).includes(t))
-    );
-    if(allTokens.length){
-      batches = batches.filter(b=>{
-        const haystack = [b.produit,b.lot,b.lot2,b.parcelle,b.calibre,(b.traitement?'antigerme':''),b.commentaire].map(f=>(f||'').toLowerCase()).join(' ');
-        const textOk = textTokens.every(t => haystack.includes(t));
-        const weightOk = weightTokens.length===0 || b.paloxs.some(paloxMatchesWeights);
-        return textOk && weightOk;
-      });
-    }
-    if(batches.length===0){
-      return '<p style="color:var(--ink-soft);font-size:13.5px;">'+
-        (allTokens.length ? 'Aucun résultat pour « '+escapeHtml(searchQuery)+' ».' : filterProduit? 'Aucun palox de « '+escapeHtml(filterProduit)+' » ici pour le moment.' : 'Aucun palox ici pour le moment.')+
-      '</p>';
-    }
-    return batches.map(b=>{
-      const visibleIds = weightTokens.length ? new Set(b.paloxs.filter(paloxMatchesWeights).map(p=>p.id)) : null;
-      return batchCardHtml(b, visibleIds);
-    }).join('');
-  }
-  function openLigneDetail(celluleId, ligneId, filterProduit){
-    const label = caseLabel(celluleId, ligneId);
-    const l = getLigne(celluleId, ligneId);
-    const occ = ligneOccupied(celluleId, ligneId);
-
-    const filterBarHtml = filterProduit ?
-      '<div class="filter-bar">Filtré sur <b>'+escapeHtml(filterProduit)+'</b><button type="button" class="btn btn-ghost btn-sm" id="clearFilter">✕ Voir toute la ligne</button></div>' : '';
-
-    const searchBarHtml = '<div class="search-box" style="margin-bottom:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
-      '<input type="text" id="ligneDetailSearch" placeholder="Chercher un lot, un calibre, un poids de palox…"></div>';
-
-    const addSectionHtml = canManageStock() ?
-        '<p style="font-size:12px;color:var(--ink-soft);">'+(l.capacite-occ)+' palox restants dans cette ligne. Pour ajouter du stock, utilise le bouton « + Entrée » dans l\'onglet Stockage.</p>'
-      : '<div class="readonly-note">Consultation seule — contacte un compte de gestion pour modifier cette ligne.</div>';
-
-    const panel = document.getElementById('detailPanel');
-    panel.innerHTML =
-      '<div class="detail-header"><button class="detail-close" id="closeDetail">×</button><h3>'+escapeHtml(label)+'</h3><p>'+occ+' / '+l.capacite+' palox · '+Math.round(lignePercent(celluleId,ligneId))+'% plein</p></div>'+
-      '<div class="detail-body">'+
-        filterBarHtml+
-        searchBarHtml+
-        '<div id="ligneDetailResults">'+ligneDetailBatchesHtml(celluleId, ligneId, filterProduit, '')+'</div>'+
-        addSectionHtml+
-      '</div>';
-    panel.classList.add('open');
-    document.getElementById('overlayBg').classList.add('open');
-    panel.dataset.mode = 'ligne';
-    panel.dataset.cellule = celluleId; panel.dataset.ligne = ligneId;
-    panel.dataset.filterProduit = filterProduit || '';
-    bindDetailEvents();
-
-    const clearBtn = document.getElementById('clearFilter');
-    if(clearBtn) clearBtn.addEventListener('click', ()=> openLigneDetail(celluleId, ligneId));
-
-    document.getElementById('ligneDetailSearch').addEventListener('input', (ev)=>{
-      const results = document.getElementById('ligneDetailResults');
-      results.innerHTML = ligneDetailBatchesHtml(celluleId, ligneId, filterProduit, ev.target.value);
-      bindBatchCardEvents(results);
-    });
-  }
-  function closeDetail(){
-    document.getElementById('detailPanel').classList.remove('open');
-    document.getElementById('overlayBg').classList.remove('open');
-    refetchState();
-  }
-
-  function paloxWeightInputsHtml(count, existing, hasLot2, lot1Label, lot2Label){
-    existing = existing || [];
-    let html = '';
-    for(let i=0;i<count;i++){
-      const data = existing[i] || {};
-      html += '<div class="pw-item">'+
-        '<span>'+(count>1? 'Palox '+(i+1) : 'Poids')+'</span>'+
-        '<input type="number" min="0" step="0.01" data-f="poidsIndividuel" data-idx="'+i+'" value="'+(data.poids!=null?data.poids:'')+'" placeholder="'+(hasLot2? escapeHtml(lot1Label||'Lot 1')+' kg' : 'kg')+'">'+
-        (hasLot2 ? '<input type="number" min="0" step="0.01" data-f="poidsLot2Individuel" data-idx="'+i+'" value="'+(data.poidsLot2!=null?data.poidsLot2:'')+'" placeholder="'+escapeHtml(lot2Label||'Lot 2')+' kg">' : '')+
-      '</div>';
-    }
-    return html;
-  }
-  function resolvePaloxWeight(paloxState){
-    paloxState = paloxState || {};
-    const poids = paloxState.poids!=null ? parseFloat(paloxState.poids) : null;
-    const poidsLot2 = paloxState.poidsLot2!=null ? parseFloat(paloxState.poidsLot2) : null;
-    return { poids, poidsLot2 };
-  }
-  function readPaloxWeightsState(weightsEl){
-    return Array.from(weightsEl.querySelectorAll('.pw-item')).map(item=>{
-      const poidsInp = item.querySelector('[data-f="poidsIndividuel"]');
-      const lot2Inp = item.querySelector('[data-f="poidsLot2Individuel"]');
-      return {
-        poids: poidsInp && poidsInp.value!==''? poidsInp.value : null,
-        poidsLot2: lot2Inp && lot2Inp.value!==''? lot2Inp.value : null
-      };
-    });
-  }
-  function refreshPaloxWeightInputs(row, fixedCount){
-    const nbInput = row.querySelector('[data-f="nbPalox"]');
-    const lot2Input = row.querySelector('[data-f="lot2"]');
-    const lotInput = row.querySelector('[data-f="lot"]');
-    const weightsEl = row.querySelector('.palox-weights');
-    if(!weightsEl || (fixedCount==null && !nbInput)) return;
-    const existing = readPaloxWeightsState(weightsEl);
-    const count = fixedCount!=null ? fixedCount : Math.min(500, Math.max(1, Math.round(parseFloat(nbInput.value)||1)));
-    const hasLot2 = !!(lot2Input && lot2Input.value.trim());
-    const lot1Label = lotInput ? lotInput.value.trim() : '';
-    const lot2Label = lot2Input ? lot2Input.value.trim() : '';
-    weightsEl.innerHTML = paloxWeightInputsHtml(count, existing, hasLot2, lot1Label, lot2Label);
-  }
-  function formSortieSelection(ids){
-    const paloxs = ids.map(paloxById).filter(Boolean);
-    const known = paloxs.filter(p=>paloxTotalPoids(p)!=null);
-    const total = known.reduce((s,p)=>s+paloxTotalPoids(p),0);
-    const recap = paloxs.length+' palox sélectionné(s) · '+fmt(total)+' kg'+(known.length<paloxs.length? ' ('+(paloxs.length-known.length)+' sans poids connu)':'');
-    return '<div class="selection-recap">'+recap+'</div>'+
-      '<div class="grid-form two">'+
-        '<label class="field">Date<input type="date" value="'+today()+'" data-f="date"></label>'+
-        '<label class="field">Commentaire<input type="text" placeholder="vente, perte, usage…" data-f="comment"></label>'+
-      '</div>'+
-      '<div class="btn-row"><button class="btn btn-warn btn-sm" data-confirm-selection="sortie">Confirmer la sortie</button>'+
-      '<button class="btn btn-ghost btn-sm" data-cancel-selection>Annuler</button><span class="msg" id="msg-selection"></span></div>';
-  }
-  function formDeplacerSelection(ids, srcCelluleId){
-    const paloxs = ids.map(paloxById).filter(Boolean);
-    const known = paloxs.filter(p=>paloxTotalPoids(p)!=null);
-    const total = known.reduce((s,p)=>s+paloxTotalPoids(p),0);
-    const recap = paloxs.length+' palox sélectionné(s) · '+fmt(total)+' kg'+(known.length<paloxs.length? ' ('+(paloxs.length-known.length)+' sans poids connu)':'');
-    const c0 = getCellule(srcCelluleId);
-    return '<div class="selection-recap">'+recap+'</div>'+
-      '<div class="grid-form two">'+
-        '<label class="field">Cellule destination<select data-f="destCellule">'+celluleOptionsHtml(srcCelluleId)+'</select></label>'+
-        '<label class="field">Ligne destination<select data-f="destLigne">'+ligneOptionsHtml(srcCelluleId)+'</select></label>'+
-        '<label class="field">Date<input type="date" value="'+today()+'" data-f="date"></label>'+
-        '<label class="field">Commentaire<input type="text" placeholder="raison du déplacement…" data-f="comment"></label>'+
-      '</div>'+
-      '<div class="btn-row"><button class="btn btn-blue btn-sm" data-confirm-selection="deplacer">Confirmer le déplacement</button>'+
-      '<button class="btn btn-ghost btn-sm" data-cancel-selection>Annuler</button><span class="msg" id="msg-selection"></span></div>';
-  }
-  function formModifierSelection(ids){
-    const paloxs = ids.map(paloxById).filter(Boolean);
-    if(paloxs.length===0) return '';
-    const first = paloxs[0];
-    const existing = paloxs.map(p=>({ poids: p.poids, poidsLot2: p.poidsLot2 }));
-    const hasLot2 = !!(first.lot2 && first.lot2.trim());
-    return '<div class="selection-recap">'+paloxs.length+' palox sélectionné(s) — les champs ci-dessous s\'appliquent à toute la sélection</div>'+
-      '<div class="entree-row" data-modifier-row>'+
-        '<div class="grid-form two">'+
-          '<label class="field">Produit<select data-f="produit" required>'+produitOptionsHtml(first.produit||'')+'</select></label>'+
-          '<label class="field">Lot<input type="text" data-f="lot" value="'+escapeHtml(first.lot||'')+'"></label>'+
-          '<label class="field">2e numéro de lot — optionnel<input type="text" data-f="lot2" value="'+escapeHtml(first.lot2||'')+'"></label>'+
-          '<label class="field">Parcelle<input type="text" data-f="parcelle" value="'+escapeHtml(first.parcelle||'')+'"></label>'+
-          '<label class="field">Calibre<select data-f="calibre" required>'+calibreOptionsHtml(first.calibre||'')+'</select></label>'+
-          '<label class="field checkbox-field"><input type="checkbox" data-f="traitement" '+(first.traitement?'checked':'')+'> Traitement antigerme</label>'+
-          '<label class="field">Date<input type="date" data-f="dateEntree" value="'+escapeHtml(first.dateEntree||today())+'"></label>'+
-          '<label class="field checkbox-field"><input type="checkbox" data-f="poidsSorti" '+(first.poidsSorti?'checked':'')+'> Poids sorti</label>'+
-          '<label class="field span-2">Commentaire<input type="text" data-f="commentaire" value="'+escapeHtml(first.commentaire||'')+'"></label>'+
-        '</div>'+
-        '<div class="hint" style="display:block;margin-top:10px;">Poids par palox sélectionné (kg) — optionnel</div>'+
-        '<div class="palox-weights">'+paloxWeightInputsHtml(paloxs.length, existing, hasLot2, first.lot, first.lot2)+'</div>'+
-      '</div>'+
-      '<div class="btn-row"><button class="btn btn-copper btn-sm" data-confirm-selection="modifier">Enregistrer les modifications</button>'+
-      '<button class="btn btn-ghost btn-sm" data-cancel-selection>Annuler</button><span class="msg" id="msg-selection"></span></div>';
-  }
-
-  function bindDetailEvents(){
-    document.getElementById('closeDetail').addEventListener('click', closeDetail);
-    document.getElementById('overlayBg').addEventListener('click', closeDetail);
-    bindBatchCardEvents(document);
-  }
-
-  function bindBatchCardEvents(root){
-    root.querySelectorAll('[data-act]').forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const batchId = btn.dataset.batch, act = btn.dataset.act;
-        const card = btn.closest('.lot-card');
-        const checked = Array.from(card.querySelectorAll('input[data-palox]:checked')).map(cb=>cb.dataset.palox);
-        if(checked.length===0){
-          alert('Sélectionne au moins un palox dans la liste ci-dessus.');
-          return;
-        }
-        if(act==='supprimer'){
-          if(!confirm('Supprimer définitivement '+checked.length+' palox sélectionné(s) ? Cette action ne peut pas être annulée.')) return;
-          const idSet = new Set(checked);
-          state.lots = state.lots.filter(l=>!idSet.has(l.id));
-          await saveState();
-          renderHeaderStats();
-          openLigneDetail(document.getElementById('detailPanel').dataset.cellule, document.getElementById('detailPanel').dataset.ligne, document.getElementById('detailPanel').dataset.filterProduit || undefined);
-          renderTab(currentTab);
-          return;
-        }
-        const formEl = document.getElementById('form-'+act+'-'+batchId);
-        if(act==='sortie') formEl.innerHTML = formSortieSelection(checked);
-        else if(act==='deplacer') formEl.innerHTML = formDeplacerSelection(checked, card.dataset.cellule);
-        else if(act==='modifier') formEl.innerHTML = formModifierSelection(checked);
-        formEl.classList.add('open');
-        formEl.dataset.selection = checked.join(',');
-        bindSelectionFormEvents(formEl, act, card);
-      });
-    });
-
-    root.querySelectorAll('[data-select-all]').forEach(cb=>{
-      cb.addEventListener('change', ()=>{
-        const card = cb.closest('.lot-card');
-        card.querySelectorAll('input[data-palox]').forEach(paloxCb=>{ paloxCb.checked = cb.checked; });
-      });
-    });
-  }
-
-
-  function bindSelectionFormEvents(formEl, act, card){
-    const destCelSel = formEl.querySelector('[data-f="destCellule"]');
-    if(destCelSel){
-      destCelSel.addEventListener('change', ()=>{
-        formEl.querySelector('[data-f="destLigne"]').innerHTML = ligneOptionsHtml(destCelSel.value);
-      });
-    }
-    if(act==='modifier'){
-      const row = formEl.querySelector('[data-modifier-row]');
-      const selectionCount = (formEl.dataset.selection||'').split(',').filter(Boolean).length;
-      formEl.addEventListener('input', (ev)=>{
-        if(ev.target.matches('[data-f="lot2"]')) refreshPaloxWeightInputs(row, selectionCount);
-      });
-    }
-    formEl.querySelector('[data-cancel-selection]').addEventListener('click', ()=>{
-      formEl.classList.remove('open'); formEl.innerHTML='';
-    });
-    formEl.querySelector('[data-confirm-selection]').addEventListener('click', async ()=>{
-      const ids = (formEl.dataset.selection||'').split(',').filter(Boolean);
-      const paloxs = ids.map(paloxById).filter(Boolean);
-      const msg = formEl.querySelector('#msg-selection');
-      if(paloxs.length===0){ msg.textContent = '✗ Sélection invalide'; msg.className='msg err'; return; }
-      const first = paloxs[0];
-      const known = paloxs.filter(p=>paloxTotalPoids(p)!=null);
-      const poidsTotal = known.length ? known.reduce((s,p)=>s+paloxTotalPoids(p),0) : null;
-
-      if(act==='sortie'){
-        const date = formEl.querySelector('[data-f="date"]').value;
-        const comment = formEl.querySelector('[data-f="comment"]').value;
-        addTx('sortie', { quantite: paloxs.length, poids: poidsTotal, produit: first.produit, lot: first.lot, date, commentaire: comment, label: caseLabel(first.celluleId, first.ligneId) });
-        const idSet = new Set(ids);
-        state.lots = state.lots.filter(l=>!idSet.has(l.id));
-      } else if(act==='deplacer'){
-        const date = formEl.querySelector('[data-f="date"]').value;
-        const comment = formEl.querySelector('[data-f="comment"]').value;
-        const destCelluleId = formEl.querySelector('[data-f="destCellule"]').value;
-        const destLigneId = formEl.querySelector('[data-f="destLigne"]').value;
-        const destLigneObj = getLigne(destCelluleId, destLigneId);
-        const isSameSpot = destCelluleId===first.celluleId && destLigneId===first.ligneId;
-        const destOccupied = ligneOccupied(destCelluleId, destLigneId) - (isSameSpot ? paloxs.length : 0);
-        if(destOccupied + paloxs.length > destLigneObj.capacite){
-          msg.textContent = '✗ Ne rentre pas à destination ('+(destLigneObj.capacite-destOccupied)+' palox restants)';
-          msg.className = 'msg err';
-          return;
-        }
-        if(isSameSpot){ msg.textContent = '✗ La destination est identique à la source'; msg.className='msg err'; return; }
-        const fromLabel = caseLabel(first.celluleId, first.ligneId);
-        paloxs.forEach(p=>{ p.celluleId = destCelluleId; p.ligneId = destLigneId; });
-        addTx('deplacement', { quantite: paloxs.length, poids: poidsTotal, produit: first.produit, lot: first.lot, date, commentaire: comment,
-          fromLabel: fromLabel, toLabel: caseLabel(destCelluleId, destLigneId) });
-      } else if(act==='modifier'){
-        const row = formEl.querySelector('[data-modifier-row]');
-        const get = (f)=> row.querySelector('[data-f="'+f+'"]').value;
-        const produit = get('produit').trim();
-        if(!produit){ msg.textContent = '✗ Le produit est obligatoire'; msg.className='msg err'; return; }
-        const lotVal = get('lot').trim();
-        const lot2Val = get('lot2').trim();
-        const parcelle = get('parcelle').trim();
-        const calibre = get('calibre').trim();
-        if(!calibre){ msg.textContent = '✗ Le calibre est obligatoire'; msg.className='msg err'; return; }
-        const traitement = row.querySelector('[data-f="traitement"]').checked;
-        const poidsSorti = row.querySelector('[data-f="poidsSorti"]').checked;
-        const dateEntree = get('dateEntree');
-        const commentaire = get('commentaire').trim();
-        const weightsEl = row.querySelector('.palox-weights');
-        const paloxStates = weightsEl ? readPaloxWeightsState(weightsEl) : [];
-        const idSet = new Set(ids);
-        const existingMatch = state.lots.find(l => !idSet.has(l.id) && l.celluleId===first.celluleId && l.ligneId===first.ligneId &&
-          l.produit===produit && (l.lot||'')===lotVal && (l.lot2||'')===lot2Val && (l.calibre||'')===calibre && !!l.traitement===traitement && !!l.poidsSorti===poidsSorti);
-        const newBatchId = existingMatch ? existingMatch.batchId : uid();
-        state.lots = state.lots.filter(l=>!idSet.has(l.id));
-        paloxs.forEach((p,idx)=>{
-          const { poids: poidsUnit, poidsLot2: poidsLot2Unit } = resolvePaloxWeight(paloxStates[idx]);
-          state.lots.push({ id: p.id, celluleId: p.celluleId, ligneId: p.ligneId, batchId: newBatchId,
-            produit, lot: lotVal, lot2: lot2Val, parcelle, calibre, traitement, poidsSorti, poids: poidsUnit, poidsLot2: poidsLot2Unit, dateEntree, commentaire });
-        });
-        addTx('modification', { quantite: paloxs.length, produit, lot: lotVal, lot2: lot2Val, date: today(), commentaire, label: caseLabel(first.celluleId, first.ligneId) });
-      }
-      await saveState();
-      renderHeaderStats();
-      openLigneDetail(document.getElementById('detailPanel').dataset.cellule, document.getElementById('detailPanel').dataset.ligne, document.getElementById('detailPanel').dataset.filterProduit || undefined);
-      renderTab(currentTab);
-    });
-  }
-
-  // ---------- ENTRÉE GROUPÉE (plusieurs lignes à la fois) ----------
-  function ligneOptionsHtml(celluleId, selectedLigneId){
-    const c = getCellule(celluleId);
-    if(!c) return '';
-    return c.lignes.map(l=>'<option value="'+l.id+'" '+(l.id===selectedLigneId?'selected':'')+'>'+escapeHtml(l.nom)+'</option>').join('');
-  }
-  function celluleOptionsHtml(selectedCelluleId){
-    return state.cellules.map(c=>'<option value="'+c.id+'" '+(c.id===selectedCelluleId?'selected':'')+'>'+escapeHtml(c.nom)+'</option>').join('');
-  }
-  function produitOptionsHtml(selected){
-    const list = (state.produits||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
-    let opts = list.map(p=>'<option value="'+escapeHtml(p)+'" '+(p===selected?'selected':'')+'>'+escapeHtml(p)+'</option>').join('');
-    if(selected && !list.includes(selected)){
-      opts = '<option value="'+escapeHtml(selected)+'" selected>'+escapeHtml(selected)+' (hors liste)</option>'+opts;
-    }
-    return '<option value="" '+(!selected?'selected':'')+' disabled>Choisir…</option>'+opts;
-  }
-  function calibreOptionsHtml(selected){
-    const list = (state.calibres||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
-    let opts = list.map(c=>'<option value="'+escapeHtml(c)+'" '+(c===selected?'selected':'')+'>'+escapeHtml(c)+'</option>').join('');
-    if(selected && !list.includes(selected)){
-      opts = '<option value="'+escapeHtml(selected)+'" selected>'+escapeHtml(selected)+' (hors liste)</option>'+opts;
-    }
-    return '<option value="" '+(!selected?'selected':'')+' disabled>Choisir…</option>'+opts;
-  }
-
-  function bulkRowHtml(idx, presetCelluleId, presetLigneId){
-    const c0 = (presetCelluleId && getCellule(presetCelluleId)) || state.cellules[0];
-    return '<div class="entree-row" data-row-idx="'+idx+'">'+
-      '<div class="grid-form two">'+
-        '<label class="field">Cellule<select data-f="cellule">'+celluleOptionsHtml(c0.id)+'</select></label>'+
-        '<label class="field">Ligne<select data-f="ligne">'+ligneOptionsHtml(c0.id, presetLigneId)+'</select></label>'+
-        '<label class="field">Produit<select data-f="produit" required>'+produitOptionsHtml('')+'</select></label>'+
-        '<label class="field">Lot<input type="text" data-f="lot" placeholder="L167GB03"></label>'+
-        '<label class="field">2e numéro de lot — optionnel<input type="text" data-f="lot2" placeholder="si palox mixte"></label>'+
-        '<label class="field">Parcelle<input type="text" data-f="parcelle" placeholder="optionnel"></label>'+
-        '<label class="field">Calibre<select data-f="calibre" required>'+calibreOptionsHtml('')+'</select></label>'+
-        '<label class="field checkbox-field"><input type="checkbox" data-f="traitement"> Traitement antigerme</label>'+
-        '<label class="field checkbox-field"><input type="checkbox" data-f="poidsSorti"> Poids sorti</label>'+
-        '<label class="field">Nb de palox<input type="number" min="1" step="1" data-f="nbPalox" value="1" required></label>'+
-        '<label class="field span-2">Commentaire<input type="text" data-f="commentaire"></label>'+
-      '</div>'+
-      '<div class="hint" style="display:block;margin-top:10px;">Poids par palox (kg) — obligatoire</div>'+
-      '<div class="palox-weights">'+paloxWeightInputsHtml(1)+'</div>'+
-      (idx>0 ? '<button type="button" class="btn btn-ghost btn-sm" data-remove-row style="margin-top:8px;">Retirer cette ligne de saisie</button>' : '')+
-    '</div>';
-  }
-
-  let bulkRowCounter = 0;
-
-  function openBulkEntreePanel(celluleId, ligneId){
-    bulkRowCounter = 0;
-    const panel = document.getElementById('detailPanel');
-    panel.innerHTML =
-      '<div class="detail-header"><button class="detail-close" id="closeDetail">×</button><h3>Entrée</h3><p>Ajoute du stock — une ligne de saisie par produit/emplacement, sur une ou plusieurs lignes.</p></div>'+
-      '<div class="detail-body">'+
-        '<form id="bulkForm">'+
-          '<div id="bulkRows">'+bulkRowHtml(0, celluleId, ligneId)+'</div>'+
-          '<button type="button" class="btn btn-ghost btn-sm" id="addBulkRow" style="margin-top:4px;">+ Ajouter une ligne de saisie</button>'+
-          '<div class="grid-form two" style="margin-top:12px;"><label class="field">Date<input type="date" name="bulkDate" value="'+today()+'" required></label></div>'+
-          '<div class="btn-row"><button class="btn btn-green" type="submit">Valider</button><span class="msg" id="bulkMsg"></span></div>'+
-        '</form>'+
-      '</div>';
-    panel.classList.add('open');
-    document.getElementById('overlayBg').classList.add('open');
-    panel.dataset.mode = 'bulk';
-    bindBulkEvents();
-  }
-
-  function bindBulkEvents(){
-    document.getElementById('closeDetail').addEventListener('click', closeDetail);
-    document.getElementById('overlayBg').addEventListener('click', closeDetail);
-
-    const rowsEl = document.getElementById('bulkRows');
-
-    document.getElementById('addBulkRow').addEventListener('click', ()=>{
-      bulkRowCounter++;
-      const wrap = document.createElement('div');
-      wrap.innerHTML = bulkRowHtml(bulkRowCounter);
-      const row = wrap.firstElementChild;
-      rowsEl.appendChild(row);
-      row.querySelector('[data-f="ligne"]').innerHTML = ligneOptionsHtml(row.querySelector('[data-f="cellule"]').value);
-    });
-
-    rowsEl.addEventListener('click', (ev)=>{
-      if(ev.target.matches('[data-remove-row]')) ev.target.closest('.entree-row').remove();
-    });
-    rowsEl.addEventListener('input', (ev)=>{
-      if(ev.target.matches('[data-f="nbPalox"]') || ev.target.matches('[data-f="lot"]') || ev.target.matches('[data-f="lot2"]')) refreshPaloxWeightInputs(ev.target.closest('.entree-row'));
-    });
-    rowsEl.addEventListener('change', (ev)=>{
-      if(ev.target.matches('[data-f="cellule"]')){
-        const row = ev.target.closest('.entree-row');
-        row.querySelector('[data-f="ligne"]').innerHTML = ligneOptionsHtml(ev.target.value);
-      }
-    });
-
-    document.getElementById('bulkForm').addEventListener('submit', async (ev)=>{
-      ev.preventDefault();
-      const dateVal = document.querySelector('[name="bulkDate"]').value;
-      const rows = Array.from(rowsEl.querySelectorAll('.entree-row'));
-      const msg = document.getElementById('bulkMsg');
-      let applied = 0, errors = [];
-
-      rows.forEach((row, idx)=>{
-        const celluleId = row.querySelector('[data-f="cellule"]').value;
-        const ligneId = row.querySelector('[data-f="ligne"]').value;
-        const produit = row.querySelector('[data-f="produit"]').value.trim();
-        const nbPalox = parseFloat(row.querySelector('[data-f="nbPalox"]').value);
-        const ligneObj = getLigne(celluleId, ligneId);
-        if(!produit){ errors.push('Ligne #'+(idx+1)+' : produit manquant'); return; }
-        if(!nbPalox || nbPalox<1){ errors.push('Ligne #'+(idx+1)+' : quantité invalide'); return; }
-        const count = Math.round(nbPalox);
-        const used = ligneOccupied(celluleId, ligneId);
-        if(used + count > ligneObj.capacite){ errors.push('Ligne #'+(idx+1)+' ('+ligneObj.nom+') : ne rentre pas, '+(ligneObj.capacite-used)+' palox restants'); return; }
-        const lotVal = row.querySelector('[data-f="lot"]').value.trim();
-        const lot2Val = row.querySelector('[data-f="lot2"]').value.trim();
-        const parcelle = row.querySelector('[data-f="parcelle"]').value.trim();
-        const calibre = row.querySelector('[data-f="calibre"]').value.trim();
-        if(!calibre){ errors.push('Ligne #'+(idx+1)+' : calibre manquant'); return; }
-        const traitement = row.querySelector('[data-f="traitement"]').checked;
-        const poidsSorti = row.querySelector('[data-f="poidsSorti"]').checked;
-        const weightsEl = row.querySelector('.palox-weights');
-        const paloxStates = weightsEl ? readPaloxWeightsState(weightsEl) : [];
-        const commentaire = row.querySelector('[data-f="commentaire"]').value.trim();
-        const resolved = [];
-        for(let n=0;n<count;n++) resolved.push(resolvePaloxWeight(paloxStates[n]));
-        const missingWeight = resolved.some(r => r.poids==null || (lot2Val && r.poidsLot2==null));
-        if(missingWeight){ errors.push('Ligne #'+(idx+1)+' : le poids de chaque palox est obligatoire'+(lot2Val?' (lot 1 et lot 2)':'')); return; }
-        const batchId = uid();
-        const poidsKnown = [];
-        resolved.forEach(({poids: poidsUnit, poidsLot2: poidsLot2Unit})=>{
-          poidsKnown.push((poidsUnit||0) + (poidsLot2Unit||0));
-          state.lots.push({ id: uid(), celluleId, ligneId, batchId, produit, lot: lotVal, lot2: lot2Val, parcelle, calibre, traitement, poidsSorti, poids: poidsUnit, poidsLot2: poidsLot2Unit, dateEntree: dateVal, commentaire });
-        });
-        const poidsTotal = poidsKnown.reduce((a,b)=>a+b,0);
-        addTx('entree', { quantite: count, poids: poidsTotal, produit, lot: lotVal, lot2: lot2Val, date: dateVal, commentaire, label: caseLabel(celluleId,ligneId) });
-        applied++;
-      });
-
-      await saveState();
-      renderHeaderStats();
-      if(errors.length===0){
-        closeDetail();
-        renderTab(currentTab);
-      } else {
-        msg.innerHTML = (applied>0 ? '✓ '+applied+' ligne(s) appliquée(s).<br>':'')+'⚠ '+errors.join('<br>⚠ ');
-        msg.className = 'msg err';
-        renderTab(currentTab);
-      }
-    });
-  }
-
-  // ---------- RECHERCHE ----------
-  function distinctValues(field){
-    const seen = {}, out = [];
-    state.lots.forEach(l=>{
-      const v = (l[field]||'').trim();
-      if(v && !seen[v]){ seen[v]=true; out.push(v); }
-    });
-    return out.sort((a,b)=>a.localeCompare(b, 'fr'));
-  }
-  function viewRecherche(){
-    const celluleOpts = state.cellules.map(c=>'<option value="'+c.id+'">'+escapeHtml(c.nom)+'</option>').join('');
-    const produitOpts = distinctValues('produit').map(p=>'<option value="'+escapeHtml(p)+'">'+escapeHtml(p)+'</option>').join('');
-    const calibreOpts = distinctValues('calibre').map(c=>'<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>').join('');
-    return '<div class="card"><h2>Consultation des stocks</h2><p class="sub">Filtre par cellule, produit, calibre ou lot, et/ou fais une recherche libre.</p>'+
-      '<div class="grid-form" style="margin-bottom:14px;">'+
-        '<label class="field">Cellule<select id="filterCellule"><option value="">Toutes</option>'+celluleOpts+'</select></label>'+
-        '<label class="field">Produit<select id="filterProduit"><option value="">Tous</option>'+produitOpts+'</select></label>'+
-        '<label class="field">Calibre<select id="filterCalibre"><option value="">Tous</option>'+calibreOpts+'</select></label>'+
-        '<label class="field">Lot<input type="text" id="filterLot" placeholder="ex : L070GA43"></label>'+
-      '</div>'+
-      '<div class="search-box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>'+
-      '<input type="text" id="searchInput" placeholder="recherche libre : parcelle, commentaire, emplacement…"></div>'+
-      '<div class="btn-row" style="margin-top:10px;"><button type="button" class="btn btn-blue btn-sm" id="exportStockBtn">Exporter en Excel (.csv)</button></div>'+
-      '<div id="searchResults">'+searchResultsHtml({})+'</div></div>';
-  }
-  function currentSearchFilters(){
-    return {
-      q: (document.getElementById('searchInput')||{}).value || '',
-      celluleId: (document.getElementById('filterCellule')||{}).value || '',
-      produit: (document.getElementById('filterProduit')||{}).value || '',
-      calibre: (document.getElementById('filterCalibre')||{}).value || '',
-      lot: (document.getElementById('filterLot')||{}).value || ''
-    };
-  }
-  function refreshSearchResults(){
-    document.getElementById('searchResults').innerHTML = searchResultsHtml(currentSearchFilters());
-  }
-  function filteredBatches(filters){
-    filters = filters || {};
-    const q = (filters.q||'').toLowerCase().trim();
-    const lotText = (filters.lot||'').toLowerCase().trim();
-    let batches = groupByBatch(state.lots);
-    if(filters.celluleId) batches = batches.filter(b=>b.celluleId===filters.celluleId);
-    if(filters.produit) batches = batches.filter(b=>b.produit===filters.produit);
-    if(filters.calibre) batches = batches.filter(b=>b.calibre===filters.calibre);
-    if(lotText) batches = batches.filter(b=>(b.lot||'').toLowerCase().includes(lotText) || (b.lot2||'').toLowerCase().includes(lotText));
-    if(q){
-      const tokens = q.split(/\s+/).filter(Boolean);
-      batches = batches.filter(b=>{
-        const haystack = [b.produit,b.lot,b.lot2,b.parcelle,b.calibre,(b.traitement?'antigerme':''),b.commentaire,caseLabel(b.celluleId,b.ligneId)]
-          .map(f=>(f||'').toLowerCase()).join(' ');
-        return tokens.every(t => haystack.includes(t));
-      });
-    }
-    return batches;
-  }
-  function csvEscape(v){
-    v = String(v??'');
-    return /[;"\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
-  }
-  function exportStockCsv(){
-    const batches = filteredBatches(currentSearchFilters()).filter(b => !(getCellule(b.celluleId)||{}).nonAchetee);
-    const header = ['Produit','Lot','Poids total (kg)','Palox','Emplacement','Calibre','Traitement','Poids sorti'];
-    const lines = [header.join(';')];
-    batches.forEach(b=>{
-      const summary = batchPoidsSummary(b);
-      const row = [
-        b.produit||'',
-        (b.lot||'')+(b.lot2? ' + '+b.lot2 : ''),
-        summary.total>0 ? fmt(summary.total) : '',
-        b.paloxs.length,
-        caseLabel(b.celluleId,b.ligneId),
-        b.calibre||'',
-        b.traitement ? 'Oui' : 'Non',
-        b.poidsSorti ? 'Oui' : 'Non'
-      ];
-      lines.push(row.map(csvEscape).join(';'));
-    });
-    const blob = new Blob(['\uFEFF'+lines.join('\r\n')], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'stock-'+today()+'.csv';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(()=>URL.revokeObjectURL(url), 2000);
-  }
-  function searchResultsHtml(filters){
-    filters = filters || {};
-    const q = (filters.q||'').toLowerCase().trim();
-    const lotText = (filters.lot||'').toLowerCase().trim();
-    const batches = filteredBatches(filters);
-    const anyFilter = q || filters.celluleId || filters.produit || filters.calibre || lotText;
-    const totalPaloxCount = batches.reduce((s,b)=>s+b.paloxs.length,0);
-    const totalKnown = batches.reduce((s,b)=>s+batchPoidsSummary(b).total,0);
-    const totalUnknown = batches.reduce((s,b)=>s+batchPoidsSummary(b).unknown,0);
-    const totalHtml = '<div class="consult-total"><span>Total affiché</span><span>'+totalPaloxCount+' palox · '+fmt(totalKnown)+' kg'+(totalUnknown>0?' connus ('+totalUnknown+' palox sans poids)':'')+'</span></div>';
-    if(batches.length===0) return emptyState(anyFilter? "Aucun résultat" : "Aucun palox enregistré", anyFilter? "Essaie d'élargir tes critères." : "Filtre par cellule, produit, calibre, lot — ou tape une recherche libre.")+totalHtml;
-    const sorted = batches.slice().sort((a,b)=>(a.produit||'').localeCompare(b.produit||'','fr'));
-    let rows = '';
-    let i = 0;
-    while(i < sorted.length){
-      const produit = sorted[i].produit;
-      let groupPalox = 0, groupKnown = 0, groupUnknown = 0;
-      while(i < sorted.length && sorted[i].produit === produit){
-        const b = sorted[i];
-        const summary = batchPoidsSummary(b);
-        const poidsStr = summary.total>0 ? (fmt(summary.total)+' kg'+(summary.unknown>0?' (partiel)':'')) : '—';
-        rows += '<tr><td>'+escapeHtml(b.produit)+'</td><td class="mono">'+escapeHtml(b.lot||'—')+(b.lot2? ' + '+escapeHtml(b.lot2):'')+'</td>'+
-          '<td>'+escapeHtml(b.parcelle||'—')+'</td><td>'+escapeHtml(b.calibre||'—')+'</td><td>'+(b.traitement?'Antigerme':'—')+'</td>'+
-          '<td>'+(b.poidsSorti?'Oui':'—')+'</td>'+
-          '<td class="mono">'+b.paloxs.length+'</td>'+
-          '<td class="mono">'+poidsStr+'</td>'+
-          '<td>'+escapeHtml(caseLabel(b.celluleId,b.ligneId))+'</td>'+
-          '<td>'+escapeHtml(b.commentaire||'—')+'</td></tr>';
-        groupPalox += b.paloxs.length;
-        groupKnown += summary.total;
-        groupUnknown += summary.unknown;
-        i++;
-      }
-      rows += '<tr class="totals-row"><td colspan="6">Sous-total — '+escapeHtml(produit)+'</td>'+
-        '<td class="mono">'+groupPalox+'</td>'+
-        '<td class="mono">'+fmt(groupKnown)+' kg'+(groupUnknown>0?' ('+groupUnknown+' sans poids)':'')+'</td>'+
-        '<td colspan="2"></td></tr>';
-    }
-    return '<div class="table-scroll"><table class="data"><thead><tr><th>Produit</th><th>Lot</th><th>Parcelle</th><th>Calibre</th><th>Traitement</th><th>Poids sorti</th><th>Palox</th><th>Poids</th><th>Emplacement</th><th>Commentaire</th></tr></thead><tbody>'+rows+'</tbody></table></div>'+totalHtml;
-  }
-
-  // ---------- STOCK GLOBAL ----------
-  function globalStockGroups(byCellule){
-    const map = {}, order = [];
-    state.lots.forEach(l=>{
-      const cell = getCellule(l.celluleId);
-      const isNonAchetee = !!(cell && cell.nonAchetee);
-      const key = (byCellule ? l.celluleId+'|' : (isNonAchetee?'nonachetee|':'cellules|')) + l.produit + '|' + (l.calibre||'');
-      if(!map[key]){
-        map[key] = { celluleId: byCellule ? l.celluleId : null, nonAchetee: isNonAchetee, produit: l.produit, calibre: l.calibre||'', count:0, poidsConnu:0, inconnu:0 };
-        order.push(key);
-      }
-      map[key].count++;
-      const tot = paloxTotalPoids(l);
-      if(tot!=null) map[key].poidsConnu += tot; else map[key].inconnu++;
-    });
-    return order.map(k=>map[k]).sort((a,b)=>{
-      if(byCellule){
-        const nomA = getCellule(a.celluleId).nom, nomB = getCellule(b.celluleId).nom;
-        if(nomA!==nomB) return nomA.localeCompare(nomB,'fr');
-      } else if(a.nonAchetee!==b.nonAchetee){
-        return a.nonAchetee ? 1 : -1;
-      }
-      if(a.produit!==b.produit) return a.produit.localeCompare(b.produit,'fr');
-      return (a.calibre||'').localeCompare(b.calibre||'','fr');
-    });
-  }
-  function globalStockTableHtml(groups, byCellule){
-    let rows = '';
-    let i = 0;
-    while(i < groups.length){
-      const g0 = groups[i];
-      let groupPalox = 0, groupPoids = 0, groupInconnu = 0;
-      while(i < groups.length && groups[i].produit===g0.produit && (!byCellule || groups[i].celluleId===g0.celluleId)){
-        const g = groups[i];
-        const poidsStr = g.poidsConnu>0 ? (fmt(g.poidsConnu)+' kg'+(g.inconnu>0?' (partiel)':'')) : '—';
-        const celluleCell = byCellule ? '<td>'+escapeHtml(getCellule(g.celluleId).nom)+'</td>' : '';
-        rows += '<tr>'+celluleCell+
-          '<td><span class="produit-dot" style="background:'+colorForProduit(g.produit)+'"></span>'+escapeHtml(g.produit)+'</td>'+
-          '<td>'+escapeHtml(g.calibre||'—')+'</td>'+
-          '<td class="mono">'+g.count+'</td>'+
-          '<td class="mono">'+poidsStr+'</td>'+
-        '</tr>';
-        groupPalox += g.count; groupPoids += g.poidsConnu; groupInconnu += g.inconnu;
-        i++;
-      }
-      const celluleSubtotalCell = byCellule ? '<td></td>' : '';
-      rows += '<tr class="totals-row">'+celluleSubtotalCell+'<td colspan="2">Sous-total — '+escapeHtml(g0.produit)+'</td>'+
-        '<td class="mono">'+groupPalox+'</td>'+
-        '<td class="mono">'+fmt(groupPoids)+' kg'+(groupInconnu>0?' ('+groupInconnu+' sans poids)':'')+'</td></tr>';
-    }
-    const totalCount = groups.reduce((s,g)=>s+g.count,0);
-    const totalPoids = groups.reduce((s,g)=>s+g.poidsConnu,0);
-    const totalInconnu = groups.reduce((s,g)=>s+g.inconnu,0);
-    const celluleHead = byCellule ? '<th>Cellule</th>' : '';
-    const celluleTotalCell = byCellule ? '<td></td>' : '';
-    const totalsRow = '<tr class="totals-row">'+celluleTotalCell+'<td>Total</td><td></td><td class="mono">'+totalCount+'</td>'+
-      '<td class="mono">'+fmt(totalPoids)+' kg'+(totalInconnu>0?' ('+totalInconnu+' sans poids)':'')+'</td></tr>';
-    return '<div class="table-scroll"><table class="data"><thead><tr>'+celluleHead+'<th>Produit</th><th>Calibre</th><th>Palox</th><th>Poids</th></tr></thead><tbody>'+rows+totalsRow+'</tbody></table></div>';
-  }
-  function viewGlobal(){
-    const groups = globalStockGroups(globalByCellule);
-    const switchHtml = '<div class="view-switch">'+
-      '<button type="button" data-global-mode="all" class="'+(!globalByCellule?'active':'')+'">Toutes les cellules</button>'+
-      '<button type="button" data-global-mode="cellule" class="'+(globalByCellule?'active':'')+'">Par cellule</button>'+
-    '</div>';
-    if(groups.length===0){
-      return '<div class="card"><h2>Stock global</h2><p class="sub">Vue d\'ensemble du stock, tous produits et calibres confondus.</p>'+switchHtml+emptyState("Aucun palox enregistré", "Le stock global se remplit dès la première entrée.")+'</div>';
-    }
-    let tablesHtml;
-    if(globalByCellule){
-      tablesHtml = globalStockTableHtml(groups, true);
-    } else {
-      const nonAcheteeGroups = groups.filter(g=>g.nonAchetee);
-      const celluleGroups = groups.filter(g=>!g.nonAchetee);
-      if(nonAcheteeGroups.length===0){
-        tablesHtml = globalStockTableHtml(groups, false);
-      } else {
-        tablesHtml = '<h3 style="margin:0 0 8px;">Cellules</h3>'+globalStockTableHtml(celluleGroups, false)+
-          '<h3 style="margin:20px 0 8px;">Marchandise extérieure non achetée</h3>'+globalStockTableHtml(nonAcheteeGroups, false);
-      }
-    }
-    return '<div class="card"><h2>Stock global</h2><p class="sub">Vue d\'ensemble du stock par produit et calibre.</p>'+switchHtml+
-      tablesHtml+
-    '</div>';
-  }
-
-  // ---------- HISTORIQUE ----------
-  function viewHistorique(){
-    return '<div class="card"><h2>Historique des mouvements</h2><p class="sub">Toutes les entrées, sorties et déplacements enregistrés.</p>'+
-      '<div id="txTableWrap">'+txTable(state.transactions)+'</div></div>';
-  }
-  function txTable(txs){
-    if(txs.length===0) return emptyState("Aucun mouvement enregistré", "L'historique se remplit à chaque entrée, sortie ou déplacement.");
-    const typeLabels = { entree:'Entrée', sortie:'Sortie', deplacement:'Déplacement', modification:'Modification' };
-    const rows = txs.map(t=>{
-      const typeLabel = typeLabels[t.type] || t.type;
-      const posHtml = t.type==='deplacement' ? ('<span class="mono">'+escapeHtml(t.fromLabel)+'</span> → <span class="mono">'+escapeHtml(t.toLabel)+'</span>') : ('<span class="mono">'+escapeHtml(t.label)+'</span>');
-      return '<tr><td>'+fmtDate(t.date)+'</td><td><span class="tag '+t.type+'">'+typeLabel+'</span></td>'+
-        '<td>'+escapeHtml(t.produit||'—')+(t.lot? ' ('+escapeHtml(t.lot)+(t.lot2?' + '+escapeHtml(t.lot2):'')+')':'')+'</td>'+
-        '<td>'+posHtml+'</td><td class="mono">'+fmt(t.quantite)+'</td>'+
-        '<td class="mono">'+(t.poids!=null? fmt(t.poids)+' kg':'—')+'</td>'+
-        '<td>'+escapeHtml(t.commentaire||'—')+'</td>'+
-        '<td>'+escapeHtml(t.responsable||'—')+'</td>'+
-        (isAdmin() ? '<td><button class="del-btn" data-del-tx="'+t.id+'">supprimer</button></td>' : '')+
-      '</tr>';
-    }).join('');
-    return '<div class="table-scroll"><table class="data"><thead><tr><th>Date</th><th>Type</th><th>Produit</th><th>Emplacement</th><th>Palox</th><th>Poids</th><th>Commentaire</th><th>Responsable</th>'+(isAdmin()?'<th></th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
-  }
-
-  // ---------- CELLULES (config) ----------
-  function viewCellules(){
-    const backupSection = '<div class="card"><h2>Sauvegarde manuelle</h2>'+
-      '<p class="sub">En cas de souci avec la sauvegarde automatique, exporte un fichier de secours régulièrement, et importe-le pour restaurer tes données.</p>'+
-      '<div class="btn-row" style="margin-top:0;">'+
-        '<button class="btn btn-blue btn-sm" id="exportBackupBtn">Exporter une sauvegarde (.json)</button>'+
-        '<label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer;">Importer une sauvegarde<input type="file" id="importBackupInput" accept="application/json" style="display:none;"></label>'+
-      '</div></div>';
-    const blocks = state.cellules.map(c=>{
-      const lignesHtml = c.lignes.map(l=>{
-        return '<div class="ligne-row" data-ligne-row="'+l.id+'">'+
-            '<input type="text" value="'+escapeHtml(l.nom)+'" data-ligne-nom="'+c.id+'|'+l.id+'">'+
-            '<span style="color:var(--ink-soft)">capacité :</span>'+
-            '<input type="number" min="1" value="'+l.capacite+'" data-ligne-cap="'+c.id+'|'+l.id+'">'+
-            '<span style="color:var(--ink-soft)">palox</span>'+
-            '<button class="del-btn" data-del-ligne="'+c.id+'|'+l.id+'">supprimer la ligne</button>'+
-        '</div>';
-      }).join('');
-      return '<div class="config-cellule" data-cellule-block="'+c.id+'">'+
-        '<div class="cfg-head"><input type="text" value="'+escapeHtml(c.nom)+'" data-cellule-nom="'+c.id+'">'+
-        '<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);"><input type="checkbox" data-cellule-non-achetee="'+c.id+'" '+(c.nonAchetee?'checked':'')+' style="width:auto;"> Marchandise extérieure non achetée</label>'+
-        '<button class="del-btn" data-del-cellule="'+c.id+'">supprimer</button></div>'+
-        lignesHtml+
-        '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-add-ligne="'+c.id+'">+ Ajouter une ligne</button>'+
-      '</div>';
-    }).join('');
-    return backupSection+'<div class="card"><h2>Structure des cellules</h2><p class="sub">Configure les cellules, leurs lignes et la capacité de chaque ligne (en nombre de palox). Une cellule ou ligne contenant encore du stock ne peut pas être supprimée.</p>'+
-      blocks+
-      '<button class="btn btn-copper" id="addCellule" style="margin-top:6px;">+ Nouvelle cellule</button></div>';
-  }
-
-  // ---------- COMPTES (admin) ----------
-  function viewComptes(){
-    return '<div class="card"><h2>Comptes</h2>'+
-      '<p class="sub">Comptes autorisés et leur rôle. La création d\'un nouveau compte (email + mot de passe) se fait toujours depuis la console Firebase ; ajoute-le ensuite ici avec son email et son rôle pour qu\'il apparaisse dans cette liste.</p>'+
-      '<div id="comptesList"><div class="loading" style="padding:24px 0;">Chargement des comptes…</div></div>'+
-    '</div>'+viewProduitsAdmin()+viewCalibresAdmin();
-  }
-  function viewProduitsAdmin(){
-    const list = (state.produits||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
-    const rows = list.map(p=>{
-      return '<div class="ligne-row">'+
-          '<input type="text" value="'+escapeHtml(p)+'" data-produit-old="'+escapeHtml(p)+'">'+
-          '<button class="del-btn" data-del-produit="'+escapeHtml(p)+'">supprimer</button>'+
-      '</div>';
-    }).join('');
-    return '<div class="card"><h2>Produits</h2>'+
-      '<p class="sub">Liste des produits proposés lors d\'une entrée de stock (bouton « + Entrée »), pour que tout le monde saisisse toujours le même intitulé.</p>'+
-      (list.length ? rows : emptyState("Aucun produit", "Ajoute au moins un produit pour pouvoir enregistrer une entrée de stock."))+
-      '<button class="btn btn-copper btn-sm" id="addProduit" style="margin-top:8px;">+ Nouveau produit</button>'+
-    '</div>';
-  }
-  function viewCalibresAdmin(){
-    const list = (state.calibres||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
-    const rows = list.map(c=>{
-      return '<div class="ligne-row">'+
-          '<input type="text" value="'+escapeHtml(c)+'" data-calibre-old="'+escapeHtml(c)+'">'+
-          '<button class="del-btn" data-del-calibre="'+escapeHtml(c)+'">supprimer</button>'+
-      '</div>';
-    }).join('');
-    return '<div class="card"><h2>Calibres</h2>'+
-      '<p class="sub">Liste des calibres proposés lors d\'une entrée ou d\'une modification de stock, pour que tout le monde saisisse toujours le même intitulé.</p>'+
-      (list.length ? rows : emptyState("Aucun calibre", "Ajoute au moins un calibre pour pouvoir le proposer à la saisie."))+
-      '<button class="btn btn-copper btn-sm" id="addCalibre" style="margin-top:8px;">+ Nouveau calibre</button>'+
-    '</div>';
-  }
-  async function loadComptesList(){
-    const el = document.getElementById('comptesList');
-    if(!el) return;
-    try{
-      const snap = await db.collection('users').get();
-      const rows = [];
-      snap.forEach(doc=>{
-        const d = doc.data() || {};
-        rows.push({ uid: doc.id, email: d.email || '(email non renseigné — uid : '+doc.id+')', role: (d.role==='admin'||d.role==='editor') ? d.role : 'viewer' });
-      });
-      if(rows.length===0){
-        el.innerHTML = emptyState("Aucun compte trouvé", "Ajoute un document dans la collection Firestore « users » pour chaque compte, avec ses champs email et role.");
-        return;
-      }
-      rows.sort((a,b)=>a.email.localeCompare(b.email,'fr'));
-      const selfUid = auth.currentUser ? auth.currentUser.uid : null;
-      const roleOpts = (current)=> ['viewer','editor','admin'].map(r=>{
-        const label = r==='admin' ? 'Admin' : r==='editor' ? 'Gestion' : 'Consultation';
-        return '<option value="'+r+'" '+(r===current?'selected':'')+'>'+label+'</option>';
-      }).join('');
-      const tableRows = rows.map(r=>{
-        const isSelf = r.uid===selfUid;
-        return '<tr><td>'+escapeHtml(r.email)+(isSelf? ' <span class="mono" style="color:var(--ink-soft);">(toi)</span>':'')+'</td>'+
-          '<td><select data-role-select="'+r.uid+'" '+(isSelf?'disabled':'')+'>'+roleOpts(r.role)+'</select></td>'+
-          '<td><span class="msg" id="msg-role-'+r.uid+'"></span></td></tr>';
-      }).join('');
-      el.innerHTML = '<div class="table-scroll"><table class="data"><thead><tr><th>Email</th><th>Rôle</th><th></th></tr></thead><tbody>'+tableRows+'</tbody></table></div>'+
-        '<p class="sub" style="margin-top:10px;">Tu ne peux pas changer ton propre rôle depuis cette liste, pour éviter de te bloquer toi-même par erreur.</p>';
-      document.querySelectorAll('[data-role-select]').forEach(sel=>{
-        sel.addEventListener('change', async ()=>{
-          const uid = sel.dataset.roleSelect;
-          const newRole = sel.value;
-          const msg = document.getElementById('msg-role-'+uid);
-          try{
-            await db.collection('users').doc(uid).set({ role: newRole }, { merge: true });
-            if(msg){ msg.textContent = '✓ mis à jour'; msg.className = 'msg ok'; }
-          }catch(e){
-            if(msg){ msg.textContent = '✗ '+e.message; msg.className = 'msg err'; }
-          }
-        });
-      });
-    }catch(e){
-      el.innerHTML = '<p class="msg err">✗ Impossible de charger les comptes : '+escapeHtml(e.message)+'</p>';
-    }
-  }
-
-  function bindTabEvents(tab){
-    if(tab==='stockage'){
-      document.querySelectorAll('#stockageCelluleTabs button').forEach(b=>{
-        b.addEventListener('click', ()=>{ currentCelluleId = b.dataset.cellule; renderTab('stockage'); });
-      });
-      document.querySelectorAll('.ligne-list-item').forEach(row=>{
-        row.addEventListener('click', ()=>{ openLigneDetail(row.dataset.cellule, row.dataset.ligne); });
-      });
-      document.querySelectorAll('[data-produit-jump]').forEach(btn=>{
-        btn.addEventListener('click', (ev)=>{
-          ev.stopPropagation();
-          const [cId,lId,prod] = btn.dataset.produitJump.split('|');
-          openLigneDetail(cId, lId, decodeURIComponent(prod));
-        });
-      });
-      document.querySelectorAll('[data-ligne-entree]').forEach(btn=>{
-        btn.addEventListener('click', (ev)=>{
-          ev.stopPropagation();
-          const [cId,lId] = btn.dataset.ligneEntree.split('|');
-          openBulkEntreePanel(cId, lId);
-        });
-      });
-      const bulkBtn = document.getElementById('openBulkEntree');
-      if(bulkBtn) bulkBtn.addEventListener('click', ()=>openBulkEntreePanel());
-    }
-    if(tab==='recherche'){
-      document.getElementById('searchInput').addEventListener('input', refreshSearchResults);
-      document.getElementById('filterCellule').addEventListener('change', refreshSearchResults);
-      document.getElementById('filterProduit').addEventListener('change', refreshSearchResults);
-      document.getElementById('filterCalibre').addEventListener('change', refreshSearchResults);
-      document.getElementById('filterLot').addEventListener('input', refreshSearchResults);
-      document.getElementById('exportStockBtn').addEventListener('click', exportStockCsv);
-    }
-    if(tab==='historique'){
-      document.querySelectorAll('[data-del-tx]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          if(!confirm('Supprimer cette ligne d\'historique ? Cette action ne peut pas être annulée. Le stock associé n\'est pas modifié.')) return;
-          state.transactions = state.transactions.filter(t=>t.id!==btn.dataset.delTx);
-          await saveState();
-          renderTab('historique');
-        });
-      });
-    }
-    if(tab==='global'){
-      document.querySelectorAll('[data-global-mode]').forEach(btn=>{
-        btn.addEventListener('click', ()=>{
-          globalByCellule = btn.dataset.globalMode==='cellule';
-          renderTab('global');
-        });
-      });
-    }
-    if(tab==='cellules'){
-      document.getElementById('exportBackupBtn').addEventListener('click', exportBackup);
-      document.getElementById('importBackupInput').addEventListener('change', (ev)=>{
-        if(ev.target.files && ev.target.files[0]) importBackup(ev.target.files[0]);
-      });
-      document.querySelectorAll('[data-cellule-nom]').forEach(inp=>{
-        inp.addEventListener('change', async ()=>{
-          getCellule(inp.dataset.celluleNom).nom = inp.value.trim() || 'Sans nom';
-          await saveState(); renderTab('cellules');
-        });
-      });
-      document.querySelectorAll('[data-cellule-non-achetee]').forEach(cb=>{
-        cb.addEventListener('change', async ()=>{
-          getCellule(cb.dataset.celluleNonAchetee).nonAchetee = cb.checked;
-          await saveState(); renderTab('cellules');
-        });
-      });
-      document.querySelectorAll('[data-ligne-nom]').forEach(inp=>{
-        inp.addEventListener('change', async ()=>{
-          const [cId, lId] = inp.dataset.ligneNom.split('|');
-          getLigne(cId,lId).nom = inp.value.trim() || 'Sans nom';
-          await saveState(); renderTab('cellules');
-        });
-      });
-      document.querySelectorAll('[data-ligne-cap]').forEach(inp=>{
-        inp.addEventListener('change', async ()=>{
-          const [cId, lId] = inp.dataset.ligneCap.split('|');
-          const newVal = Math.max(1, parseInt(inp.value)||1);
-          const occ = ligneOccupied(cId, lId);
-          if(newVal < occ){ alert('Impossible : cette ligne contient déjà '+occ+' palox.'); renderTab('cellules'); return; }
-          getLigne(cId,lId).capacite = newVal;
-          await saveState(); renderTab('cellules');
-        });
-      });
-      document.querySelectorAll('[data-add-ligne]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const c = getCellule(btn.dataset.addLigne);
-          c.lignes.push({ id: uid(), nom: 'Nouvelle ligne', capacite: 50 });
-          await saveState(); renderTab('cellules');
-        });
-      });
-      document.querySelectorAll('[data-del-ligne]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const [cId, lId] = btn.dataset.delLigne.split('|');
-          if(state.lots.some(x=>x.celluleId===cId && x.ligneId===lId)){ alert('Cette ligne contient encore du stock, elle ne peut pas être supprimée.'); return; }
-          if(!confirm('Supprimer cette ligne ?')) return;
-          const c = getCellule(cId);
-          c.lignes = c.lignes.filter(l=>l.id!==lId);
-          await saveState(); renderTab('cellules');
-        });
-      });
-      document.querySelectorAll('[data-del-cellule]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const cId = btn.dataset.delCellule;
-          if(state.lots.some(x=>x.celluleId===cId)){ alert('Cette cellule contient encore du stock, elle ne peut pas être supprimée.'); return; }
-          if(!confirm('Supprimer cette cellule ?')) return;
-          state.cellules = state.cellules.filter(c=>c.id!==cId);
-          if(currentCelluleId===cId) currentCelluleId = state.cellules[0] ? state.cellules[0].id : null;
-          await saveState(); renderTab('cellules'); renderHeaderStats();
-        });
-      });
-      document.getElementById('addCellule').addEventListener('click', async ()=>{
-        const nom = prompt('Nom de la nouvelle cellule :', 'Nouvelle cellule');
-        if(!nom) return;
-        state.cellules.push({ id: uid(), nom: nom.trim(), lignes: [{ id: uid(), nom: 'Ligne 1', capacite: 50 }] });
-        await saveState(); renderTab('cellules'); renderHeaderStats();
-      });
-    }
-    if(tab==='comptes'){
-      loadComptesList();
-      document.querySelectorAll('[data-produit-old]').forEach(inp=>{
-        inp.addEventListener('change', async ()=>{
-          const oldName = inp.dataset.produitOld;
-          const newName = inp.value.trim();
-          if(!newName){ inp.value = oldName; return; }
-          if(newName!==oldName && (state.produits||[]).some(p=>p.toLowerCase()===newName.toLowerCase())){
-            alert('Ce produit existe déjà dans la liste.'); inp.value = oldName; return;
-          }
-          const idx = state.produits.indexOf(oldName);
-          if(idx>-1) state.produits[idx] = newName;
-          await saveState(); renderTab('comptes');
-        });
-      });
-      document.querySelectorAll('[data-del-produit]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const nom = btn.dataset.delProduit;
-          if(!confirm('Supprimer « '+nom+' » de la liste ? Les entrées déjà enregistrées avec ce produit ne sont pas affectées.')) return;
-          state.produits = state.produits.filter(p=>p!==nom);
-          await saveState(); renderTab('comptes');
-        });
-      });
-      const addProduitBtn = document.getElementById('addProduit');
-      if(addProduitBtn) addProduitBtn.addEventListener('click', async ()=>{
-        const nom = prompt('Nom du nouveau produit :', '');
-        if(!nom || !nom.trim()) return;
-        const trimmed = nom.trim();
-        if((state.produits||[]).some(p=>p.toLowerCase()===trimmed.toLowerCase())){ alert('Ce produit existe déjà dans la liste.'); return; }
-        state.produits.push(trimmed);
-        await saveState(); renderTab('comptes');
-      });
-      document.querySelectorAll('[data-calibre-old]').forEach(inp=>{
-        inp.addEventListener('change', async ()=>{
-          const oldName = inp.dataset.calibreOld;
-          const newName = inp.value.trim();
-          if(!newName){ inp.value = oldName; return; }
-          if(newName!==oldName && (state.calibres||[]).some(c=>c.toLowerCase()===newName.toLowerCase())){
-            alert('Ce calibre existe déjà dans la liste.'); inp.value = oldName; return;
-          }
-          const idx = state.calibres.indexOf(oldName);
-          if(idx>-1) state.calibres[idx] = newName;
-          await saveState(); renderTab('comptes');
-        });
-      });
-      document.querySelectorAll('[data-del-calibre]').forEach(btn=>{
-        btn.addEventListener('click', async ()=>{
-          const nom = btn.dataset.delCalibre;
-          if(!confirm('Supprimer « '+nom+' » de la liste ? Les entrées déjà enregistrées avec ce calibre ne sont pas affectées.')) return;
-          state.calibres = state.calibres.filter(c=>c!==nom);
-          await saveState(); renderTab('comptes');
-        });
-      });
-      const addCalibreBtn = document.getElementById('addCalibre');
-      if(addCalibreBtn) addCalibreBtn.addEventListener('click', async ()=>{
-        const nom = prompt('Nom du nouveau calibre :', '');
-        if(!nom || !nom.trim()) return;
-        const trimmed = nom.trim();
-        if((state.calibres||[]).some(c=>c.toLowerCase()===trimmed.toLowerCase())){ alert('Ce calibre existe déjà dans la liste.'); return; }
-        state.calibres.push(trimmed);
-        await saveState(); renderTab('comptes');
-      });
-    }
-  }
-
-  document.getElementById('tabs').addEventListener('click', (ev)=>{
-    const btn = ev.target.closest('button[data-tab]');
-    if(btn) renderTab(btn.dataset.tab);
-  });
-
-  document.getElementById('loginForm').addEventListener('submit', async (ev)=>{
+  document.getElementById('loginForm').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
     const password = document.getElementById('loginPassword').value;
@@ -1666,25 +194,21 @@
     }
   });
 
-  auth.onAuthStateChanged(async (user)=>{
-    if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
-    if(user){
-      try{
-        const roleDoc = await db.collection('users').doc(user.uid).get();
-        const r = roleDoc.exists ? roleDoc.data().role : null;
-        currentRole = (r==='admin' || r==='editor') ? r : 'viewer';
-      }catch(e){ currentRole = 'viewer'; }
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('mainWrap').style.display = '';
-      loaded = false;
-      currentCelluleId = null; currentTab = 'stockage';
-      attachSnapshotListener();
-    } else {
-      loaded = false;
-      document.getElementById('mainWrap').style.display = 'none';
-      document.getElementById('loginScreen').style.display = 'flex';
+  auth.onAuthStateChanged(async (user) => {
+    if (!user){
       document.getElementById('loginPassword').value = '';
+      show('loginScreen');
+      return;
     }
+    show('loadingScreen');
+    let role = 'viewer', roleReleves = 'none';
+    try{
+      const d = await db.collection('users').doc(user.uid).get();
+      const u = d.exists ? d.data() : {};
+      role = (u.role === 'admin' || u.role === 'editor') ? u.role : 'viewer';
+      roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
+    }catch(e){ console.warn('Lecture du rôle impossible', e); }
+    renderHome(user, role, roleReleves);
   });
 })();
 </script>
