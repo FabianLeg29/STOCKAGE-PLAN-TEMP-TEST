@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isAdmin() {
+      return isSignedIn() && userRole() == 'admin';
+    }
+    function canManageStock() {
+      return isSignedIn() && (userRole() == 'editor' || userRole() == 'admin');
+    }
+
+    // Rôle de chaque compte : admin (gère les comptes) / editor (gestion) / viewer (consultation).
+    // Un compte ne peut jamais changer son propre rôle ; seul un admin peut changer celui des autres.
+    // Le tout premier compte admin doit être créé à la main dans la console Firebase.
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin() && request.auth.uid != userId;
+    }
+
+    // Données du plan de stockage (cellules, palox, historique).
+    match /planStockage/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canManageStock();
+    }
+  }
+}
