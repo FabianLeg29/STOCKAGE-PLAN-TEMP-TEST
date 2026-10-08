@@ -54,6 +54,8 @@ textarea{min-height:80px;resize:vertical}
 .pick.fait.nm{border-color:var(--nm);background:var(--nm-bg)}
 .pick.fait.ko{border-color:var(--ko);background:var(--ko-bg)}
 .pick[aria-pressed="true"]{border-color:var(--brand);background:var(--sel)}
+.pick.propose{border:2px dashed var(--brand);background:var(--sel)}
+.pick span.prop{color:var(--brand);font-weight:700}
 .readout{display:grid;grid-template-columns:64px 1fr 64px;gap:10px;align-items:center}
 .step{height:64px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:1.8rem;font-weight:600;cursor:pointer}
 .tinput{position:relative}
@@ -287,7 +289,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   let cleOperateur = "";
   const savedToday = new Set();
 
-  const F = { lieu:null, etat:"service", temp:"", hr:"", choix:null, action:"", comment:"" };
+  const F = { lieu:null, propose:null, etat:"service", temp:"", hr:"", choix:null, action:"", comment:"" };
   const P = { cellule:null, produit:null, lot:"", mesures:[""], choix:null, action:"", comment:"", filtre:"" };
   const H = { mois: monthKey(new Date()), type:"all", ko:false, vue:"tableau", focus:null, chambres:null, choixOuvert:false, edit:null };
   // Chambres affichées dans l'historique (null = toutes) : mémorisé sur le poste
@@ -444,7 +446,9 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       const cmf=cmPour("frigo",f.nom); if(cmf) sub+=cmTexte();
       // Cadre coloré une fois la chambre relevée aujourd'hui : vert, orange (hors cible – normal), rouge (contre-mesure à faire)
       const fait=(l&&isToday(l.at))||savedToday.has(f.nom);
-      const cls=fait?" fait"+(cmf?" ko":l&&isToday(l.at)&&statutDe(l)==="normal"?" nm":""):"";
+      const prop=!F.lieu&&F.propose===f.nom;
+      if(prop) sub+='<span class="prop">Proposée ensuite</span>';
+      const cls=(fait?" fait"+(cmf?" ko":l&&isToday(l.at)&&statutDe(l)==="normal"?" nm":""):"")+(prop?" propose":"");
       h+='<button type="button" class="pick'+cls+'" data-lieu="'+esc(f.nom)+'" aria-pressed="'+(F.lieu===f.nom)+'"><b>'+esc(f.nom)+'</b>'+sub+'</button>';
     }
       h+='</div>';
@@ -464,7 +468,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       h+='<button class="primary" type="button" id="fsave">Enregistrer le relevé</button><p class="err hidden" id="ferr"></p>';
     }
     v.innerHTML=h; bindOp();
-    v.querySelectorAll(".pick[data-lieu]").forEach(b=>b.addEventListener("click",()=>{ if(F.lieu!==b.dataset.lieu){F.temp="";F.hr="";F.choix=null;F.action="";F.comment="";F.etat="service";} F.lieu=b.dataset.lieu; renderFrigo(); document.querySelector(".etat")&&document.querySelector(".etat").scrollIntoView({block:"start",behavior:"smooth"}); }));
+    v.querySelectorAll(".pick[data-lieu]").forEach(b=>b.addEventListener("click",()=>{ if(F.lieu!==b.dataset.lieu){F.temp="";F.hr="";F.choix=null;F.action="";F.comment="";F.etat="service";} F.lieu=b.dataset.lieu; F.propose=null; renderFrigo(); document.querySelector(".etat")&&document.querySelector(".etat").scrollIntoView({block:"start",behavior:"smooth"}); }));
     if(!fr) return;
     const min=fnum(fr.min), max=fnum(fr.max), hrMin=fnum(fr.hrMin), hrMax=fnum(fr.hrMax);
     const update=()=>{
@@ -485,19 +489,26 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     bindSteps();
     v.querySelectorAll("[data-etat]").forEach(b=>b.addEventListener("click",()=>{ F.etat=b.dataset.etat; v.querySelectorAll("[data-etat]").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); update(); }));
     lierHorsCible("f",F,update);
-    const pt=document.getElementById("cmplustard"); if(pt) pt.addEventListener("click",()=>{ allerSuivante(fr.nom); renderFrigo(); window.scrollTo(0,0); });
+    const pt=document.getElementById("cmplustard"); if(pt) pt.addEventListener("click",()=>{ allerSuivante(fr.nom); renderFrigo(); montrerListe(); });
     document.getElementById("fa").addEventListener("input",e=>F.action=e.target.value);
     document.getElementById("fc").addEventListener("input",e=>F.comment=e.target.value);
     document.getElementById("fsave").addEventListener("click",()=>saveFrigo(fr));
     update();
   }
 
+  // Après un enregistrement : retour à la liste des chambres. La chambre suivante non relevée
+  // (dans l'ordre affiché : frigos légumes puis cellules alliums) est proposée, sans être ouverte.
   function allerSuivante(nom){
-    const idx=config.frigos.findIndex(f=>f.nom===nom);
-    const order=config.frigos.slice(idx+1).concat(config.frigos.slice(0,idx));
+    const liste=FAMILLES.flatMap(([fam])=>config.frigos.filter(f=>f.famille===fam));
+    const idx=liste.findIndex(f=>f.nom===nom);
+    const order=liste.slice(idx+1).concat(liste.slice(0,idx));
     const next=order.find(f=>!doneToday(f.nom));
-    F.temp=""; F.hr=""; F.choix=null; F.action=""; F.comment=""; F.etat="service"; F.lieu=next?next.nom:null;
+    F.temp=""; F.hr=""; F.choix=null; F.action=""; F.comment=""; F.etat="service"; F.lieu=null; F.propose=next?next.nom:null;
     return next;
+  }
+  function montrerListe(){
+    const c=F.propose&&document.querySelector('.pick.propose');
+    if(c) c.scrollIntoView({block:"center"}); else window.scrollTo(0,0);
   }
   // garde l'écart qui vient d'être enregistré dans la liste du jour, même avant le retour de Firestore
   function memoriser(id,doc){ if(!currentMonthDocs.some(x=>x._id===id)) currentMonthDocs.unshift(Object.assign({_id:id},doc)); }
@@ -541,9 +552,8 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
         return;
       }
       const next=allerSuivante(fr.nom);
-      toast((cm?"Contre-mesure enregistrée":statut==="normal"?"Relevé enregistré (hors cible – normal)":"Relevé enregistré")+(next?" – suivant : "+next.nom:" – tournée terminée"));
-      renderFrigo();
-      const tgt=next?document.querySelector(".etat"):null; if(tgt) tgt.scrollIntoView({block:"start"}); else window.scrollTo(0,0);
+      toast((cm?"Contre-mesure enregistrée":statut==="normal"?"Relevé enregistré (hors cible – normal)":"Relevé enregistré")+(next?" – proposée ensuite : "+next.nom:" – tournée terminée"));
+      renderFrigo(); montrerListe();
     }catch(e){ show(errMsg(e)); btn.disabled=false; }
   }
 
