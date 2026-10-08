@@ -4,6 +4,10 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+    // Compte connu : connecté ET possède une fiche users (les comptes créés hors application sans fiche sont refusés).
+    function estConnu() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
     function userRole() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
@@ -24,7 +28,7 @@ service cloud.firestore {
 
     // Données du plan de stockage (cellules, palox, historique).
     match /planStockage/{docId} {
-      allow read: if isSignedIn();
+      allow read: if estConnu();
       allow write: if canManageStock();
     }
 

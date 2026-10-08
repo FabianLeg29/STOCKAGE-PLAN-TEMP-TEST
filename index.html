@@ -123,6 +123,7 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
+  const COMPTE_NON_AUTORISE = 'Compte non autorisé, contactez un administrateur';
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function show(id){ ['loadingScreen', 'loginScreen', 'homeScreen'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id)); }
   function ajoutMois(d, n){ const x = new Date(d); x.setMonth(x.getMonth() + n); return x; }
@@ -197,6 +198,8 @@
   auth.onAuthStateChanged(async (user) => {
     if (!user){
       document.getElementById('loginPassword').value = '';
+      // Arrivée depuis une autre page après refus d'un compte sans fiche users
+      if (location.hash === '#non-autorise'){ document.getElementById('loginMsg').textContent = COMPTE_NON_AUTORISE; history.replaceState(null, '', location.pathname); }
       show('loginScreen');
       return;
     }
@@ -204,7 +207,13 @@
     let role = 'viewer', roleReleves = 'none';
     try{
       const d = await db.collection('users').doc(user.uid).get();
-      const u = d.exists ? d.data() : {};
+      if (!d.exists){
+        // Compte créé dans Authentication mais sans fiche users : refusé puis déconnecté
+        await auth.signOut();
+        document.getElementById('loginMsg').textContent = COMPTE_NON_AUTORISE;
+        return;
+      }
+      const u = d.data();
       role = (u.role === 'admin' || u.role === 'editor') ? u.role : 'viewer';
       roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
     }catch(e){ console.warn('Lecture du rôle impossible', e); }

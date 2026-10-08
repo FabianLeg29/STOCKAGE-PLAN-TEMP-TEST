@@ -36,6 +36,7 @@ Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `e
 
 - `role` (plan) : `admin`, `editor` (« Gestion ») ou `viewer` (« Consultation », par défaut). Inchangé. `canManageStock()` = editor ou admin, `isAdmin()` = admin seul.
 - `roleReleves` (relevés) : `none` (par défaut si absent), `viewer` (historique seul, lecture seule), `editor` (saisie) ou `admin` (saisie, plus les rubriques relevés et archives de l'Administration).
+- **Compte sans fiche `users`** (créé dans Authentication mais pas déclaré) : refusé. Les règles lui interdisent la lecture du plan (`estConnu()`). L'accueil, les relevés et l'administration affichent « Compte non autorisé, contactez un administrateur » puis le déconnectent.
 - Seul un **admin du plan** attribue les rôles (rubrique Comptes et accès). Un compte ne peut jamais modifier le sien. Création de compte : toujours dans la console Firebase.
 - Un admin du plan a aussi accès aux rubriques relevés et archives de l'Administration, même si son `roleReleves` vaut none.
 
@@ -58,7 +59,8 @@ Points importants :
 - **Plan** : le state est stocké en texte JSON dans le champ `data`, et pas `state`. Un palox est une entrée de `lots`. `migrate()` normalise le state à chaque lecture (voir `plan.html`).
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
 - **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide. L'écriture est faite par le premier admin qui ouvre l'Administration ou les relevés. Les autres rôles voient cette liste par défaut sans l'écrire.
-- **Archives** : une archive par mois de relevés (et par tranche de 450 relevés au plus), créée dans le **même lot d'écritures** que le retrait des relevés, donc tout ou rien. Pour l'historique du plan, une transaction sur `planStockage/main` ne modifie que `transactions` et crée les archives (tranches d'environ 700 Ko, car un document Firestore est limité à 1 Mo). Firebase gratuit ne permet pas de tâche planifiée : l'archivage se lance à la main.
+- **Archives** : au plus **400 lignes par archive**, à cause des limites Firestore (1 Mo par document, 500 opérations par lot). Il y a une archive par mois, et plusieurs si le mois dépasse 400 lignes. Pour les relevés, chaque archive est créée dans le **même lot d'écritures** que la suppression de ses relevés, donc tout ou rien. Pour l'historique du plan, c'est le même principe : une transaction par archive sur `planStockage/main`, qui crée l'archive et retire ses mouvements du seul champ `transactions`. Si l'archivage s'interrompt, les archives déjà faites sont complètes et on relance pour le reste. Firebase gratuit ne permet pas de tâche planifiée : l'archivage se lance à la main.
+- **Lecture des archives** : pour un admin relevés qui n'est pas admin du plan, toute requête sur `archives` doit filtrer sur `type == 'releves'`, sinon les règles la refusent (c'est déjà le cas dans `admin.html` et `releves.html`).
 
 ## Administration (`admin.html`)
 
@@ -78,7 +80,7 @@ Points importants :
 
 ## Règles Firestore (résumé)
 
-Les règles du plan (`users`, `planStockage`) sont **inchangées**. Ajouts :
+Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception près : la lecture de `planStockage` exige `estConnu()`, c'est-à-dire un compte connecté qui possède une fiche `users`. La lecture de sa propre fiche `users` reste autorisée. Ajouts :
 - `releves` : lecture pour roleReleves viewer et plus, ou admin du plan. Création pour editor ou admin relevés, avec des champs validés. Modification interdite. Suppression par un admin, pour l'archivage.
 - `temperatures` : lecture comme `releves`, écriture par un admin relevés ou un admin du plan.
 - `archives` : lecture et création des archives de relevés par un admin relevés ou un admin du plan ; archives de mouvements réservées à l'admin du plan. Jamais modifiées. Suppression seulement si `expireLe` est dépassé.

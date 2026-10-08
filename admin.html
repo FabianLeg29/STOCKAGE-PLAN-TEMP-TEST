@@ -801,14 +801,16 @@
     return h;
   }
   function expireLe(au, ans){ return ans ? firebase.firestore.Timestamp.fromDate(ajoutAns(au, ans)) : null; }
-  // Relevés : une archive par mois (et par tranche de 450 relevés au plus). Pour chaque archive, la création
-  // et le retrait des relevés correspondants partent dans le MÊME lot d'écritures (tout ou rien).
+  // Taille maximale d'une archive : 400 lignes (limites Firestore : 1 Mo par document, 500 opérations par lot).
+  var MAX_ARCHIVE = 400;
+  // Relevés : une archive par mois, et plusieurs si le mois dépasse MAX_ARCHIVE relevés. Pour chaque archive,
+  // la création et le retrait des relevés correspondants partent dans le MÊME lot d'écritures (tout ou rien).
   async function archiverReleves(){
     var data = relAnciens || []; if (!data.length) return;
     var parMois = {};
     data.forEach(function(r){ var mk = r.mois || monthKey(new Date(r.at)); (parMois[mk] = parMois[mk] || []).push(r); });
     var paquets = [];
-    Object.keys(parMois).sort().forEach(function(mk){ var l = parMois[mk]; for (var i = 0; i < l.length; i += 450) paquets.push({ mois: mk, lignes: l.slice(i, i + 450) }); });
+    Object.keys(parMois).sort().forEach(function(mk){ var l = parMois[mk]; for (var i = 0; i < l.length; i += MAX_ARCHIVE) paquets.push({ mois: mk, lignes: l.slice(i, i + MAX_ARCHIVE) }); });
     var fait = 0, nbArch = 0;
     try{
       for (var p = 0; p < paquets.length; p++){
@@ -827,33 +829,40 @@
     }
     chargerArchivage(); draw();
   }
-  // Historique du plan : transaction sur planStockage/main ; seul le champ transactions change, les palox restent identiques.
+  // Historique du plan : même principe, une archive par mois (plusieurs si le mois dépasse MAX_ARCHIVE mouvements).
+  // Chaque archive est une transaction sur planStockage/main : création de l'archive et retrait de ses mouvements
+  // ensemble (tout ou rien). Seul le champ transactions change, les palox restent identiques.
   async function archiverMouvements(){
     if (!confirm('Archiver les anciens mouvements de l\'historique du plan ?\n\nIls quittent l\'onglet Historique du plan et restent consultables dans les archives. Les palox en stock ne changent pas.')) return;
-    var n = 0;
+    var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
+    var fait = 0, nbArch = 0, fini = false;
     try{
-      await db.runTransaction(async function(t){
-        var snap = await t.get(DOC_REF); if (!snap.exists) throw ErrU(NO_PLAN);
-        var cur = JSON.parse(snap.data().data || '{}');
-        var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
-        var tous = cur.transactions || [], vieux = tous.filter(function(x){ return String(x.date || '') < lim; });
-        if (!vieux.length) throw ErrU('Aucun mouvement à archiver.');
-        // tranches d'environ 700 Ko au plus (limite Firestore : 1 Mo par document)
-        var tranches = [], cour = [], taille = 0;
-        vieux.slice().sort(function(a, b){ return String(a.date) < String(b.date) ? -1 : 1; }).forEach(function(x){ var s = JSON.stringify(x).length; if (cour.length && taille + s > 700000){ tranches.push(cour); cour = []; taille = 0; } cour.push(x); taille += s; });
-        if (cour.length) tranches.push(cour);
-        if (tranches.length > 400) throw ErrU('Trop de mouvements à archiver en une fois.');
-        tranches.forEach(function(tr){
-          var d = tr.map(function(x){ return String(x.date); });
-          t.set(ARCHIVES.doc(), { type: 'mouvements', mois: [], du: d[0], au: d[d.length - 1], nb: tr.length, creeLe: new Date().toISOString(), par: me.email || me.uid,
-            expireLe: expireLe(d[d.length - 1], cons.planConservationAns), donnees: JSON.stringify(tr) });
+      while (!fini){
+        var nb = 0;
+        await db.runTransaction(async function(t){
+          nb = 0;
+          var snap = await t.get(DOC_REF); if (!snap.exists) throw ErrU(NO_PLAN);
+          var cur = JSON.parse(snap.data().data || '{}');
+          var tous = cur.transactions || [];
+          var vieux = tous.filter(function(x){ return String(x.date || '') < lim; }).sort(function(a, b){ return String(a.date) < String(b.date) ? -1 : 1; });
+          if (!vieux.length) return;
+          var mk = String(vieux[0].date).slice(0, 7);
+          var tranche = vieux.filter(function(x){ return String(x.date).slice(0, 7) === mk; }).slice(0, MAX_ARCHIVE);
+          var d = tranche.map(function(x){ return String(x.date); });
+          t.set(ARCHIVES.doc(), { type: 'mouvements', mois: [mk], du: d[0], au: d[d.length - 1], nb: tranche.length, creeLe: new Date().toISOString(), par: me.email || me.uid,
+            expireLe: expireLe(d[d.length - 1], cons.planConservationAns), donnees: JSON.stringify(tranche) });
+          var retires = new Set(tranche);
+          cur.transactions = tous.filter(function(x){ return !retires.has(x); });
+          t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          nb = tranche.length;
         });
-        cur.transactions = tous.filter(function(x){ return !(String(x.date || '') < lim); });
-        t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        n = vieux.length;
-      });
-      A.err = ''; A.msg = n + ' mouvements archivés. Les palox en stock ne changent pas.';
-    }catch(e){ A.msg = ''; A.err = e.userMsg || ('Archivage impossible : ' + errTxt(e)); }
+        if (!nb) fini = true; else { fait += nb; nbArch++; }
+      }
+      if (fait){ A.err = ''; A.msg = fait + ' mouvements archivés (' + nbArch + ' archive' + (nbArch > 1 ? 's' : '') + '). Les palox en stock ne changent pas.'; }
+      else { A.err = 'Aucun mouvement à archiver.'; A.msg = ''; }
+    }catch(e){
+      A.msg = ''; A.err = (e.userMsg || ('Archivage interrompu : ' + errTxt(e))) + (fait ? ' (' + fait + ' mouvements déjà archivés correctement ; relancez pour le reste).' : '');
+    }
     chargerArchivage(); draw();
   }
   function nomArchive(a){ return 'archive-' + (a.type === 'releves' ? 'releves' : 'mouvements') + '-' + String(a.du).slice(0, 10) + '_' + String(a.au).slice(0, 10); }
@@ -925,11 +934,15 @@
       }, function(e){ console.warn(e); consLoaded = true; });
     }
   }
+  var compteRefuse = false;
   auth.onAuthStateChanged(async function(user){
-    if (!user){ location.replace('index.html'); return; }
+    if (!user){ if (!compteRefuse) location.replace('index.html'); return; }
     me = { uid: user.uid, email: user.email };
     try{
-      var d = await db.collection('users').doc(user.uid).get(), u = d.exists ? d.data() : {};
+      var d = await db.collection('users').doc(user.uid).get();
+      // Compte sans fiche users : refusé, déconnexion et retour à l'accueil avec le message
+      if (!d.exists){ compteRefuse = true; bloquer('Compte non autorisé', 'Compte non autorisé, contactez un administrateur.'); await auth.signOut(); location.replace('index.html#non-autorise'); return; }
+      var u = d.data();
       role = (u.role === 'admin' || u.role === 'editor') ? u.role : 'viewer';
       roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
     }catch(e){ console.warn(e); }

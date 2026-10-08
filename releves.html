@@ -603,11 +603,14 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     },e=>{ console.warn(e); curErr=lectureMsg(e); currentMonthDocs=[]; if(tab==="hist") drawHist(); });
   }
 
+  let compteRefuse=false;
   auth.onAuthStateChanged(async user=>{
-    if(!user){ location.replace("index.html"); return; }
+    if(!user){ if(!compteRefuse) location.replace("index.html"); return; }
     try{
       const d=await fdb.collection("users").doc(user.uid).get();
-      const u=d.exists?d.data():{};
+      // Compte sans fiche users : refusé, déconnexion et retour à l'accueil avec le message
+      if(!d.exists){ compteRefuse=true; bloquer("Compte non autorisé","Compte non autorisé, contactez un administrateur."); await auth.signOut(); location.replace("index.html#non-autorise"); return; }
+      const u=d.data();
       roleReleves=["viewer","editor","admin"].indexOf(u.roleReleves)>=0?u.roleReleves:"none";
       rolePlan=(u.role==="admin"||u.role==="editor")?u.role:"viewer";
     }catch(e){ console.warn(e); }
