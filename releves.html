@@ -658,12 +658,16 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     try{ if(H.chambres) localStorage.setItem("ll-hist-chambres",JSON.stringify(H.chambres)); else localStorage.removeItem("ll-hist-chambres"); }catch(e){}
     H.focus=null; renderHist();
   }
+  // Liste déroulante : toutes, une famille, ou une seule chambre
   function blocChambres(){
-    const toutes=chambresConnues(), g=groupeActif(), nb=toutes.filter(chambreVisible).length;
-    return '<div class="chsel"><span class="f">Chambres affichées</span><div class="seg3">'+
-      [["all","Toutes"],["legumes","Frigos légumes"],["alliums","Cellules alliums"]].map(([k,l])=>'<button type="button" data-chg="'+k+'" aria-pressed="'+(g===k)+'">'+l+'</button>').join("")+'</div>'+
-      '<details id="hchd"'+(H.choixOuvert?" open":"")+'><summary>Choisir chambre par chambre ('+nb+' sur '+toutes.length+')</summary><div class="chlist">'+
-      toutes.map(n=>'<label class="chk"><input type="checkbox" data-chn="'+esc(n)+'"'+(chambreVisible(n)?" checked":"")+'> '+esc(n)+'</label>').join("")+'</div></details></div>';
+    const toutes=chambresConnues(), g=groupeActif(), une=H.chambres&&H.chambres.length===1?H.chambres[0]:null;
+    const opt=(v,l,sel)=>'<option value="'+esc(v)+'"'+(sel?" selected":"")+'>'+esc(l)+'</option>';
+    const groupe=(titre,noms)=>noms.length?'<optgroup label="'+esc(titre)+'">'+noms.map(n=>opt("c:"+n,n,une===n)).join("")+'</optgroup>':'';
+    const leg=nomsFamille("legumes"), all=nomsFamille("alliums"), autres=toutes.filter(n=>leg.indexOf(n)<0&&all.indexOf(n)<0);
+    return '<div class="chsel"><label class="f" for="hch">Chambres affichées</label><select id="hch">'+
+      opt("all","Toutes les chambres",g==="all")+opt("legumes","Tous les frigos légumes",g==="legumes")+opt("alliums","Toutes les cellules alliums",g==="alliums")+
+      (g===""&&!une?opt("","Sélection personnalisée",true):'')+
+      groupe("Frigos légumes",leg)+groupe("Cellules alliums",all)+groupe("Autres chambres",autres)+'</select></div>';
   }
   function grilleMois(docs){
     // dernier relevé frigo par jour et par chambre
@@ -681,16 +685,14 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="secondary" id="hx">Exporter le mois (Excel + graphiques)</button></div></div>'+
       '<div class="card"><div id="hsum" class="hint"></div><div class="scroll" id="htab"></div></div>';
     document.getElementById("ht").value=H.type;
-    v.querySelectorAll("[data-vue]").forEach(b=>b.addEventListener("click",()=>{H.vue=b.dataset.vue; if(H.vue==="tableau") H.focus=null; renderHist();}));
+    v.querySelectorAll("[data-vue]").forEach(b=>b.addEventListener("click",()=>{H.vue=b.dataset.vue; if(H.vue==="tableau"){ H.focus=null; if(H.retourChambres!==undefined){ H.chambres=H.retourChambres; H.retourChambres=undefined; } } renderHist();}));
     document.getElementById("htype-w").classList.toggle("hidden",H.vue==="tableau");
     document.getElementById("hk-w").classList.toggle("hidden",H.vue==="tableau");
     document.getElementById("hm").addEventListener("change",e=>{ if(e.target.value){H.mois=e.target.value; H.focus=null; loadHistMonth(); drawHist();} });
     document.getElementById("ht").addEventListener("change",e=>{H.type=e.target.value; drawHist();});
     document.getElementById("hk").addEventListener("change",e=>{H.ko=e.target.checked; drawHist();});
     document.getElementById("hx").addEventListener("click",exportMois);
-    v.querySelectorAll("[data-chg]").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.chg; choisirChambres(k==="all"?null:nomsFamille(k)); }));
-    v.querySelectorAll("[data-chn]").forEach(c=>c.addEventListener("change",()=>{ H.choixOuvert=true; choisirChambres(Array.from(v.querySelectorAll("[data-chn]")).filter(x=>x.checked).map(x=>x.dataset.chn)); }));
-    document.getElementById("hchd").addEventListener("toggle",e=>{ H.choixOuvert=e.target.open; });
+    document.getElementById("hch").addEventListener("change",e=>{ const k=e.target.value; if(!k) return; H.retourChambres=undefined; choisirChambres(k==="all"?null:k.indexOf("c:")===0?[k.slice(2)]:nomsFamille(k)); });
     drawHist();
   }
   function drawHist(){
@@ -731,7 +733,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       if(row){ requestAnimationFrame(()=>row.scrollIntoView({block:"center",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"})); }
       if(!document.getElementById("hback")){
         const b=document.createElement("button"); b.type="button"; b.className="secondary back"; b.id="hback"; b.textContent="Revenir au tableau du mois";
-        b.addEventListener("click",()=>{ H.focus=null; H.vue="tableau"; renderHist(); });
+        b.addEventListener("click",()=>{ H.focus=null; H.vue="tableau"; if(H.retourChambres!==undefined){ H.chambres=H.retourChambres; H.retourChambres=undefined; } renderHist(); });
         tabEl.parentNode.insertBefore(b,tabEl);
       }
     }
@@ -811,7 +813,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       for(const n of chs){
         const r=g[d+"|"+n];
         if(!r){ h+='<td></td>'; continue; }
-        const ra=' data-rid="'+esc(r._id)+'" tabindex="0" role="button" aria-label="'+esc(n)+', '+dt.toLocaleDateString("fr-FR")+' : voir le détail"';
+        const ra=' data-rid="'+esc(r._id)+'" data-ch="'+esc(n)+'" tabindex="0" role="button" aria-label="'+esc(n)+', '+dt.toLocaleDateString("fr-FR")+' : voir le détail"';
         if(r.etat==="arret"){ h+='<td class="st"'+ra+' title="'+esc(r.operateur)+'">Arrêt</td>'; continue; }
         const st=statutDe(r), nb=g[d+"|"+n+"|n"]||1;
         const tip=hm(r.at)+" – "+r.operateur+(r.motif?" – Hors cible normal : "+r.motif:"")+(r.commentaire?" – "+r.commentaire:"")+(r.action?" – Action : "+r.action:"");
@@ -821,7 +823,8 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     }
     el.innerHTML=h+'</tbody></table><p class="hint" style="margin-top:8px">Touchez une case pour ouvrir le relevé dans la liste détaillée. Rouge : écart. Orange : hors cible – normal (motif). Quand il y a plusieurs mesures dans la journée, la case montre la dernière.</p>';
     el.querySelectorAll("td[data-rid]").forEach(td=>{
-      const go=()=>{ H.focus=td.dataset.rid; H.vue="liste"; H.type="all"; H.ko=false; renderHist(); };
+      // ouvre la liste détaillée filtrée sur cette chambre (sans changer le choix mémorisé), ligne mise en évidence
+      const go=()=>{ if(H.retourChambres===undefined) H.retourChambres=H.chambres; H.chambres=[td.dataset.ch]; H.focus=td.dataset.rid; H.vue="liste"; H.type="all"; H.ko=false; renderHist(); };
       td.addEventListener("click",go);
       td.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } });
     });
