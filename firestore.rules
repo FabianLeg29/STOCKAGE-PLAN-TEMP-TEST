@@ -27,8 +27,9 @@ service cloud.firestore {
     }
 
     // Données du plan de stockage (cellules, palox, historique).
+    // Rôle plan « none » (Aucun accès) : pas de lecture. Champ role absent = viewer (Consultation).
     match /planStockage/{docId} {
-      allow read: if estConnu();
+      allow read: if estConnu() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'viewer') != 'none';
       allow write: if canManageStock();
     }
 

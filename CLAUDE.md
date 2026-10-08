@@ -19,7 +19,7 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 | Fichier | Rôle |
 |---|---|
 | `index.html` | Connexion, puis **accueil** « Que voulez-vous faire ? » avec 3 tuiles : Plan de stockage, Relevés des températures (grisée si `roleReleves` = none), Administration (visible si `role` = admin ou `roleReleves` = admin). Badge « Archivage à faire » sur la tuile Administration. Bouton Déconnexion. |
-| `plan.html` | L'application historique (ancien `index.html`), code **inchangé** sauf : boutons d'onglet Cellules et Comptes retirés, barre de module ajoutée, configuration Firebase de test. Les fonctions de ces onglets restent dans le code, inutilisées : c'est voulu, pour garder un code identique à l'original. |
+| `plan.html` | L'application historique (ancien `index.html`), code **inchangé** sauf : boutons d'onglet Cellules et Comptes retirés, barre de module ajoutée, configuration Firebase de test, et blocage du rôle « Aucun accès » (message « Accès non autorisé » au lieu du plan). Les fonctions de ces onglets restent dans le code, inutilisées : c'est voulu, pour garder un code identique à l'original. |
 | `releves.html` | Module relevés de température (onglets Frigos, Produits, Historique). |
 | `admin.html` | Administration, 4 rubriques (voir plus bas). |
 | `xlsx-releves.js` | Générateur Excel sans dépendance (`window.XlsxReleves.construire(releves, chambres, options)`). Onglets Tableau (STOC E12.1), Graphiques (un par chambre, avec les cibles), Données graphiques, Détail. Utilisé par `releves.html` et `admin.html`. |
@@ -34,7 +34,7 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 
 Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `email`, `role`, `roleReleves`.
 
-- `role` (plan) : `admin`, `editor` (« Gestion ») ou `viewer` (« Consultation », par défaut). Inchangé. `canManageStock()` = editor ou admin, `isAdmin()` = admin seul.
+- `role` (plan) : `none` (« Aucun accès » : tuile Plan grisée, lecture du plan refusée par les règles), `viewer` (« Consultation », par défaut si absent), `editor` (« Gestion ») ou `admin`. `canManageStock()` = editor ou admin, `isAdmin()` = admin seul.
 - `roleReleves` (relevés) : `none` (par défaut si absent), `viewer` (historique seul, lecture seule), `editor` (saisie) ou `admin` (saisie, plus les rubriques relevés et archives de l'Administration).
 - **Compte sans fiche `users`** (créé dans Authentication mais pas déclaré) : refusé. Les règles lui interdisent la lecture du plan (`estConnu()`). L'accueil, les relevés et l'administration affichent « Compte non autorisé, contactez un administrateur » puis le déconnectent.
 - Seul un **admin du plan** attribue les rôles (rubrique Comptes et accès). Un compte ne peut jamais modifier le sien. Création de compte : toujours dans la console Firebase.
@@ -96,7 +96,7 @@ Points importants :
 
 ## Règles Firestore (résumé)
 
-Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception près : la lecture de `planStockage` exige `estConnu()`, c'est-à-dire un compte connecté qui possède une fiche `users`. La lecture de sa propre fiche `users` reste autorisée. Ajouts :
+Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception près : la lecture de `planStockage` exige `estConnu()`, c'est-à-dire un compte connecté qui possède une fiche `users`, et un rôle plan différent de `none`. La lecture de sa propre fiche `users` reste autorisée. Ajouts :
 - `releves` : lecture pour roleReleves viewer et plus, ou admin du plan. Création pour editor ou admin relevés, avec des champs validés, `uid` = auteur et `creeLe` = heure serveur. Modification (champs de mesure, de statut et de texte seulement) et suppression : par l'auteur pendant 24 h, ou par un admin relevés / admin du plan (suppression aussi utilisée par l'archivage).
 - `temperatures` : lecture comme `releves`, écriture par un admin relevés ou un admin du plan.
 - `archives` : lecture et création des archives de relevés par un admin relevés ou un admin du plan ; archives de mouvements réservées à l'admin du plan. Jamais modifiées. Suppression seulement si `expireLe` est dépassé.
@@ -118,5 +118,5 @@ Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception
 
 - À chaque mise à jour publiée, incrémenter `VERSION` dans `index.html` : les liens de l'accueil ajoutent `?v=VERSION`, ce qui évite d'ouvrir une ancienne copie des modules gardée en cache.
 - Toujours valider la syntaxe après édition : `node --check` sur le contenu de chaque `<script>` en ligne, et sur `xlsx-releves.js`.
-- Garder `plan.html` aussi proche que possible de l'original. Une comparaison avec l'ancien `index.html` ne doit montrer que les retraits des deux onglets, la barre de module et la configuration Firebase.
+- Garder `plan.html` aussi proche que possible de l'original. Une comparaison avec l'ancien `index.html` ne doit montrer que les retraits des deux onglets, la barre de module, la configuration Firebase et le blocage du rôle `none`.
 - Pour tester sans toucher au projet réel : émulateur Firebase local (`firebase emulators:exec --only firestore,auth`), en faisant pointer les pages vers l'émulateur au moment du test.

@@ -1679,9 +1679,13 @@
         const roleDoc = await db.collection('users').doc(user.uid).get();
         const r = roleDoc.exists ? roleDoc.data().role : null;
         currentRole = (r==='admin' || r==='editor') ? r : 'viewer';
+        if(r==='none') currentRole = 'none';
       }catch(e){ currentRole = 'viewer'; }
       document.getElementById('loginScreen').style.display = 'none';
       document.getElementById('mainWrap').style.display = '';
+      // Rôle « Aucun accès » au plan : pas de lecture du plan (refusée aussi par les règles Firestore)
+      document.getElementById('tabs').style.display = currentRole==='none' ? 'none' : '';
+      if(currentRole==='none'){ document.getElementById('app').innerHTML = '<div class="card">'+emptyState('Accès non autorisé', 'Votre compte n\'a pas accès au plan de stockage. Demandez l\'accès à un admin.')+'</div>'; return; }
       loaded = false;
       currentCelluleId = null; currentTab = 'stockage';
       attachSnapshotListener();

@@ -32,7 +32,7 @@ Ajouts pour le module relevés (rôle lu dans le champ `roleReleves` de `users/{
 2. Note l'**UID** généré pour chaque personne.
 3. Dans **Firestore Database > Données**, crée une collection `users`. Pour chaque personne, crée un document dont l'**ID est son UID**, avec les champs suivants :
    - `email` (string) : son adresse, affichée dans Administration ;
-   - `role` (string) : rôle dans le plan, `"admin"`, `"editor"` ou `"viewer"` ;
+   - `role` (string) : rôle dans le plan, `"none"` (Aucun accès), `"viewer"` (Consultation), `"editor"` (Gestion) ou `"admin"`. Toujours en anglais : « gestion » n'est pas reconnu ;
    - `roleReleves` (string, facultatif) : rôle dans les relevés, `"none"`, `"viewer"`, `"editor"` ou `"admin"`. Un champ absent vaut `"none"`.
 
 Crée au moins un compte avec `role` = `"admin"` à la main. Ensuite, cet admin attribue les rôles des autres comptes depuis **Administration > Comptes et accès**, sans repasser par la console. Pour son propre compte, il faut toujours passer par la console.

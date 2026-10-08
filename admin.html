@@ -415,7 +415,7 @@
       const snap = await db.collection('users').get();
       const rows = [];
       snap.forEach(function(doc){ const d = doc.data() || {};
-        rows.push({ uid: doc.id, email: d.email || '(email non renseigné — uid : '+doc.id+')', role: (d.role==='admin'||d.role==='editor') ? d.role : 'viewer',
+        rows.push({ uid: doc.id, email: d.email || '(email non renseigné — uid : '+doc.id+')', role: ['none','viewer','editor','admin'].indexOf(d.role) >= 0 ? d.role : 'viewer',
           roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none' }); });
       rows.sort(function(a, b){ return a.email.localeCompare(b.email, 'fr'); });
       comptes = rows;
@@ -430,12 +430,12 @@
       var self = u.uid === me.uid;
       return '<tr><td>' + esc(u.email) + (self ? ' <span class="adm-muted">(vous)</span>' : '') + '</td>' +
         '<td><label class="sr" for="r-' + esc(u.uid) + '">Rôle plan de ' + esc(u.email) + '</label><select id="r-' + esc(u.uid) + '" data-role="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
-        [['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.role === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td>' +
+        [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.role === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td>' +
         '<td><label class="sr" for="rr-' + esc(u.uid) + '">Rôle relevés de ' + esc(u.email) + '</label><select id="rr-' + esc(u.uid) + '" data-rrole="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
         [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.roleReleves === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td></tr>';
     }).join('');
     return h + '<div class="adm-scroll"><table class="adm-comptes"><thead><tr><th>E-mail</th><th>Plan de stockage : rôle</th><th>Relevés de température : rôle</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
-      '<p class="adm-muted">Un rôle par module : Consultation = lecture seule, Gestion = saisie, Admin = saisie et réglages du module dans Administration. Pour les relevés, « Aucun accès » masque le module. Le rôle du plan fonctionne comme aujourd\'hui. Les changements sont enregistrés immédiatement.</p></section>';
+      '<p class="adm-muted">Un rôle par module : Consultation = lecture seule, Gestion = saisie, Admin = saisie et réglages du module dans Administration. « Aucun accès » grise le module sur l\'accueil (plan de stockage ou relevés). Le rôle du plan fonctionne comme aujourd\'hui. Les changements sont enregistrés immédiatement.</p></section>';
   }
   function bindComptes(v){
     function maj(sel, champ, libelle){
@@ -964,7 +964,7 @@
       // Compte sans fiche users : refusé, déconnexion et retour à l'accueil avec le message
       if (!d.exists){ compteRefuse = true; bloquer('Compte non autorisé', 'Compte non autorisé, contactez un administrateur.'); await auth.signOut(); location.replace('index.html#non-autorise'); return; }
       var u = d.data();
-      role = (u.role === 'admin' || u.role === 'editor') ? u.role : 'viewer';
+      role = ['none', 'viewer', 'editor', 'admin'].indexOf(u.role) >= 0 ? u.role : 'viewer';
       roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
     }catch(e){ console.warn(e); }
     var t = rubriques();
