@@ -111,6 +111,12 @@
     var g = {}; frigos.forEach(function(r){ g[jour(r.at) + '|' + r.lieu] = r; });
     var tmin = function(r, n){ return r && r.min != null ? r.min : (cfg(n).min != null ? cfg(n).min : null); };
     var tmax = function(r, n){ return r && r.max != null ? r.max : (cfg(n).max != null ? cfg(n).max : null); };
+    // statut : conforme / normal (hors cible avec motif) / ecart / arret ; anciens relevés sans statut : déduit de conforme
+    var statut = function(r){ if (r.etat === 'arret') return 'arret'; if (r.statut === 'conforme' || r.statut === 'normal' || r.statut === 'ecart') return r.statut; return r.conforme === false ? 'ecart' : 'conforme'; };
+    var LIB = { conforme: 'Conforme', normal: 'Hors cible – normal', ecart: 'Écart', arret: 'Arrêt' };
+    var parId = {}; releves.forEach(function(r){ var id = r._id || r.id; if (id) parId[id] = r; });
+    // tous les relevés frigo du jour par chambre (pour signaler un écart suivi d'une contre-mesure)
+    var tous = {}; frigos.forEach(function(r){ var k = jour(r.at) + '|' + r.lieu; (tous[k] = tous[k] || []).push(r); });
 
     // Feuille 1 : tableau au format STOC E12.1
     var t1 = [[{ v: options.titre || 'RELEVÉ DE TEMPÉRATURE CHAMBRES FROIDES – STOC E12.1', s: 4 }], [{ v: 'La Légumière – ' + (options.periode || ''), s: 1 }], []];
@@ -122,8 +128,10 @@
       noms.forEach(function(n){ var r = g[j + '|' + n];
         if (!r){ row.push({ v: '', s: 2 }, { v: '', s: 6 }, { v: '', s: 2 }); return; }
         if (r.etat === 'arret'){ row.push({ v: 'X', s: 2 }, { v: 'X', s: 6 }, { v: 'ARRÊT' + (r.commentaire ? ' – ' + r.commentaire : ''), s: 2 }); return; }
-        var rem = [r.etat === 'vide' ? 'VIDE' : '', !r.conforme ? 'ÉCART : ' + (r.action || '') : '', r.commentaire || ''].filter(Boolean).join(' – ');
-        row.push({ v: r.temp, s: r.conforme ? 2 : 3 }, { v: r.hr == null ? '' : r.hr, s: 6 }, { v: rem, s: r.conforme ? 2 : 7 }); });
+        var st = statut(r);
+        var avant = (tous[j + '|' + n] || []).filter(function(x){ return x !== r && statut(x) === 'ecart'; }).map(function(x){ return 'ÉCART ' + hm(x.at) + ' (' + String(x.temp).replace('.', ',') + ' °C) : ' + (x.action || ''); });
+        var rem = [r.etat === 'vide' ? 'VIDE' : '', st === 'ecart' ? 'ÉCART : ' + (r.action || '') : '', st === 'normal' ? 'HORS CIBLE NORMAL : ' + (r.motif || '') : '', avant.length ? avant.join(' ; ') + ' – contre-mesure ' + hm(r.at) : '', r.commentaire || ''].filter(Boolean).join(' – ');
+        row.push({ v: r.temp, s: st === 'ecart' ? 3 : 2 }, { v: r.hr == null ? '' : r.hr, s: 6 }, { v: rem, s: st === 'ecart' || avant.length ? 7 : 2 }); });
       t1.push(row); });
     var w1 = [12]; noms.forEach(function(){ w1.push(9, 8, 22); });
 
@@ -150,19 +158,19 @@
     var t2 = [[{ v: 'Graphiques des températures par chambre – ' + (options.periode || ''), s: 4 }], [{ v: 'Trait plein : température relevée (dernier relevé du jour). Pointillés : cibles mini (vert) et maxi (rouge). Les jours sans relevé ou à l\'arrêt sont laissés vides.', s: 0 }]];
 
     // Feuille 4 : détail de tous les relevés (frigos et contrôles à cœur)
-    var t4 = [[{ v: 'Date', s: 5 }, { v: 'Heure', s: 5 }, { v: 'Contrôle', s: 5 }, { v: 'Chambre / cellule', s: 5 }, { v: 'État', s: 5 }, { v: 'Produit', s: 5 }, { v: 'Lot', s: 5 }, { v: 'Température (°C)', s: 5 }, { v: 'Autres mesures', s: 5 }, { v: 'Cible mini', s: 5 }, { v: 'Cible maxi', s: 5 }, { v: 'Hygrométrie (%)', s: 5 }, { v: 'Résultat', s: 5 }, { v: 'Opérateur', s: 5 }, { v: 'Action corrective', s: 5 }, { v: 'Remarques', s: 5 }]];
+    var t4 = [[{ v: 'Date', s: 5 }, { v: 'Heure', s: 5 }, { v: 'Contrôle', s: 5 }, { v: 'Chambre / cellule', s: 5 }, { v: 'État', s: 5 }, { v: 'Produit', s: 5 }, { v: 'Lot', s: 5 }, { v: 'Température (°C)', s: 5 }, { v: 'Autres mesures', s: 5 }, { v: 'Cible mini', s: 5 }, { v: 'Cible maxi', s: 5 }, { v: 'Hygrométrie (%)', s: 5 }, { v: 'Résultat', s: 5 }, { v: 'Motif (hors cible normal)', s: 5 }, { v: 'Contre-mesure de', s: 5 }, { v: 'Opérateur', s: 5 }, { v: 'Action corrective', s: 5 }, { v: 'Remarques', s: 5 }]];
     releves.slice().sort(function(a, b){ return a.at < b.at ? -1 : 1; }).forEach(function(r){
-      var ts = r.temps && r.temps.length ? r.temps : (r.temp != null ? [r.temp] : []);
+      var ts = r.temps && r.temps.length ? r.temps : (r.temp != null ? [r.temp] : []), st = statut(r), o = r.contreMesureDe ? parId[r.contreMesureDe] : null;
       t4.push([fr(jour(r.at)), hm(r.at), r.type === 'frigo' ? 'Frigo' : 'À cœur', r.lieu, r.type === 'frigo' ? ({ service: 'En service', vide: 'Vide', arret: 'À l\'arrêt' }[r.etat] || '') : '', r.produit || '', r.lot || '',
-        { v: r.etat === 'arret' ? '' : r.temp, s: r.conforme === false ? 3 : 2 }, ts.length > 1 ? ts.map(function(v){ return String(v).replace('.', ','); }).join(' / ') : '',
-        { v: r.min, s: 2 }, { v: r.max, s: 2 }, { v: r.hr == null ? '' : r.hr, s: 6 }, r.etat === 'arret' ? 'Arrêt' : (r.conforme === false ? { v: 'Écart', s: 7 } : 'Conforme'), r.operateur || '', r.action || '', r.commentaire || '']);
+        { v: r.etat === 'arret' ? '' : r.temp, s: st === 'ecart' ? 3 : 2 }, ts.length > 1 ? ts.map(function(v){ return String(v).replace('.', ','); }).join(' / ') : '',
+        { v: r.min, s: 2 }, { v: r.max, s: 2 }, { v: r.hr == null ? '' : r.hr, s: 6 }, st === 'ecart' ? { v: LIB.ecart, s: 7 } : LIB[st], r.motif || '', r.contreMesureDe ? (o ? 'Écart du ' + fr(jour(o.at)) + ' ' + hm(o.at) : 'Écart précédent') : '', r.operateur || '', r.action || '', r.commentaire || '']);
     });
 
     var sheets = [
       { name: 'Tableau', xml: sheet(t1, { widths: w1, freeze: [1, 5], landscape: true }) },
       { name: 'Graphiques', xml: sheet(t2, { widths: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10], drawing: noms.length > 0, landscape: true }) },
       { name: D, xml: sheet(t3, { widths: [12].concat(noms.map(function(){ return [10, 10, 10]; }).reduce(function(a, b){ return a.concat(b); }, [])), freeze: [1, 1] }) },
-      { name: 'Détail', xml: sheet(t4, { widths: [11, 7, 9, 18, 11, 16, 12, 10, 14, 9, 9, 10, 10, 14, 30, 30], freeze: [0, 1] }) }
+      { name: 'Détail', xml: sheet(t4, { widths: [11, 7, 9, 18, 11, 16, 12, 10, 14, 9, 9, 10, 18, 26, 20, 14, 30, 30], freeze: [0, 1] }) }
     ];
     var files = [];
     var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +

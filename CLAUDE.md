@@ -48,8 +48,10 @@ planStockage/main   { data: "<JSON du state>", updatedAt }   ← inchangé
 users/{uid}         { email, role, roleReleves }
 releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret' ('' pour produit), produit, lot,
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
+                      statut:'conforme'|'normal'|'ecart', motif, contreMesureDe (id de l'écart d'origine ou ''),
                       action, commentaire, operateur, at (ISO), mois ('AAAA-MM') }   ← création seule
-temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',min,max,hrMin,hrMax}], produits:[{nom,min,max}] }   ← listes propres aux relevés
+temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',min,max,hrMin,hrMax}], produits:[{nom,min,max}],
+                      motifs:[texte…], delaiContreMesure (minutes, 30 par défaut) }   ← listes propres aux relevés
 archives/{id}       { type:'releves'|'mouvements', mois:['AAAA-MM'], du, au, nb, creeLe (ISO), par (email),
                       expireLe (Timestamp ou null = illimitée), donnees (JSON en texte) }
 parametres/conservation { relArchiveApresMois (13), relConservationAns (5), planArchiveApresMois (0 = jamais), planConservationAns (0) }
@@ -57,6 +59,12 @@ parametres/conservation { relArchiveApresMois (13), relConservationAns (5), plan
 
 Points importants :
 - **Plan** : le state est stocké en texte JSON dans le champ `data`, et pas `state`. Un palox est une entrée de `lots`. `migrate()` normalise le state à chaque lecture (voir `plan.html`).
+- **Statut d'un relevé** :
+  - `conforme` : la mesure est dans la cible.
+  - `normal` (« Hors cible – normal ») : hors cible, mais l'opérateur a choisi un **motif** dans la liste gérée par l'admin (dégivrage, chargement récent…). Ni action corrective ni contre-mesure : le prochain relevé se fait à la tournée suivante. Un motif commençant par « Autre » oblige à remplir les remarques.
+  - `ecart` : hors cible sans motif. **Action corrective obligatoire** et **contre-mesure suggérée**, non obligatoire, dans le délai réglé.
+  - Le champ `conforme` vaut `false` uniquement pour un écart. Les anciens relevés sans `statut` sont lus à partir de `conforme`.
+  - Une contre-mesure est un nouveau relevé dont `contreMesureDe` contient l'id de l'écart (le relevé d'origine n'est jamais modifié). Elle est suggérée tant qu'aucun relevé n'a suivi l'écart le même jour : même chambre pour un frigo ; même cellule, même produit et même lot pour un contrôle à cœur.
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
 - **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide.
 - **Famille des chambres** (`famille`) : `legumes` (frigos légumes : LP1, LP2, LP3, LBP, Zone prépa, Cellule carotte par défaut) ou `alliums` (toutes les autres). L'admin la règle dans Administration, rubrique Relevés de température. Si le champ manque (anciens réglages), il est déduit du nom. Dans les relevés, la tournée est affichée par groupe (frigos légumes, puis cellules alliums), et **seules les cellules alliums sont proposées pour le contrôle à cœur**. L'écriture est faite par le premier admin qui ouvre l'Administration ou les relevés. Les autres rôles voient cette liste par défaut sans l'écrire.
@@ -67,7 +75,7 @@ Points importants :
 
 - **a) Comptes et accès** (admin du plan) : par compte, rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Son propre compte est désactivé.
 - **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes. Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits` et `calibres` sont remplacés.
-- **c) Relevés de température** (admin relevés ou admin du plan) : chambres (famille Légumes ou Alliums, T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer.
+- **c) Relevés de température** (admin relevés ou admin du plan) : liste des motifs « hors cible – normal », délai de la contre-mesure suggérée, chambres (famille Légumes ou Alliums, T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer.
 - **d) Archives et conservation** : durées réglables (les durées de l'historique du plan ne sont visibles que de l'admin du plan), boutons « Archiver maintenant », liste des archives, export Excel avec graphiques (relevés) ou CSV (mouvements), et JSON. Suppression seulement après l'échéance, avec confirmation.
 
 ## Relevés (`releves.html`)
