@@ -53,7 +53,8 @@ releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
                       statut:'conforme'|'normal'|'ecart', motif, contreMesureDe (id de l'écart d'origine ou ''),
                       action, commentaire, operateur, at (ISO), mois ('AAAA-MM'),
-                      uid (auteur), creeLe (Timestamp serveur), modifications:[{le, par, raison, avant:{…}}] }
+                      uid (auteur), creeLe (Timestamp serveur), modifications:[{le, par, raison, avant:{…}}],
+                      restaure:{le, par, fichier, uidOrigine, creeLeOrigine, archive} (seulement si recréé par l'import JSON) }
 temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',hygro:bool,min,max,hrMin,hrMax}], produits:[{nom,min,max}],
                       motifs:[texte…] }   ← listes propres aux relevés
 archives/{id}       { type:'releves'|'mouvements', mois:['AAAA-MM'], du, au, nb, creeLe (ISO), par (email),
@@ -74,7 +75,8 @@ Points importants :
   - Modification : raison obligatoire, statut recalculé (conforme / normal / écart, avec motif ou action corrective). Les valeurs d'avant sont ajoutées à `modifications` (qui, quand, pourquoi). La date, la chambre, le type, l'auteur et `creeLe` ne changent jamais (contrôlé par les règles).
   - Suppression : définitive, après confirmation.
   - L'export Excel (onglet Détail) a une colonne « Modifications ».
-- **Export JSON des relevés** (`format: 'releves-temperature'`, `version: 1`) : `{ exporteLe, exportePar, perimetre, config:{frigos,produits,motifs}, nb, releves:[{ id, …champs du relevé }] }`. Les Timestamp (`creeLe`) sont convertis en texte ISO. Sert à réintégrer les données ailleurs ; aucun import dans l'application pour l'instant.
+- **Export JSON des relevés** (`format: 'releves-temperature'`, `version: 1`) : `{ exporteLe, exportePar, perimetre, config:{frigos,produits,motifs}, nb, releves:[{ id, …champs du relevé }] }`. Les Timestamp (`creeLe`) sont convertis en texte ISO. Sert à réintégrer les données ailleurs, ou à les restaurer ici par l'import.
+- **Import JSON des relevés** (Administration › Relevés, rôle relevés Admin seulement, car les règles réservent la création aux rôles relevés Gestion et Admin) : un aperçu est affiché avant toute écriture. Seuls les relevés **absents** sont recréés, avec leur id d'origine. Sont ignorés : un id déjà présent, un relevé dont l'archive existe encore, une ligne invalide. Rien n'est écrasé ni supprimé. Comme les règles imposent `uid` = auteur et `creeLe` = heure serveur, l'auteur et la date de création d'origine sont gardés dans `restaure`. Écriture par lots de 400. Un import interrompu se relance avec le même fichier. Les réglages ne sont remplacés que si la case est cochée.
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
 - **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide.
 - **Hygrométrie par chambre** (`hygro`) : case « Hygro » dans Administration. Par défaut, pas d'hygrométrie pour LP2, LP3, LBP, Zone prépa, Cellule ail et Cellule 8 (déduit du nom si le champ manque). Sans hygrométrie : pas de zone de saisie dans les relevés, ni de colonne Hygro dans le tableau STOC de l'Excel.
@@ -86,7 +88,7 @@ Points importants :
 
 - **a) Comptes et accès** (admin du plan) : par compte, nom (facultatif), rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Pour son propre compte, seul le nom est modifiable.
 - **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes. Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits` et `calibres` sont remplacés.
-- **c) Relevés de température** (admin relevés ou admin du plan) : liste des motifs « hors cible – normal », chambres (famille Légumes ou Alliums, T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer. Bouton « Exporter tous les relevés (JSON) » : relevés en cours et archivés (champ `archive` = id de l'archive), réglages des relevés, en un seul fichier.
+- **c) Relevés de température** (admin relevés ou admin du plan) : liste des motifs « hors cible – normal », chambres (famille Légumes ou Alliums, T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer. Bouton « Exporter tous les relevés (JSON) » : relevés en cours et archivés (champ `archive` = id de l'archive), réglages des relevés, en un seul fichier. Bouton « Importer un fichier JSON » : restauration des relevés manquants (voir plus haut).
 - **d) Archives et conservation** : durées réglables (les durées de l'historique du plan ne sont visibles que de l'admin du plan), boutons « Archiver maintenant », liste des archives, export Excel avec graphiques (relevés) ou CSV (mouvements), et JSON. Suppression seulement après l'échéance, avec confirmation.
 
 ## Relevés (`releves.html`)

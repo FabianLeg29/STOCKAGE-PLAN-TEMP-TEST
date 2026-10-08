@@ -241,6 +241,11 @@
 .adm-pair label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5C554A}
 .adm-pair select{width:100%}
 .adm-sec:disabled{opacity:.5;cursor:not-allowed}
+label.adm-sec{display:inline-flex;align-items:center}
+.adm-imp{margin-top:14px;padding:12px 14px;border:1px solid #D2C9B4;border-radius:10px;background:#FBF8F2}
+.adm-imp h3{margin:0 0 6px;font:600 15px 'Inter',sans-serif;overflow-wrap:anywhere}
+.adm-imp ul{margin:0 0 10px;padding-left:20px}
+.adm-chk{display:flex;gap:8px;align-items:center;min-height:44px;cursor:pointer}
 .adm-arch tr.ex td{background:#FBEDEA}
 .adm-acts{white-space:nowrap}
 .adm-acts .adm-link,.adm-acts .adm-del{margin-right:10px}
@@ -327,7 +332,7 @@
   let me = null, role = 'viewer', roleReleves = 'none';
   const A = { tab: null, msg: '', err: '' };
   let planDoc = { loaded: false, exists: false, raw: null, vue: null };   // vue = copie migrée, pour l'affichage seulement
-  let relConfig = null, relDraft = null, relDirty = false;
+  let relConfig = null, relDraft = null, relDirty = false, relImport = null;
   let cons = Object.assign({}, CONS_DEFAUT), consLoaded = false;
   let comptes = null;            // null = chargement
   let relAnciens = null;         // relevés à archiver (null = chargement)
@@ -422,7 +427,7 @@
   }
   function saisieEnCours(){ var a = document.activeElement; return !!(a && a.closest && a.closest('#admView') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'file'); }
   function ouvrirRubrique(t){
-    A.tab = t; A.msg = ''; A.err = '';
+    A.tab = t; A.msg = ''; A.err = ''; relImport = null;
     if (t === 'comptes') chargerComptes();
     if (t === 'rel' && !relDirty) relDraft = relConfig ? clone(relConfig) : null;
     if (t === 'plan' || t === 'arch') ecouterPlan();
@@ -757,8 +762,22 @@
     h += '<button type="button" class="adm-link" id="admMotAdd">+ Ajouter un motif</button></section>';
     h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveRel">Enregistrer les réglages des relevés</button>' + (relDirty ? '<button type="button" class="adm-sec" id="admCancelRel">Annuler les modifications</button>' : '') + '</div>' +
       '<p class="adm-muted">Enregistré dans temperatures/config. Le plan de stockage n\'est pas concerné.</p>';
-    h += '<section class="adm-card"><h2>Export complet des relevés (JSON)</h2><p class="adm-muted">Un seul fichier avec tous les relevés (en cours et archivés), les chambres, les produits et les motifs, pour les réintégrer dans une autre application si besoin. Rangez-le dans un dossier partagé sauvegardé, jamais dans GitHub.</p>' +
-      '<div class="adm-actions"><button type="button" class="adm-sec" id="admRelJson">Exporter tous les relevés (JSON)</button></div></section>';
+    h += '<section class="adm-card"><h2>Export et import des relevés (JSON)</h2><p class="adm-muted">Export : un seul fichier avec tous les relevés (en cours et archivés), les chambres, les produits et les motifs, pour les réintégrer ailleurs ou les restaurer ici. Rangez-le dans un dossier partagé sauvegardé, jamais dans GitHub.</p>' +
+      '<p class="adm-muted">Import (en cas de perte de données) : seuls les relevés <b>absents</b> sont recréés, avec leur identifiant d\'origine. Rien n\'est écrasé ni supprimé ; les relevés dont l\'archive existe encore sont ignorés. Un aperçu est affiché avant toute écriture.</p>' +
+      '<div class="adm-actions"><button type="button" class="adm-sec" id="admRelJson">Exporter tous les relevés (JSON)</button>' +
+      (roleReleves === 'admin' ? '<label class="adm-sec" style="cursor:pointer">Importer un fichier JSON<input type="file" id="admRelImp" accept="application/json,.json" style="display:none"></label>' : '') + '</div>' +
+      (roleReleves === 'admin' ? '' : '<p class="adm-muted">L\'import demande le rôle relevés « Admin » (les règles n\'autorisent la création de relevés qu\'aux rôles relevés Gestion et Admin).</p>');
+    if (relImport){ var ri = relImport;
+      h += '<div class="adm-imp" id="admRelImpApercu"><h3>Aperçu de l\'import : ' + esc(ri.nom) + '</h3><ul>' +
+        '<li>' + ri.total + ' relevé' + (ri.total > 1 ? 's' : '') + ' dans le fichier (export du ' + esc(ri.exporteLe ? fdh(ri.exporteLe) : '?') + ')</li>' +
+        '<li>' + ri.presents + ' déjà présent' + (ri.presents > 1 ? 's' : '') + ' (ignoré' + (ri.presents > 1 ? 's' : '') + ')</li>' +
+        '<li>' + ri.archives + ' encore dans une archive (ignoré' + (ri.archives > 1 ? 's' : '') + ')</li>' +
+        (ri.invalides ? '<li>' + ri.invalides + ' ligne' + (ri.invalides > 1 ? 's' : '') + ' illisible' + (ri.invalides > 1 ? 's' : '') + ' (ignorée' + (ri.invalides > 1 ? 's' : '') + ')</li>' : '') +
+        '<li><b>' + ri.lignes.length + ' relevé' + (ri.lignes.length > 1 ? 's' : '') + ' à restaurer</b>' + (ri.lignes.length ? ' (du ' + esc(fdh(ri.lignes[0].at)) + ' au ' + esc(fdh(ri.lignes[ri.lignes.length - 1].at)) + ')' : '') + '</li></ul>' +
+        (ri.config ? '<label class="adm-chk"><input type="checkbox" id="admRelImpCfg"' + (ri.avecConfig ? ' checked' : '') + '> Remplacer aussi les réglages (chambres, produits, motifs) par ceux du fichier</label>' : '') +
+        '<div class="adm-actions">' + (ri.lignes.length || ri.avecConfig ? '<button type="button" class="adm-save" id="admRelImpGo">Restaurer ' + ri.lignes.length + ' relevé' + (ri.lignes.length > 1 ? 's' : '') + (ri.avecConfig ? ' et les réglages' : '') + '</button>' : '') +
+        '<button type="button" class="adm-sec" id="admRelImpNon">Annuler</button></div></div>'; }
+    h += '</section>';
     return h;
   }
   function bindRel(o){
@@ -789,6 +808,10 @@
       }catch(e){ console.error(e); A.err = 'Export impossible : ' + (e && e.message || e); }
       draw();
     });
+    on('#admRelImp', 'change', function(e){ var f = e.files && e.files[0]; e.value = ''; if (f) preparerImport(f); });
+    on('#admRelImpCfg', 'change', function(e){ relImport.avecConfig = e.checked; draw(); });
+    on('#admRelImpNon', 'click', function(){ relImport = null; A.msg = ''; A.err = ''; draw(); });
+    on('#admRelImpGo', 'click', function(btn){ btn.disabled = true; restaurer(); });
     on('#admCancelRel', 'click', function(){ relDraft = clone(relConfig); relDirty = false; A.msg = ''; A.err = ''; draw(); });
     on('#admSaveRel', 'click', async function(btn){
       var out = { frigos: [], produits: [], motifs: [] }, noms, i, f, n, bad = null;
@@ -944,6 +967,69 @@
     if (Array.isArray(v)) return v.map(enClair);
     if (v && typeof v === 'object'){ var o = {}; for (var k in v) o[k] = enClair(v[k]); return o; }
     return v;
+  }
+  // ---------- Import JSON des relevés (restauration des seuls relevés absents) ----------
+  var CHAMPS_RELEVE = ['type', 'lieu', 'etat', 'produit', 'lot', 'temp', 'temps', 'hr', 'min', 'max', 'hrMin', 'hrMax', 'tempConforme', 'hrConforme', 'conforme',
+    'statut', 'motif', 'contreMesureDe', 'action', 'commentaire', 'operateur', 'at', 'mois', 'modifications'];
+  function fdh(iso){ var d = new Date(iso); return isNaN(d) ? String(iso) : d.toLocaleDateString('fr-FR') + ' ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); }
+  function releveValide(r){
+    return r && typeof r === 'object' && typeof r.id === 'string' && r.id && r.id.indexOf('/') < 0 && (r.type === 'frigo' || r.type === 'produit')
+      && typeof r.at === 'string' && !isNaN(new Date(r.at)) && typeof r.mois === 'string' && typeof r.lieu === 'string' && typeof r.operateur === 'string' && typeof r.conforme === 'boolean';
+  }
+  function preparerImport(file){
+    var rd = new FileReader();
+    rd.onload = async function(ev){
+      A.msg = ''; A.err = ''; relImport = null;
+      try{
+        var j = JSON.parse(ev.target.result);
+        if (!j || j.format !== 'releves-temperature' || !Array.isArray(j.releves)){ A.err = 'Fichier non reconnu : ce n\'est pas un export JSON des relevés de température.'; return draw(); }
+        if (j.version !== 1){ A.err = 'Version de fichier non prise en charge (' + esc(String(j.version)) + ').'; return draw(); }
+        A.msg = 'Lecture du fichier et comparaison avec la base…'; draw();
+        var ids = new Set((await RELEVES.get()).docs.map(function(d){ return d.id; }));
+        var archIds = new Set((await db.collection('archives').where('type', '==', 'releves').get()).docs.map(function(d){ return d.id; }));
+        var vus = new Set(), ri = { nom: file.name, exporteLe: j.exporteLe, total: j.releves.length, presents: 0, archives: 0, invalides: 0, lignes: [],
+          config: j.config && Array.isArray(j.config.frigos) && j.config.frigos.length ? j.config : null, avecConfig: false };
+        j.releves.forEach(function(r){
+          if (!releveValide(r) || vus.has(r.id)){ ri.invalides++; return; }
+          vus.add(r.id);
+          if (ids.has(r.id)) ri.presents++;
+          else if (r.archive && archIds.has(r.archive)) ri.archives++;
+          else ri.lignes.push(r);
+        });
+        ri.lignes.sort(function(a, b){ return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; });
+        relImport = ri; A.msg = '';
+      }catch(e){ console.error(e); A.err = 'Impossible de lire ce fichier : ' + (e && e.message || e); }
+      draw();
+    };
+    rd.readAsText(file);
+  }
+  async function restaurer(){
+    var ri = relImport; if (!ri) return;
+    var ts = firebase.firestore.FieldValue.serverTimestamp(), le = new Date().toISOString(), fait = 0;
+    try{
+      for (var i = 0; i < ri.lignes.length; i += 400){
+        var batch = db.batch();
+        ri.lignes.slice(i, i + 400).forEach(function(r){
+          var d = {};
+          CHAMPS_RELEVE.forEach(function(k){ if (r[k] !== undefined) d[k] = r[k]; });
+          if (d.modifications && !Array.isArray(d.modifications)) delete d.modifications;
+          d.uid = me.uid; d.creeLe = ts;
+          d.restaure = { le: le, par: me.email, fichier: ri.nom, uidOrigine: r.uid || '', creeLeOrigine: r.creeLe || '', archive: r.archive || '' };
+          batch.set(RELEVES.doc(r.id), d);
+        });
+        await batch.commit(); fait = Math.min(i + 400, ri.lignes.length);
+      }
+      if (ri.avecConfig){
+        var c = ri.config;
+        await CONFIG_REF.set({ frigos: c.frigos, produits: Array.isArray(c.produits) ? c.produits : [], motifs: Array.isArray(c.motifs) && c.motifs.length ? c.motifs : (relConfig && relConfig.motifs || []) });
+      }
+      relImport = null; A.err = '';
+      A.msg = 'Import terminé : ' + fait + ' relevé' + (fait > 1 ? 's' : '') + ' restauré' + (fait > 1 ? 's' : '') + (ri.avecConfig ? ', réglages remplacés' : '') + '.';
+    }catch(e){
+      console.error(e); relImport = null;
+      A.err = 'Import interrompu après ' + fait + ' relevé' + (fait > 1 ? 's' : '') + ' : ' + (e && e.message || e) + '. Relancez l\'import avec le même fichier : les relevés déjà restaurés seront ignorés.';
+    }
+    draw();
   }
   function donneesArchive(a){ try{ return JSON.parse(a.donnees || '[]'); }catch(e){ return []; } }
   function exporterArchive(a){
