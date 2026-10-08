@@ -77,6 +77,8 @@ textarea{min-height:80px;resize:vertical}
 .err{color:var(--ko);font-weight:600;margin:10px 0 0}
 .banner{border-radius:12px;padding:12px 14px;margin-bottom:14px;background:var(--ko-bg);color:var(--ko);font-weight:600}
 .hidden{display:none!important}
+.grp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:1rem;font-weight:700;margin:14px 0 8px}
+.grp span{color:var(--muted);font-weight:600;font-size:.9rem}
 .filters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
 .chk{display:flex;align-items:center;gap:8px;min-height:44px}
 .chk input{width:22px;height:22px}
@@ -185,11 +187,20 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   //   archives            : lue seulement pour signaler un mois archivé (lecture refusée = message simple)
   const RELEVES = fdb.collection("releves");
   const CONFIG_REF = fdb.collection("temperatures").doc("config");
+  // Famille de chaque chambre : « legumes » (frigos légumes) ou « alliums » (cellules alliums).
+  // Réglée par l'admin ; si le champ manque (anciens réglages), déduite du nom.
+  const FRIGOS_LEGUMES=["lp1","lp2","lp3","lbp","zone prepa","cellule carotte"];
+  function cleNom(n){ return String(n||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+  function familleParDefaut(nom){ return FRIGOS_LEGUMES.indexOf(cleNom(nom))>=0?"legumes":"alliums"; }
+  function familleDe(f){ return f.famille==="legumes"||f.famille==="alliums"?f.famille:familleParDefaut(f.nom); }
+  // Ordre d'affichage et de tournée : frigos légumes, puis cellules alliums (ordre des réglages conservé dans chaque groupe)
+  function normaliserFrigos(l){ const x=l.map(f=>Object.assign({},f,{famille:familleDe(f)})); return x.filter(f=>f.famille==="legumes").concat(x.filter(f=>f.famille==="alliums")); }
+  const FAMILLES=[["legumes","Frigos légumes"],["alliums","Cellules alliums"]];
   // Chambres de la fiche STOC E12.1, utilisées si temperatures/config n'existe pas encore
   const CHAMBRES_STOC = [["LP1",3,5],["LP2",6,12],["LP3",3,6],["LBP",2,4],["Zone prépa",6,14],
     ["Cellule 1",-0.5,1.5],["Cellule 2",-0.5,1.5],["Cellule 3",-0.5,1.5],["Cellule 4",-0.5,1.5],["Cellule 5",-0.5,1.5],
     ["Cellule 6",-0.5,1.5],["Cellule 7",0,1.5],["Cellule 8",0,1.5],["Cellule ail",-5,0],["Cellule carotte",0,1.5]]
-    .map(c=>({ nom:c[0], min:c[1], max:c[2], hrMin:null, hrMax:null }));
+    .map(c=>({ nom:c[0], famille:familleParDefaut(c[0]), min:c[1], max:c[2], hrMin:null, hrMax:null }));
 
   let roleReleves = "none", rolePlan = "viewer";
   let config = { frigos: [], produits: [] };
@@ -294,8 +305,11 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     const fr=config.frigos.find(f=>f.nom===F.lieu);
     const nbDone=config.frigos.filter(f=>doneToday(f.nom)).length;
     let h=opField();
-    h+='<div class="card"><h2>Chambre froide contrôlée</h2><p class="hint">'+nbDone+' sur '+config.frigos.length+' relevées aujourd\'hui.</p><div class="grid">';
-    for(const f of config.frigos){
+    h+='<div class="card"><h2>Chambre froide contrôlée</h2><p class="hint">'+nbDone+' sur '+config.frigos.length+' relevées aujourd\'hui.</p>';
+    for(const [fam,titre] of FAMILLES){
+      const liste=config.frigos.filter(f=>f.famille===fam); if(!liste.length) continue;
+      h+='<h3 class="grp">'+titre+' <span>'+liste.filter(f=>doneToday(f.nom)).length+' / '+liste.length+'</span></h3><div class="grid">';
+    for(const f of liste){
       const l=lastFrigo(f.nom);
       let sub;
       if(l&&isToday(l.at)) sub='<span class="done">Fait à '+hm(l.at)+(l.etat==="arret"?" (arrêt)":l.temp!=null?" : "+fmtT(l.temp)+" °C":"")+'</span>';
@@ -303,7 +317,9 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       else sub='<span>À relever – cible '+esc(rangeShort(fnum(f.min),fnum(f.max)))+'</span>';
       h+='<button type="button" class="pick" data-lieu="'+esc(f.nom)+'" aria-pressed="'+(F.lieu===f.nom)+'"><b>'+esc(f.nom)+'</b>'+sub+'</button>';
     }
-    h+='</div></div>';
+      h+='</div>';
+    }
+    h+='</div>';
     if(fr){
       const hrMin=fnum(fr.hrMin), hrMax=fnum(fr.hrMax);
       h+='<div class="card"><h2>État de la chambre</h2><div class="etat">'+
@@ -381,10 +397,14 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     if(!configLoaded){ v.innerHTML='<p class="empty">Chargement…</p>'; return; }
     if(!config.frigos.length){ v.innerHTML=opField()+noConfig("frigo ou cellule"); bindOp(); return; }
     if(!config.produits.length){ v.innerHTML=opField()+noConfig("produit"); bindOp(); return; }
+    // Contrôle à cœur : seules les cellules de la famille Alliums sont proposées (réglage admin)
+    const cellules=config.frigos.filter(f=>f.famille==="alliums");
+    if(!cellules.length){ v.innerHTML=opField()+noConfig("cellule allium"); bindOp(); return; }
+    if(P.cellule&&!cellules.some(f=>f.nom===P.cellule)) P.cellule=null;
     const pr=config.produits.find(p=>p.nom===P.produit);
     let h=opField();
-    h+='<div class="card"><h2>Cellule</h2><div class="grid">';
-    for(const f of config.frigos) h+='<button type="button" class="pick" data-cel="'+esc(f.nom)+'" aria-pressed="'+(P.cellule===f.nom)+'"><b>'+esc(f.nom)+'</b></button>';
+    h+='<div class="card"><h2>Cellule alliums</h2><p class="hint">Seules les cellules alliums sont proposées pour le contrôle à cœur.</p><div class="grid">';
+    for(const f of cellules) h+='<button type="button" class="pick" data-cel="'+esc(f.nom)+'" aria-pressed="'+(P.cellule===f.nom)+'"><b>'+esc(f.nom)+'</b></button>';
     h+='</div></div>';
     if(P.cellule){
       h+='<div class="card"><h2>Produit contrôlé</h2>';
@@ -589,13 +609,13 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       const d=s.exists?s.data():null;
       if(!d){
         // Première utilisation : chambres de la fiche STOC E12.1. Un admin enregistre cette liste de départ.
-        config={ frigos:CHAMBRES_STOC.map(c=>Object.assign({},c)), produits:[] };
+        config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[] };
         if(peutConfigurer) CONFIG_REF.set({ frigos:CHAMBRES_STOC, produits:[] }).catch(e=>console.warn("Initialisation des réglages impossible",e));
       } else {
-        config={ frigos:Array.isArray(d.frigos)?d.frigos:[], produits:Array.isArray(d.produits)?d.produits:[] };
+        config={ frigos:normaliserFrigos(Array.isArray(d.frigos)?d.frigos:[]), produits:Array.isArray(d.produits)?d.produits:[] };
       }
       configLoaded=true; render();
-    },e=>{ console.warn(e); config={ frigos:CHAMBRES_STOC.map(c=>Object.assign({},c)), produits:[] }; configLoaded=true; banner("Réglages des relevés illisibles : liste des chambres par défaut affichée. "+lectureMsg(e)); render(); });
+    },e=>{ console.warn(e); config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[] }; configLoaded=true; banner("Réglages des relevés illisibles : liste des chambres par défaut affichée. "+lectureMsg(e)); render(); });
     moisQuery(monthKey(new Date())).onSnapshot(s=>{
       curErr=false;
       currentMonthDocs=s.docs.map(d=>Object.assign({_id:d.id},d.data()));

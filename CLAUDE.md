@@ -49,7 +49,7 @@ users/{uid}         { email, role, roleReleves }
 releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret' ('' pour produit), produit, lot,
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
                       action, commentaire, operateur, at (ISO), mois ('AAAA-MM') }   ← création seule
-temperatures/config { frigos:[{nom,min,max,hrMin,hrMax}], produits:[{nom,min,max}] }   ← listes propres aux relevés
+temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',min,max,hrMin,hrMax}], produits:[{nom,min,max}] }   ← listes propres aux relevés
 archives/{id}       { type:'releves'|'mouvements', mois:['AAAA-MM'], du, au, nb, creeLe (ISO), par (email),
                       expireLe (Timestamp ou null = illimitée), donnees (JSON en texte) }
 parametres/conservation { relArchiveApresMois (13), relConservationAns (5), planArchiveApresMois (0 = jamais), planConservationAns (0) }
@@ -58,7 +58,8 @@ parametres/conservation { relArchiveApresMois (13), relConservationAns (5), plan
 Points importants :
 - **Plan** : le state est stocké en texte JSON dans le champ `data`, et pas `state`. Un palox est une entrée de `lots`. `migrate()` normalise le state à chaque lecture (voir `plan.html`).
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
-- **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide. L'écriture est faite par le premier admin qui ouvre l'Administration ou les relevés. Les autres rôles voient cette liste par défaut sans l'écrire.
+- **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide.
+- **Famille des chambres** (`famille`) : `legumes` (frigos légumes : LP1, LP2, LP3, LBP, Zone prépa, Cellule carotte par défaut) ou `alliums` (toutes les autres). L'admin la règle dans Administration, rubrique Relevés de température. Si le champ manque (anciens réglages), il est déduit du nom. Dans les relevés, la tournée est affichée par groupe (frigos légumes, puis cellules alliums), et **seules les cellules alliums sont proposées pour le contrôle à cœur**. L'écriture est faite par le premier admin qui ouvre l'Administration ou les relevés. Les autres rôles voient cette liste par défaut sans l'écrire.
 - **Archives** : au plus **400 lignes par archive**, à cause des limites Firestore (1 Mo par document, 500 opérations par lot). Il y a une archive par mois, et plusieurs si le mois dépasse 400 lignes. Pour les relevés, chaque archive est créée dans le **même lot d'écritures** que la suppression de ses relevés, donc tout ou rien. Pour l'historique du plan, c'est le même principe : une transaction par archive sur `planStockage/main`, qui crée l'archive et retire ses mouvements du seul champ `transactions`. Si l'archivage s'interrompt, les archives déjà faites sont complètes et on relance pour le reste. Firebase gratuit ne permet pas de tâche planifiée : l'archivage se lance à la main.
 - **Lecture des archives** : pour un admin relevés qui n'est pas admin du plan, toute requête sur `archives` doit filtrer sur `type == 'releves'`, sinon les règles la refusent (c'est déjà le cas dans `admin.html` et `releves.html`).
 
@@ -66,13 +67,13 @@ Points importants :
 
 - **a) Comptes et accès** (admin du plan) : par compte, rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Son propre compte est désactivé.
 - **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes. Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits` et `calibres` sont remplacés.
-- **c) Relevés de température** (admin relevés ou admin du plan) : chambres (T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer.
+- **c) Relevés de température** (admin relevés ou admin du plan) : chambres (famille Légumes ou Alliums, T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer.
 - **d) Archives et conservation** : durées réglables (les durées de l'historique du plan ne sont visibles que de l'admin du plan), boutons « Archiver maintenant », liste des archives, export Excel avec graphiques (relevés) ou CSV (mouvements), et JSON. Suppression seulement après l'échéance, avec confirmation.
 
 ## Relevés (`releves.html`)
 
 - **Frigos** : tournée guidée (la chambre suivante non relevée est proposée après chaque enregistrement), état En service, Vide ou À l'arrêt, température avec échelle et cible, hygrométrie facultative, action corrective obligatoire en cas d'écart.
-- **Produits** : contrôle à cœur de 1 à 5 mesures par produit et par cellule, avec numéro de lot facultatif.
+- **Produits** : contrôle à cœur de 1 à 5 mesures par produit, dans une cellule **alliums** uniquement, avec numéro de lot facultatif.
 - **Historique** : tableau du mois au format STOC E12.1 (dernier relevé du jour par chambre) ; un clic sur une case ouvre la ligne dans la liste détaillée. Filtres et export Excel.
 - Avec le rôle Consultation, seul l'Historique est accessible.
 - Une lecture refusée (par exemple les archives pour un non-admin) affiche un message simple, jamais d'erreur bloquante.
