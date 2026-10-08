@@ -122,10 +122,24 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
+  // Cache local Firestore (IndexedDB) : les données déjà vues sur ce poste (rôle, réglages, relevés) s'affichent
+  // tout de suite au changement de page, puis sont mises à jour par le serveur. Vidé à la déconnexion (accueil).
+  db.enablePersistence({ synchronizeTabs: true }).catch(e => console.warn('Cache local indisponible', e && e.code));
+  // Fiche users lue d'abord dans le cache local (immédiat), puis vérifiée auprès du serveur :
+  // si le rôle a changé ou si la fiche n'existe plus, la page se recharge avec les bonnes valeurs.
+  async function lireFiche(ref){
+    let c = null; try{ c = await ref.get({ source: 'cache' }); }catch(e){}
+    if (c && c.exists){
+      const cle = x => [x.role || '', x.roleReleves || ''].join('|');
+      ref.get({ source: 'server' }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
+      return c;
+    }
+    return ref.get();
+  }
 
   // Version de l'application : à changer à chaque mise à jour, pour que les liens de l'accueil
   // ouvrent la nouvelle version des modules au lieu d'une copie gardée en cache par le navigateur.
-  const VERSION = '2026-10-08.6';
+  const VERSION = '2026-10-08.7';
   const COMPTE_NON_AUTORISE = 'Compte non autorisé, contactez un administrateur';
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function show(id){ ['loadingScreen', 'loginScreen', 'homeScreen'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id)); }
@@ -161,7 +175,8 @@
       '</div>' +
       '<div class="foot"><span>Un seul compte. Chaque module s\'ouvre selon les accès donnés à votre compte ; les comptes et réglages se gèrent dans Administration. On revient ici avec le bouton « Accueil ».</span>' +
         '<button type="button" class="logout" id="logoutBtn">Déconnexion</button></div>';
-    document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+    // Déconnexion : on vide aussi le cache local du poste (poste partagé)
+    document.getElementById('logoutBtn').addEventListener('click', async () => { await auth.signOut(); try{ await db.terminate(); await db.clearPersistence(); }catch(e){ console.warn(e); } location.reload(); });
     show('homeScreen');
     if (okA) verifierArchivage(role, roleReleves);
   }
@@ -212,7 +227,7 @@
     show('loadingScreen');
     let role = 'viewer', roleReleves = 'none';
     try{
-      const d = await db.collection('users').doc(user.uid).get();
+      const d = await lireFiche(db.collection('users').doc(user.uid));
       if (!d.exists){
         // Compte créé dans Authentication mais sans fiche users : refusé puis déconnecté
         await auth.signOut();

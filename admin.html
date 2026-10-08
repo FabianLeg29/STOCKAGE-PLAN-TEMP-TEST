@@ -288,6 +288,20 @@
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const db = firebase.firestore();
+  // Cache local Firestore (IndexedDB) : les données déjà vues sur ce poste (rôle, réglages, relevés) s'affichent
+  // tout de suite au changement de page, puis sont mises à jour par le serveur. Vidé à la déconnexion (accueil).
+  db.enablePersistence({ synchronizeTabs: true }).catch(e => console.warn('Cache local indisponible', e && e.code));
+  // Fiche users lue d'abord dans le cache local (immédiat), puis vérifiée auprès du serveur :
+  // si le rôle a changé ou si la fiche n'existe plus, la page se recharge avec les bonnes valeurs.
+  async function lireFiche(ref){
+    let c = null; try{ c = await ref.get({ source: 'cache' }); }catch(e){}
+    if (c && c.exists){
+      const cle = x => [x.role || '', x.roleReleves || ''].join('|');
+      ref.get({ source: 'server' }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
+      return c;
+    }
+    return ref.get();
+  }
   const DOC_REF = db.collection('planStockage').doc('main');
   const CONFIG_REF = db.collection('temperatures').doc('config');
   const CONS_REF = db.collection('parametres').doc('conservation');
@@ -411,23 +425,27 @@
     A.tab = t; A.msg = ''; A.err = '';
     if (t === 'comptes') chargerComptes();
     if (t === 'rel' && !relDirty) relDraft = relConfig ? clone(relConfig) : null;
+    if (t === 'plan' || t === 'arch') ecouterPlan();
     if (t === 'arch') chargerArchivage();
     draw(); window.scrollTo(0, 0);
   }
 
   // ---------- a) Comptes et accès ----------
+  function lireComptes(snap){
+    const rows = [];
+    snap.forEach(function(doc){ const d = doc.data() || {};
+      rows.push({ uid: doc.id, nom: d.nom || '', email: d.email || '(email non renseigné — uid : '+doc.id+')', role: ['none','viewer','editor','admin'].indexOf(d.role) >= 0 ? d.role : 'viewer',
+        roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none' }); });
+    rows.sort(function(a, b){ return a.email.localeCompare(b.email, 'fr'); });
+    return rows;
+  }
+  // Liste des comptes : d'abord le cache local (affichage immédiat), puis le serveur (valeurs à jour)
   async function chargerComptes(){
     comptes = null;
-    try{
-      const snap = await db.collection('users').get();
-      const rows = [];
-      snap.forEach(function(doc){ const d = doc.data() || {};
-        rows.push({ uid: doc.id, nom: d.nom || '', email: d.email || '(email non renseigné — uid : '+doc.id+')', role: ['none','viewer','editor','admin'].indexOf(d.role) >= 0 ? d.role : 'viewer',
-          roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none' }); });
-      rows.sort(function(a, b){ return a.email.localeCompare(b.email, 'fr'); });
-      comptes = rows;
-    }catch(e){ comptes = []; A.err = 'Impossible de charger les comptes : ' + errTxt(e); }
-    if (A.tab === 'comptes') draw();
+    try{ const c = await db.collection('users').get({ source: 'cache' }); if (c.size > 1){ comptes = lireComptes(c); if (A.tab === 'comptes' && !saisieEnCours()) draw(); } }catch(e){}
+    try{ comptes = lireComptes(await db.collection('users').get({ source: 'server' })); }
+    catch(e){ if (comptes === null){ comptes = []; A.err = 'Impossible de charger les comptes : ' + errTxt(e); } }
+    if (A.tab === 'comptes' && !saisieEnCours()) draw();
   }
   function viewComptes(){
     var h = '<section class="adm-card"><h2>Comptes</h2><p class="adm-muted">Un seul compte par personne pour tous les modules. Le nom (facultatif) est proposé comme opérateur dans les relevés ; à défaut, c\'est le début de l\'e-mail. Vous pouvez renseigner votre propre nom ; vos rôles ne sont modifiables que par un autre admin. La création d\'un compte (e-mail et mot de passe) se fait dans la console Firebase ; ajoutez-le ensuite dans la collection « users » (champs email et role) pour qu\'il apparaisse ici.</p>';
@@ -945,8 +963,12 @@
   function bloquer(titre, texte){
     document.getElementById('admView').innerHTML = '<section class="adm-card"><h2>' + esc(titre) + '</h2><p class="adm-muted">' + esc(texte) + '</p><a class="adm-sec" style="display:inline-flex;align-items:center;text-decoration:none" href="index.html">Retour à l\'accueil</a></section>';
   }
-  function ecouter(){
-    if (isPlanAdmin()){
+  // Document du plan (lourd) : écouté seulement quand une rubrique en a besoin (Plan de stockage, Archives)
+  var planEcoute = false;
+  function ecouterPlan(){
+    if (planEcoute || !isPlanAdmin()) return;
+    planEcoute = true;
+    {
       DOC_REF.onSnapshot(function(snap){
         planDoc.loaded = true; planDoc.exists = snap.exists;
         try{ planDoc.raw = snap.exists ? JSON.parse(snap.data().data || '{}') : null; planDoc.vue = snap.exists ? normalise(planDoc.raw) : null; }
@@ -954,6 +976,8 @@
         if ((A.tab === 'plan' || A.tab === 'arch') && !saisieEnCours()) draw();
       }, function(e){ planDoc.loaded = true; A.err = 'Lecture du plan impossible : ' + errTxt(e); if (A.tab === 'plan') draw(); });
     }
+  }
+  function ecouter(){
     if (isRelAdmin()){
       CONFIG_REF.onSnapshot(function(snap){
         if (!snap.exists){
@@ -979,7 +1003,7 @@
     if (!user){ if (!compteRefuse) location.replace('index.html'); return; }
     me = { uid: user.uid, email: user.email };
     try{
-      var d = await db.collection('users').doc(user.uid).get();
+      var d = await lireFiche(db.collection('users').doc(user.uid));
       // Compte sans fiche users : refusé, déconnexion et retour à l'accueil avec le message
       if (!d.exists){ compteRefuse = true; bloquer('Compte non autorisé', 'Compte non autorisé, contactez un administrateur.'); await auth.signOut(); location.replace('index.html#non-autorise'); return; }
       var u = d.data();

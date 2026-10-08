@@ -231,6 +231,20 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   firebase.initializeApp(firebaseConfig);
   const auth = firebase.auth();
   const fdb = firebase.firestore();
+  // Cache local Firestore (IndexedDB) : les données déjà vues sur ce poste (rôle, réglages, relevés) s'affichent
+  // tout de suite au changement de page, puis sont mises à jour par le serveur. Vidé à la déconnexion (accueil).
+  fdb.enablePersistence({ synchronizeTabs: true }).catch(e => console.warn('Cache local indisponible', e && e.code));
+  // Fiche users lue d'abord dans le cache local (immédiat), puis vérifiée auprès du serveur :
+  // si le rôle a changé ou si la fiche n'existe plus, la page se recharge avec les bonnes valeurs.
+  async function lireFiche(ref){
+    let c = null; try{ c = await ref.get({ source: 'cache' }); }catch(e){}
+    if (c && c.exists){
+      const cle = x => [x.role || '', x.roleReleves || ''].join('|');
+      ref.get({ source: 'server' }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
+      return c;
+    }
+    return ref.get();
+  }
 
   // Collections du module relevés (jamais planStockage/main) :
   //   temperatures/config : chambres et produits du contrôle à cœur (réglages, gérés dans Administration)
@@ -894,7 +908,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   auth.onAuthStateChanged(async user=>{
     if(!user){ if(!compteRefuse) location.replace("index.html"); return; }
     try{
-      const d=await fdb.collection("users").doc(user.uid).get();
+      const d=await lireFiche(fdb.collection("users").doc(user.uid));
       // Compte sans fiche users : refusé, déconnexion et retour à l'accueil avec le message
       if(!d.exists){ compteRefuse=true; bloquer("Compte non autorisé","Compte non autorisé, contactez un administrateur."); await auth.signOut(); location.replace("index.html#non-autorise"); return; }
       const u=d.data();

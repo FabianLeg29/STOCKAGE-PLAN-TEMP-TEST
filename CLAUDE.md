@@ -29,6 +29,8 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 | `SETUP-FIREBASE.md` | Guide de configuration Firebase. |
 | `BASCULE.md` | Procédure de bascule vers la production (Plan_stockage_allium) : choix retenu, points d'attention sur les comptes, étapes, consigne pour la session Claude Code de production, retour arrière, feuille de bascule. |
 
+**Cache local Firestore** (accueil, relevés, administration ; pas `plan.html`) : `enablePersistence({ synchronizeTabs: true })`. Les données déjà vues s'affichent tout de suite au changement de page, puis le serveur les met à jour. La fiche `users` est lue d'abord dans le cache, puis vérifiée auprès du serveur (`lireFiche`) : si le rôle a changé, la page se recharge. La déconnexion (accueil) vide le cache du poste. Dans l'Administration, le document du plan n'est chargé qu'à l'ouverture des rubriques Plan de stockage et Archives.
+
 **Navigation** : une barre de module identique sur plan, relevés et administration. À gauche, le nom du module avec son repère de couleur (plan #963E88, relevés #62B4BB, administration #D2C9B4). À droite, le bouton blanc « Accueil » (lien vers `index.html`). On ne passe d'un module à l'autre que par l'accueil.
 
 ## Rôles
