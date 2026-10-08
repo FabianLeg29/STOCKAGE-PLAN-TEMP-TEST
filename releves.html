@@ -243,15 +243,19 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   const FRIGOS_LEGUMES=["lp1","lp2","lp3","lbp","zone prepa","cellule carotte"];
   function cleNom(n){ return String(n||"").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
   function familleParDefaut(nom){ return FRIGOS_LEGUMES.indexOf(cleNom(nom))>=0?"legumes":"alliums"; }
+  // Hygrométrie relevée ou non selon la chambre (réglage admin) ; si le champ manque, déduite du nom
+  const SANS_HYGRO=["lp2","lp3","lbp","zone prepa","cellule ail","cellule 8"];
+  function hygroParDefaut(nom){ return SANS_HYGRO.indexOf(cleNom(nom))<0; }
+  function hygroDe(f){ return typeof f.hygro==="boolean"?f.hygro:hygroParDefaut(f.nom); }
   function familleDe(f){ return f.famille==="legumes"||f.famille==="alliums"?f.famille:familleParDefaut(f.nom); }
   // Ordre d'affichage et de tournée : frigos légumes, puis cellules alliums (ordre des réglages conservé dans chaque groupe)
-  function normaliserFrigos(l){ const x=l.map(f=>Object.assign({},f,{famille:familleDe(f)})); return x.filter(f=>f.famille==="legumes").concat(x.filter(f=>f.famille==="alliums")); }
+  function normaliserFrigos(l){ const x=l.map(f=>Object.assign({},f,{famille:familleDe(f),hygro:hygroDe(f)})); return x.filter(f=>f.famille==="legumes").concat(x.filter(f=>f.famille==="alliums")); }
   const FAMILLES=[["legumes","Frigos légumes"],["alliums","Cellules alliums"]];
   // Chambres de la fiche STOC E12.1, utilisées si temperatures/config n'existe pas encore
   const CHAMBRES_STOC = [["LP1",3,5],["LP2",6,12],["LP3",3,6],["LBP",2,4],["Zone prépa",6,14],
     ["Cellule 1",-0.5,1.5],["Cellule 2",-0.5,1.5],["Cellule 3",-0.5,1.5],["Cellule 4",-0.5,1.5],["Cellule 5",-0.5,1.5],
     ["Cellule 6",-0.5,1.5],["Cellule 7",0,1.5],["Cellule 8",0,1.5],["Cellule ail",-5,0],["Cellule carotte",0,1.5]]
-    .map(c=>({ nom:c[0], famille:familleParDefaut(c[0]), min:c[1], max:c[2], hrMin:null, hrMax:null }));
+    .map(c=>({ nom:c[0], famille:familleParDefaut(c[0]), hygro:hygroParDefaut(c[0]), min:c[1], max:c[2], hrMin:null, hrMax:null }));
 
   let roleReleves = "none", rolePlan = "viewer";
   let config = { frigos: [], produits: [], motifs: [] };
@@ -432,7 +436,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       h+='<div class="card"><h2>État de la chambre</h2><div class="etat">'+
         ['service','vide','arret'].map(e=>'<button type="button" data-etat="'+e+'" aria-pressed="'+(F.etat===e)+'">'+({service:"En service",vide:"Vide",arret:"À l'arrêt"})[e]+'</button>').join("")+'</div></div>';
       h+='<div id="mesures-f"><div class="card"><h2>Température</h2>'+tempBlock("tf",fnum(fr.min),fnum(fr.max),F.temp)+'<div class="status" id="tf-st"></div></div>';
-      h+='<div class="card"><label class="f" for="hrf">Hygrométrie (facultatif)</label><p class="hint">'+(fin(hrMin)||fin(hrMax)?'Cible : '+rangeTxt(hrMin,hrMax,"%")+'.':'Humidité relative affichée par l\'hygromètre.')+'</p>'+
+      h+='<div class="card'+(fr.hygro===false?' hidden':'')+'"><label class="f" for="hrf">Hygrométrie (facultatif)</label><p class="hint">'+(fin(hrMin)||fin(hrMax)?'Cible : '+rangeTxt(hrMin,hrMax,"%")+'.':'Humidité relative affichée par l\'hygromètre.')+'</p>'+
         '<div class="hr" id="hrf-box"><input id="hrf" type="text" inputmode="decimal" autocomplete="off" placeholder="–" value="'+esc(F.hr)+'" aria-label="Hygrométrie en pourcentage"><span>%</span></div><div class="status" id="hr-st"></div></div></div>';
       h+=blocHorsCible("f",F.choix);
       h+='<div class="card hidden" id="f-act"><label class="f" for="fa">Action corrective</label><p class="hint">Obligatoire en cas d\'écart : ce qui a été fait et qui a été prévenu.</p><textarea id="fa">'+esc(F.action)+'</textarea></div>';
@@ -760,12 +764,13 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   // Écran de modification d'un relevé : valeurs corrigées, statut recalculé, raison obligatoire, valeurs d'avant conservées
   function drawEdit(el,d){
     const frigo=d.type==="frigo", st=statutDe(d), motifs=config.motifs.slice();
+    const chD=config.frigos.find(f=>f.nom===d.lieu), avecHygro=!chD||chD.hygro!==false||d.hr!=null;
     if(d.motif&&motifs.indexOf(d.motif)<0) motifs.push(d.motif);
     const E={ etat:d.etat||"service", choix:st==="ecart"?"ecart":st==="normal"?d.motif:"" };
     el.innerHTML='<div class="edit"><h2>Modifier le relevé</h2><p class="hint">'+fmtDate(d.at)+' – '+(frigo?"Frigo":"À cœur")+' – '+esc(d.lieu)+(d.produit?' – '+esc(d.produit):'')+' – opérateur : '+esc(d.operateur)+'. Cible : '+rangeTxt(fnum(d.min),fnum(d.max))+'.</p>'+
       (frigo?'<label class="f">État</label><div class="etat" style="margin-bottom:12px">'+['service','vide','arret'].map(e=>'<button type="button" data-eetat="'+e+'" aria-pressed="'+(E.etat===e)+'">'+({service:"En service",vide:"Vide",arret:"À l'arrêt"})[e]+'</button>').join("")+'</div>':'')+
       '<div id="e-mes"><label class="f" for="et">'+(frigo?'Température (°C)':'Températures à cœur (°C), séparées par « / »')+'</label><input id="et" type="text" inputmode="decimal" value="'+esc((d.temps&&d.temps.length?d.temps:(d.temp!=null?[d.temp]:[])).map(fmtT).join(" / "))+'">'+
-      (frigo?'<label class="f" for="eh" style="margin-top:10px">Hygrométrie (%), facultatif</label><input id="eh" type="text" inputmode="decimal" value="'+esc(d.hr!=null?String(d.hr).replace(".",","):"")+'">':'')+'</div>'+
+      (frigo?'<label class="f'+(avecHygro?'':' hidden')+'" for="eh" style="margin-top:10px">Hygrométrie (%), facultatif</label><input id="eh" class="'+(avecHygro?'':'hidden')+'" type="text" inputmode="decimal" value="'+esc(d.hr!=null?String(d.hr).replace(".",","):"")+'">':'')+'</div>'+
       (!frigo?'<label class="f" for="el" style="margin-top:10px">N° de lot ou commande</label><input id="el" type="text" value="'+esc(d.lot||"")+'">':'')+
       '<div id="e-hc" class="hidden" style="margin-top:10px"><label class="f" for="ech">Hors cible : motif ou écart</label><select id="ech"><option value="">— Choisir —</option>'+motifs.map((m,i)=>'<option value="m'+i+'"'+(E.choix===m?" selected":"")+'>'+esc(m)+'</option>').join("")+'<option value="ecart"'+(E.choix==="ecart"?" selected":"")+'>Écart : action corrective</option></select></div>'+
       '<div id="e-act" class="hidden" style="margin-top:10px"><label class="f" for="ea">Action corrective</label><textarea id="ea">'+esc(d.action||"")+'</textarea></div>'+

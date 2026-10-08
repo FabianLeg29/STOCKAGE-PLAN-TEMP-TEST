@@ -219,7 +219,9 @@
 .adm-sec{background:#fff;color:#2B2620;border:1px solid #D2C9B4;border-radius:10px;padding:0 16px;min-height:50px;font:600 14px 'Inter',sans-serif;cursor:pointer}
 .adm-ok{background:#DCE4D2;color:#1F3320;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:14px}
 .adm-err{background:#F1D6CC;color:#6E1F17;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:14px}
-.adm-head5,.adm-grid5{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) repeat(4,minmax(0,1fr)) 40px;gap:6px;align-items:center}
+.adm-hyg{display:flex;align-items:center;gap:6px;font-size:13px;color:#5C554A;min-height:40px;white-space:nowrap}
+.adm-hyg input{width:20px;height:20px}
+.adm-head5,.adm-grid5{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto repeat(4,minmax(0,1fr)) 40px;gap:6px;align-items:center}
 .adm-head3,.adm-grid3{display:grid;grid-template-columns:minmax(0,3fr) repeat(2,minmax(0,1fr)) 40px;gap:6px;align-items:center}
 .adm-head5,.adm-head3{font-size:12px;color:#5C554A;margin-bottom:4px}
 .adm-grid5,.adm-grid3{margin-bottom:6px}
@@ -296,14 +298,17 @@
   // pour le contrôle à cœur). Si le champ manque (anciens réglages), elle est déduite du nom.
   var FRIGOS_LEGUMES = ['lp1', 'lp2', 'lp3', 'lbp', 'zone prepa', 'cellule carotte'];
   function familleParDefaut(nom){ var k = String(nom || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return FRIGOS_LEGUMES.indexOf(k) >= 0 ? 'legumes' : 'alliums'; }
-  function avecFamille(l){ return l.map(function(f){ return Object.assign({}, f, { famille: f.famille === 'legumes' || f.famille === 'alliums' ? f.famille : familleParDefaut(f.nom) }); }); }
+  // Hygrométrie relevée ou non selon la chambre ; si le champ manque, déduite du nom
+  var SANS_HYGRO = ['lp2', 'lp3', 'lbp', 'zone prepa', 'cellule ail', 'cellule 8'];
+  function hygroParDefaut(nom){ var k = String(nom || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return SANS_HYGRO.indexOf(k) < 0; }
+  function avecFamille(l){ return l.map(function(f){ return Object.assign({}, f, { hygro: typeof f.hygro === 'boolean' ? f.hygro : hygroParDefaut(f.nom), famille: f.famille === 'legumes' || f.famille === 'alliums' ? f.famille : familleParDefaut(f.nom) }); }); }
   // Motifs « hors cible – normal » proposés aux opérateurs
   var MOTIFS_DEFAUT = ['Dégivrage en cours', 'Chargement récent (produit en descente en température)', 'Porte ouverte (manutention)', 'Chambre en remise en route', 'Autre (préciser en remarque)'];
   // Chambres de la fiche STOC E12.1, utilisées pour initialiser temperatures/config s'il n'existe pas
   const CHAMBRES_STOC = [['LP1',3,5],['LP2',6,12],['LP3',3,6],['LBP',2,4],['Zone prépa',6,14],
     ['Cellule 1',-0.5,1.5],['Cellule 2',-0.5,1.5],['Cellule 3',-0.5,1.5],['Cellule 4',-0.5,1.5],['Cellule 5',-0.5,1.5],
     ['Cellule 6',-0.5,1.5],['Cellule 7',0,1.5],['Cellule 8',0,1.5],['Cellule ail',-5,0],['Cellule carotte',0,1.5]]
-    .map(function(c){ return { nom: c[0], famille: familleParDefaut(c[0]), min: c[1], max: c[2], hrMin: null, hrMax: null }; });
+    .map(function(c){ return { nom: c[0], famille: familleParDefaut(c[0]), hygro: hygroParDefaut(c[0]), min: c[1], max: c[2], hrMin: null, hrMax: null }; });
 
   let me = null, role = 'viewer', roleReleves = 'none';
   const A = { tab: null, msg: '', err: '' };
@@ -709,11 +714,12 @@
   function viewRel(){
     var r = relDraft, h = '';
     if (!r) return '<section class="adm-card"><p class="adm-muted">Chargement des réglages des relevés…</p></section>';
-    h += '<section class="adm-card"><h2>Chambres froides et cellules</h2><p class="adm-muted">Liste du module relevés, indépendante du plan de stockage. Laissez une limite vide si elle ne s\'applique pas. Changer une cible ne modifie pas les relevés déjà enregistrés. Famille : les frigos légumes et les cellules alliums sont séparés dans la tournée ; seules les cellules alliums sont proposées pour le contrôle à cœur des produits.</p>' +
-      '<div class="adm-head5"><span>Nom</span><span>Famille</span><span>T° mini</span><span>T° maxi</span><span>Hygro mini %</span><span>Hygro maxi %</span><span></span></div>';
+    h += '<section class="adm-card"><h2>Chambres froides et cellules</h2><p class="adm-muted">Liste du module relevés, indépendante du plan de stockage. Laissez une limite vide si elle ne s\'applique pas. Changer une cible ne modifie pas les relevés déjà enregistrés. Famille : les frigos légumes et les cellules alliums sont séparés dans la tournée ; seules les cellules alliums sont proposées pour le contrôle à cœur des produits. Hygro décoché : pas de saisie d\'hygrométrie pour cette chambre, ni de colonne Hygro dans l\'Excel.</p>' +
+      '<div class="adm-head5"><span>Nom</span><span>Famille</span><span>Hygro</span><span>T° mini</span><span>T° maxi</span><span>Hygro mini %</span><span>Hygro maxi %</span><span></span></div>';
     r.frigos.forEach(function(f, i){
       h += '<div class="adm-grid5"><input type="text" aria-label="Nom de la chambre" placeholder="Nom de la chambre" data-rf="' + i + '|nom" value="' + esc(f.nom) + '">' +
         '<select aria-label="Famille ' + esc(f.nom) + '" data-rffam="' + i + '">' + [['legumes', 'Légumes'], ['alliums', 'Alliums']].map(function(o){ return '<option value="' + o[0] + '"' + (f.famille === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        '<label class="adm-hyg"><input type="checkbox" data-rfhyg="' + i + '"' + (f.hygro !== false ? ' checked' : '') + '> Hygro</label>' +
         [['min','T° mini'], ['max','T° maxi'], ['hrMin','HR mini %'], ['hrMax','HR maxi %']].map(function(k){ return '<input type="text" inputmode="decimal" placeholder="' + k[1] + '" aria-label="' + k[1] + ' ' + esc(f.nom) + '" data-rf="' + i + '|' + k[0] + '" value="' + val(f[k[0]]) + '">'; }).join('') +
         '<button type="button" class="adm-x" aria-label="Supprimer ' + esc(f.nom) + '" data-rfdel="' + i + '">×</button></div>';
     });
@@ -740,10 +746,11 @@
     var on = function(sel, ev, f){ o.querySelectorAll(sel).forEach(function(e){ e.addEventListener(ev, function(){ f(e); }); }); };
     on('[data-rf]', 'input', function(e){ var k = e.dataset.rf.split('|'); R.frigos[+k[0]][k[1]] = e.value; relDirty = true; });
     on('[data-rffam]', 'change', function(e){ R.frigos[+e.dataset.rffam].famille = e.value; relDirty = true; });
+    on('[data-rfhyg]', 'change', function(e){ R.frigos[+e.dataset.rfhyg].hygro = e.checked; relDirty = true; });
     on('[data-rp]', 'input', function(e){ var k = e.dataset.rp.split('|'); R.produits[+k[0]][k[1]] = e.value; relDirty = true; });
     on('[data-rfdel]', 'click', function(e){ R.frigos.splice(+e.dataset.rfdel, 1); relDirty = true; draw(); });
     on('[data-rpdel]', 'click', function(e){ R.produits.splice(+e.dataset.rpdel, 1); relDirty = true; draw(); });
-    on('#admRfAdd', 'click', function(){ R.frigos.push({ nom: '', famille: 'alliums', min: null, max: null, hrMin: null, hrMax: null }); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rf$="|nom"]'); if (ins.length) ins[ins.length - 1].focus(); });
+    on('#admRfAdd', 'click', function(){ R.frigos.push({ nom: '', famille: 'alliums', hygro: true, min: null, max: null, hrMin: null, hrMax: null }); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rf$="|nom"]'); if (ins.length) ins[ins.length - 1].focus(); });
     on('[data-rmot]', 'input', function(e){ R.motifs[+e.dataset.rmot] = e.value; relDirty = true; });
     on('[data-rmotdel]', 'click', function(e){ R.motifs.splice(+e.dataset.rmotdel, 1); relDirty = true; draw(); });
     on('#admMotAdd', 'click', function(){ R.motifs.push(''); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rmot]'); if (ins.length) ins[ins.length - 1].focus(); });
@@ -753,7 +760,7 @@
       var out = { frigos: [], produits: [], motifs: [] }, noms, i, f, n, bad = null;
       var lire = function(x, k, nom){ var s = String(x[k] == null ? '' : x[k]).trim(); if (!s) return null; var v = num(s); if (v == null && !bad) bad = nom; return v; };
       for (i = 0; i < R.frigos.length; i++){ f = R.frigos[i]; n = String(f.nom || '').trim(); if (!n) continue;
-        var o2 = { nom: n, famille: f.famille === 'legumes' ? 'legumes' : 'alliums' }; ['min', 'max', 'hrMin', 'hrMax'].forEach(function(k){ o2[k] = lire(f, k, n); });
+        var o2 = { nom: n, famille: f.famille === 'legumes' ? 'legumes' : 'alliums', hygro: f.hygro !== false }; ['min', 'max', 'hrMin', 'hrMax'].forEach(function(k){ o2[k] = lire(f, k, n); });
         if (o2.min != null && o2.max != null && o2.min > o2.max){ A.err = 'Pour « ' + n + ' », la T° mini est supérieure à la maxi.'; A.msg = ''; return draw(); }
         if (o2.hrMin != null && o2.hrMax != null && o2.hrMin > o2.hrMax){ A.err = 'Pour « ' + n + ' », l\'hygro mini est supérieure à la maxi.'; A.msg = ''; return draw(); }
         out.frigos.push(o2); }

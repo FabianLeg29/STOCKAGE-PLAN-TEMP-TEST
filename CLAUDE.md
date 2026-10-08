@@ -52,7 +52,7 @@ releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret
                       statut:'conforme'|'normal'|'ecart', motif, contreMesureDe (id de l'écart d'origine ou ''),
                       action, commentaire, operateur, at (ISO), mois ('AAAA-MM'),
                       uid (auteur), creeLe (Timestamp serveur), modifications:[{le, par, raison, avant:{…}}] }
-temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',min,max,hrMin,hrMax}], produits:[{nom,min,max}],
+temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',hygro:bool,min,max,hrMin,hrMax}], produits:[{nom,min,max}],
                       motifs:[texte…] }   ← listes propres aux relevés
 archives/{id}       { type:'releves'|'mouvements', mois:['AAAA-MM'], du, au, nb, creeLe (ISO), par (email),
                       expireLe (Timestamp ou null = illimitée), donnees (JSON en texte) }
@@ -74,6 +74,7 @@ Points importants :
   - L'export Excel (onglet Détail) a une colonne « Modifications ».
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
 - **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide.
+- **Hygrométrie par chambre** (`hygro`) : case « Hygro » dans Administration. Par défaut, pas d'hygrométrie pour LP2, LP3, LBP, Zone prépa, Cellule ail et Cellule 8 (déduit du nom si le champ manque). Sans hygrométrie : pas de zone de saisie dans les relevés, ni de colonne Hygro dans le tableau STOC de l'Excel.
 - **Famille des chambres** (`famille`) : `legumes` (frigos légumes : LP1, LP2, LP3, LBP, Zone prépa, Cellule carotte par défaut) ou `alliums` (toutes les autres). L'admin la règle dans Administration, rubrique Relevés de température. Si le champ manque (anciens réglages), il est déduit du nom. Dans les relevés, la tournée est affichée par groupe (frigos légumes, puis cellules alliums), et **seules les cellules alliums sont proposées pour le contrôle à cœur**. L'écriture est faite par le premier admin qui ouvre l'Administration ou les relevés. Les autres rôles voient cette liste par défaut sans l'écrire.
 - **Archives** : au plus **400 lignes par archive**, à cause des limites Firestore (1 Mo par document, 500 opérations par lot). Il y a une archive par mois, et plusieurs si le mois dépasse 400 lignes. Pour les relevés, chaque archive est créée dans le **même lot d'écritures** que la suppression de ses relevés, donc tout ou rien. Pour l'historique du plan, c'est le même principe : une transaction par archive sur `planStockage/main`, qui crée l'archive et retire ses mouvements du seul champ `transactions`. Si l'archivage s'interrompt, les archives déjà faites sont complètes et on relance pour le reste. Firebase gratuit ne permet pas de tâche planifiée : l'archivage se lance à la main.
 - **Lecture des archives** : pour un admin relevés qui n'est pas admin du plan, toute requête sur `archives` doit filtrer sur `type == 'releves'`, sinon les règles la refusent (c'est déjà le cas dans `admin.html` et `releves.html`).

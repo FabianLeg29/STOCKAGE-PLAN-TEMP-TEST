@@ -125,7 +125,7 @@
 
   // Version de l'application : à changer à chaque mise à jour, pour que les liens de l'accueil
   // ouvrent la nouvelle version des modules au lieu d'une copie gardée en cache par le navigateur.
-  const VERSION = '2026-10-08.5';
+  const VERSION = '2026-10-08.6';
   const COMPTE_NON_AUTORISE = 'Compte non autorisé, contactez un administrateur';
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function show(id){ ['loadingScreen', 'loginScreen', 'homeScreen'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id)); }

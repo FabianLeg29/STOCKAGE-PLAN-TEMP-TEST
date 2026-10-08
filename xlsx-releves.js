@@ -121,19 +121,22 @@
     // Feuille 1 : tableau au format STOC E12.1
     var t1 = [[{ v: options.titre || 'RELEVÉ DE TEMPÉRATURE CHAMBRES FROIDES – STOC E12.1', s: 4 }], [{ v: 'La Légumière – ' + (options.periode || ''), s: 1 }], []];
     var h1 = [{ v: 'Date', s: 5 }], h2 = [{ v: 'Cible', s: 5 }];
-    noms.forEach(function(n){ var c = cfg(n); h1.push({ v: n + ' T°C', s: 5 }, { v: n + ' Hygro %', s: 5 }, { v: n + ' Remarques', s: 5 });
-      h2.push({ v: (c.min != null ? String(c.min).replace('.', ',') : '') + (c.min != null || c.max != null ? ' à ' : '') + (c.max != null ? String(c.max).replace('.', ',') + ' °C' : ''), s: 5 }, { v: '', s: 5 }, { v: '', s: 5 }); });
+    // chambre sans hygrométrie (réglage hygro = false) : pas de colonne Hygro
+    var avecHr = function(n){ return cfg(n).hygro !== false || frigos.some(function(r){ return r.lieu === n && r.hr != null; }); };
+    noms.forEach(function(n){ var c = cfg(n); h1.push({ v: n + ' T°C', s: 5 }); if (avecHr(n)) h1.push({ v: n + ' Hygro %', s: 5 }); h1.push({ v: n + ' Remarques', s: 5 });
+      h2.push({ v: (c.min != null ? String(c.min).replace('.', ',') : '') + (c.min != null || c.max != null ? ' à ' : '') + (c.max != null ? String(c.max).replace('.', ',') + ' °C' : ''), s: 5 }); if (avecHr(n)) h2.push({ v: '', s: 5 }); h2.push({ v: '', s: 5 }); });
     t1.push(h1, h2);
     jours.forEach(function(j){ var row = [{ v: fr(j), s: 1 }];
       noms.forEach(function(n){ var r = g[j + '|' + n];
-        if (!r){ row.push({ v: '', s: 2 }, { v: '', s: 6 }, { v: '', s: 2 }); return; }
-        if (r.etat === 'arret'){ row.push({ v: 'X', s: 2 }, { v: 'X', s: 6 }, { v: 'ARRÊT' + (r.commentaire ? ' – ' + r.commentaire : ''), s: 2 }); return; }
+        var hr = avecHr(n);
+        if (!r){ row.push({ v: '', s: 2 }); if (hr) row.push({ v: '', s: 6 }); row.push({ v: '', s: 2 }); return; }
+        if (r.etat === 'arret'){ row.push({ v: 'X', s: 2 }); if (hr) row.push({ v: 'X', s: 6 }); row.push({ v: 'ARRÊT' + (r.commentaire ? ' – ' + r.commentaire : ''), s: 2 }); return; }
         var st = statut(r);
         var avant = (tous[j + '|' + n] || []).filter(function(x){ return x !== r && statut(x) === 'ecart'; }).map(function(x){ return 'ÉCART ' + hm(x.at) + ' (' + String(x.temp).replace('.', ',') + ' °C) : ' + (x.action || ''); });
         var rem = [r.etat === 'vide' ? 'VIDE' : '', st === 'ecart' ? 'ÉCART : ' + (r.action || '') : '', st === 'normal' ? 'HORS CIBLE NORMAL : ' + (r.motif || '') : '', avant.length ? avant.join(' ; ') + ' – contre-mesure ' + hm(r.at) : '', r.commentaire || ''].filter(Boolean).join(' – ');
-        row.push({ v: r.temp, s: st === 'ecart' ? 3 : 2 }, { v: r.hr == null ? '' : r.hr, s: 6 }, { v: rem, s: st === 'ecart' || avant.length ? 7 : 2 }); });
+        row.push({ v: r.temp, s: st === 'ecart' ? 3 : 2 }); if (hr) row.push({ v: r.hr == null ? '' : r.hr, s: 6 }); row.push({ v: rem, s: st === 'ecart' || avant.length ? 7 : 2 }); });
       t1.push(row); });
-    var w1 = [12]; noms.forEach(function(){ w1.push(9, 8, 22); });
+    var w1 = [12]; noms.forEach(function(n){ w1.push(9); if (avecHr(n)) w1.push(8); w1.push(22); });
 
     // Feuille 3 : données des graphiques (Date, puis T°/mini/maxi par chambre)
     var D = 'Données graphiques', t3 = [['Date']];
