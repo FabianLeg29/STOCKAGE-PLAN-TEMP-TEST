@@ -80,8 +80,9 @@ textarea{min-height:80px;resize:vertical}
 .grp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:1rem;font-weight:700;margin:14px 0 8px}
 .grp span{color:var(--muted);font-weight:600;font-size:.9rem}
 .chsel{margin-top:6px}
-td.acts{white-space:nowrap}
-.mini{min-height:40px;padding:0 10px;margin:2px 4px 2px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-weight:600;cursor:pointer}
+td.acts{width:1%}
+td.acts .mini{display:block;width:100%;margin:0 0 6px}
+.mini{min-height:44px;padding:0 10px;margin:2px 4px 2px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-weight:600;cursor:pointer}
 .mini.del{color:var(--ko);border-color:var(--ko)}
 .edit input[type=text],.edit select,.edit textarea{margin-bottom:2px}
 .edit-bts{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:14px}
@@ -687,12 +688,13 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     if(H.edit){ const d=histSource().find(x=>x._id===H.edit); if(d&&peutGerer(d)) return drawEdit(tabEl,d); H.edit=null; }
     const rows=filteredHist(), gestion=rows.some(peutGerer);
     if(!rows.length){ tabEl.innerHTML='<p class="empty">Aucun contrôle pour cette sélection. Les relevés apparaîtront ici dès leur enregistrement.</p>'; return; }
-    tabEl.innerHTML='<table><thead><tr><th>Date</th><th>Contrôle</th><th>Chambre / cellule</th><th>Produit</th><th>T° (°C)</th><th>Hygro.</th><th>Résultat</th><th>Opérateur</th><th>Action / remarques</th>'+(gestion?'<th></th>':'')+'</tr></thead><tbody>'+
-      rows.map(d=>{ const st=statutDe(d), orig=d.contreMesureDe?all.find(x=>x._id===d.contreMesureDe):null; return '<tr id="r-'+esc(d._id)+'" class="'+(st==="ecart"?"ko":st==="normal"?"nm":"")+(H.focus&&d._id===H.focus?" focus":"")+'"><td>'+fmtDate(d.at)+'</td><td>'+(d.type==="frigo"?"Frigo":"À cœur")+'</td><td>'+esc(d.lieu)+'</td><td>'+esc(d.produit||"")+(d.lot?'<br><span class="hint">Lot '+esc(d.lot)+'</span>':'')+'</td>'+
+    tabEl.innerHTML='<table><thead><tr>'+(gestion?'<th></th>':'')+'<th>Date</th><th>Contrôle</th><th>Chambre / cellule</th><th>Produit</th><th>T° (°C)</th><th>Hygro.</th><th>Résultat</th><th>Opérateur</th><th>Action / remarques</th></tr></thead><tbody>'+
+      rows.map(d=>{ const st=statutDe(d), orig=d.contreMesureDe?all.find(x=>x._id===d.contreMesureDe):null; return '<tr id="r-'+esc(d._id)+'" class="'+(st==="ecart"?"ko":st==="normal"?"nm":"")+(H.focus&&d._id===H.focus?" focus":"")+'">'+
+        (gestion?'<td class="acts">'+(peutGerer(d)?'<button type="button" class="mini" data-hmod="'+esc(d._id)+'">Modifier</button><button type="button" class="mini del" data-hdel="'+esc(d._id)+'">Supprimer</button>':'')+'</td>':'')+'<td>'+fmtDate(d.at)+'</td><td>'+(d.type==="frigo"?"Frigo":"À cœur")+'</td><td>'+esc(d.lieu)+'</td><td>'+esc(d.produit||"")+(d.lot?'<br><span class="hint">Lot '+esc(d.lot)+'</span>':'')+'</td>'+
         '<td class="t">'+(d.etat==="arret"?"–":(d.temps||[d.temp]).map(fmtT).join(" / "))+'</td><td>'+(d.hr!=null?fmtH(d.hr):"")+'</td>'+
         '<td><span class="tag '+(st==="ecart"?"ko":st==="normal"?"nm":"ok")+'">'+libelleStatut(st)+'</span>'+(d.motif?'<br><span class="hint">'+esc(d.motif)+'</span>':'')+(d.contreMesureDe?'<br><span class="hint">Contre-mesure'+(orig?' de l\'écart de '+hm(orig.at):'')+'</span>':'')+(d.etat==="vide"?'<br><span class="hint">Chambre vide</span>':'')+'</td>'+
         '<td>'+esc(d.operateur)+'</td><td>'+esc(d.action)+(d.commentaire?'<br><span class="hint">'+esc(d.commentaire)+'</span>':'')+derniereModif(d)+'</td>'+
-        (gestion?'<td class="acts">'+(peutGerer(d)?'<button type="button" class="mini" data-hmod="'+esc(d._id)+'">Modifier</button><button type="button" class="mini del" data-hdel="'+esc(d._id)+'">Supprimer</button>':'')+'</td>':'')+'</tr>'; }).join("")+'</tbody></table>';
+        '</tr>'; }).join("")+'</tbody></table>';
     tabEl.querySelectorAll("[data-hmod]").forEach(b=>b.addEventListener("click",()=>{ H.edit=b.dataset.hmod; drawHist(); window.scrollTo(0,document.getElementById("htab").getBoundingClientRect().top+window.scrollY-80); }));
     tabEl.querySelectorAll("[data-hdel]").forEach(b=>b.addEventListener("click",()=>supprimerReleve(rows.find(x=>x._id===b.dataset.hdel))));
     if(H.focus){
