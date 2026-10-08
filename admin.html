@@ -233,6 +233,8 @@
   .adm-grid5 .adm-x,.adm-grid3 .adm-x{grid-column:1/-1;justify-self:end;width:44px;min-height:44px}
   .adm-grid5 input::placeholder,.adm-grid3 input::placeholder{color:#8A8174}}
 .adm-h3{font-size:15px;margin:14px 0 4px}
+.adm-nom{display:flex;flex-direction:column;gap:2px;margin-top:6px;font-size:12px;font-weight:500;color:#5C554A}
+.adm-nom input{width:100%;max-width:260px}
 .adm-pair{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:6px 0 10px}
 .adm-pair label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5C554A}
 .adm-pair select{width:100%}
@@ -415,7 +417,7 @@
       const snap = await db.collection('users').get();
       const rows = [];
       snap.forEach(function(doc){ const d = doc.data() || {};
-        rows.push({ uid: doc.id, email: d.email || '(email non renseigné — uid : '+doc.id+')', role: ['none','viewer','editor','admin'].indexOf(d.role) >= 0 ? d.role : 'viewer',
+        rows.push({ uid: doc.id, nom: d.nom || '', email: d.email || '(email non renseigné — uid : '+doc.id+')', role: ['none','viewer','editor','admin'].indexOf(d.role) >= 0 ? d.role : 'viewer',
           roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none' }); });
       rows.sort(function(a, b){ return a.email.localeCompare(b.email, 'fr'); });
       comptes = rows;
@@ -423,12 +425,13 @@
     if (A.tab === 'comptes') draw();
   }
   function viewComptes(){
-    var h = '<section class="adm-card"><h2>Comptes</h2><p class="adm-muted">Un seul compte par personne pour tous les modules. La création d\'un compte (e-mail et mot de passe) se fait dans la console Firebase ; ajoutez-le ensuite dans la collection « users » (champs email et role) pour qu\'il apparaisse ici. Vous ne pouvez pas modifier votre propre compte.</p>';
+    var h = '<section class="adm-card"><h2>Comptes</h2><p class="adm-muted">Un seul compte par personne pour tous les modules. Le nom (facultatif) est proposé comme opérateur dans les relevés ; à défaut, c\'est le début de l\'e-mail. Vous pouvez renseigner votre propre nom ; vos rôles ne sont modifiables que par un autre admin. La création d\'un compte (e-mail et mot de passe) se fait dans la console Firebase ; ajoutez-le ensuite dans la collection « users » (champs email et role) pour qu\'il apparaisse ici.</p>';
     if (comptes === null) return h + '<p class="adm-muted">Chargement des comptes…</p></section>';
     if (!comptes.length) return h + emptyState('Aucun compte trouvé', 'Ajoute un document dans la collection Firestore « users » pour chaque compte, avec ses champs email et role.') + '</section>';
     var rows = comptes.map(function(u){
       var self = u.uid === me.uid;
-      return '<tr><td>' + esc(u.email) + (self ? ' <span class="adm-muted">(vous)</span>' : '') + '</td>' +
+      return '<tr><td>' + esc(u.email) + (self ? ' <span class="adm-muted">(vous)</span>' : '') +
+        '<label class="adm-nom"><span>Nom</span><input type="text" data-nom="' + esc(u.uid) + '" value="' + esc(u.nom) + '" placeholder="' + esc(String(u.email).split('@')[0]) + '" aria-label="Nom de ' + esc(u.email) + '"></label></td>' +
         '<td><label class="sr" for="r-' + esc(u.uid) + '">Rôle plan de ' + esc(u.email) + '</label><select id="r-' + esc(u.uid) + '" data-role="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
         [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.role === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td>' +
         '<td><label class="sr" for="rr-' + esc(u.uid) + '">Rôle relevés de ' + esc(u.email) + '</label><select id="rr-' + esc(u.uid) + '" data-rrole="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
@@ -451,6 +454,15 @@
       });
     }
     v.querySelectorAll('[data-role]').forEach(function(s){ maj(s, 'role', 'Rôle plan'); });
+    // Nom de l'utilisateur : opérateur proposé par défaut dans les relevés (modifiable aussi pour son propre compte)
+    v.querySelectorAll('[data-nom]').forEach(function(inp){
+      inp.addEventListener('change', async function(){
+        var id = inp.dataset.nom, u = comptes.filter(function(x){ return x.uid === id; })[0], nom = inp.value.trim();
+        try{ await db.collection('users').doc(id).set({ nom: nom }, { merge: true }); if (u) u.nom = nom; A.err = ''; A.msg = 'Nom mis à jour pour ' + (u ? u.email : id) + (nom ? ' : ' + nom : ' (effacé)') + '.'; }
+        catch(e){ A.msg = ''; A.err = 'Nom non modifié : ' + errTxt(e); }
+        draw();
+      });
+    });
     v.querySelectorAll('[data-rrole]').forEach(function(s){ maj(s, 'roleReleves', 'Rôle relevés'); });
   }
 

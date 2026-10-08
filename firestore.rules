@@ -24,6 +24,10 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow write: if isAdmin() && request.auth.uid != userId;
+      // Chacun peut renseigner son propre nom (opérateur par défaut des relevés), et rien d'autre.
+      allow update: if isSignedIn() && request.auth.uid == userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nom'])
+        && request.resource.data.nom is string && request.resource.data.nom.size() <= 60;
     }
 
     // Données du plan de stockage (cellules, palox, historique).

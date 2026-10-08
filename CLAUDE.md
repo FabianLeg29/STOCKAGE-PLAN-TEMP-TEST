@@ -46,7 +46,7 @@ Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `e
 ```
 planStockage/main   { data: "<JSON du state>", updatedAt }   ← inchangé
   state = { cellules:[{id,nom,nonAchetee,lignes:[{id,nom,capacite}]}], lots:[palox…], transactions:[…], produits:[…], calibres:[…] }
-users/{uid}         { email, role, roleReleves }
+users/{uid}         { email, nom (facultatif), role, roleReleves }
 releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret' ('' pour produit), produit, lot,
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
                       statut:'conforme'|'normal'|'ecart', motif, contreMesureDe (id de l'écart d'origine ou ''),
@@ -80,7 +80,7 @@ Points importants :
 
 ## Administration (`admin.html`)
 
-- **a) Comptes et accès** (admin du plan) : par compte, rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Son propre compte est désactivé.
+- **a) Comptes et accès** (admin du plan) : par compte, nom (facultatif), rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Pour son propre compte, seul le nom est modifiable.
 - **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes. Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits` et `calibres` sont remplacés.
 - **c) Relevés de température** (admin relevés ou admin du plan) : liste des motifs « hors cible – normal », chambres (famille Légumes ou Alliums, T° mini et maxi, hygrométrie mini et maxi) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer.
 - **d) Archives et conservation** : durées réglables (les durées de l'historique du plan ne sont visibles que de l'admin du plan), boutons « Archiver maintenant », liste des archives, export Excel avec graphiques (relevés) ou CSV (mouvements), et JSON. Suppression seulement après l'échéance, avec confirmation.
@@ -93,11 +93,11 @@ Points importants :
 - **Historique** : tableau du mois au format STOC E12.1 (dernier relevé du jour par chambre) ; un clic sur une case ouvre la ligne dans la liste détaillée. Filtres et export Excel. **Chambres affichées** : liste déroulante (toutes les chambres, tous les frigos légumes, toutes les cellules alliums, ou une seule chambre) ; le choix s'applique au tableau, à la liste et à l'export, et il est mémorisé sur le poste (`localStorage`). Un clic sur une case du tableau du mois ouvre la liste détaillée filtrée sur cette chambre, ligne mise en évidence ; « Revenir au tableau du mois » rétablit le choix d'avant.
 - Avec le rôle Consultation, seul l'Historique est accessible.
 - Une lecture refusée (par exemple les archives pour un non-admin) affiche un message simple, jamais d'erreur bloquante.
-- Le nom de l'opérateur est mémorisé dans le `localStorage` du poste.
+- **Opérateur** : par défaut, le compte connecté (champ `nom` de sa fiche `users`, sinon le début de l'e-mail). Une correction est mémorisée dans le `localStorage` du poste **pour ce compte seulement**.
 
 ## Règles Firestore (résumé)
 
-Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception près : la lecture de `planStockage` exige `estConnu()`, c'est-à-dire un compte connecté qui possède une fiche `users`, et un rôle plan différent de `none`. La lecture de sa propre fiche `users` reste autorisée. Ajouts :
+Les règles du plan (`users`, `planStockage`) sont inchangées, à deux exceptions près : chacun peut modifier le seul champ `nom` de sa propre fiche `users` ; et la lecture de `planStockage` exige `estConnu()`, c'est-à-dire un compte connecté qui possède une fiche `users`, et un rôle plan différent de `none`. La lecture de sa propre fiche `users` reste autorisée. Ajouts :
 - `releves` : lecture pour roleReleves viewer et plus, ou admin du plan. Création pour editor ou admin relevés, avec des champs validés, `uid` = auteur et `creeLe` = heure serveur. Modification (champs de mesure, de statut et de texte seulement) et suppression : par l'auteur pendant 24 h, ou par un admin relevés / admin du plan (suppression aussi utilisée par l'archivage).
 - `temperatures` : lecture comme `releves`, écriture par un admin relevés ou un admin du plan.
 - `archives` : lecture et création des archives de relevés par un admin relevés ou un admin du plan ; archives de mouvements réservées à l'admin du plan. Jamais modifiées. Suppression seulement si `expireLe` est dépassé.

@@ -261,7 +261,9 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   const archInfo = {}; // mois -> archive trouvée | false (aucune / lecture non autorisée)
   let tab = "frigo";
   let operateur = "";
-  try { operateur = localStorage.getItem("ll-operateur") || ""; } catch(e){}
+  // Opérateur : par défaut, le compte connecté (champ « nom » de sa fiche users, sinon début de l'e-mail).
+  // Une correction est mémorisée pour ce compte seulement (poste partagé : pas de nom d'un collègue).
+  let cleOperateur = "";
   const savedToday = new Set();
 
   const F = { lieu:null, etat:"service", temp:"", hr:"", choix:null, action:"", comment:"" };
@@ -284,7 +286,13 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   function isToday(iso){ return new Date(iso).toDateString()===new Date().toDateString(); }
   function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("show"),2400); }
   function banner(msg,info){ const b=document.getElementById("banner"); if(msg){b.textContent=msg;b.classList.toggle("info",!!info);b.classList.remove("hidden");} else b.classList.add("hidden"); }
-  function saveOp(v){ operateur=v; try{localStorage.setItem("ll-operateur",v);}catch(e){} }
+  function saveOp(v){ operateur=v; try{ if(cleOperateur) localStorage.setItem(cleOperateur,v); }catch(e){} }
+  function initOperateur(user,u){
+    const parDefaut=String(u.nom||"").trim()||String(user.email||"").split("@")[0];
+    cleOperateur="ll-operateur-"+user.uid;
+    let memo=null; try{ memo=localStorage.getItem(cleOperateur); }catch(e){}
+    operateur=memo!==null&&memo.trim()?memo:parDefaut;
+  }
   function parseHr(v){ let n=num(v); if(fin(n)&&n>0&&n<=1.5) n=n*100; return n; }
   async function withRetry(fn){
     try { return await fn(); }
@@ -886,8 +894,10 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       if(!d.exists){ compteRefuse=true; bloquer("Compte non autorisé","Compte non autorisé, contactez un administrateur."); await auth.signOut(); location.replace("index.html#non-autorise"); return; }
       const u=d.data();
       roleReleves=["viewer","editor","admin"].indexOf(u.roleReleves)>=0?u.roleReleves:"none";
+      initOperateur(user,u);
       rolePlan=(u.role==="admin"||u.role==="editor")?u.role:"viewer";
     }catch(e){ console.warn(e); }
+    if(!cleOperateur) initOperateur(user,{});
     if(roleReleves==="none"){ bloquer("Accès non autorisé","Votre compte n'a pas accès au module relevés. Demandez l'accès à un admin."); return; }
     demarrer();
   });
