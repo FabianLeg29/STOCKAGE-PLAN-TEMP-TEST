@@ -50,6 +50,9 @@ textarea{min-height:80px;resize:vertical}
 .pick b{display:block;font-size:1.05rem}
 .pick span{display:block;color:var(--muted);font-size:.85rem}
 .pick span.done{color:var(--ok)}
+.pick.fait{border-color:var(--ok);background:var(--ok-bg)}
+.pick.fait.nm{border-color:var(--nm);background:var(--nm-bg)}
+.pick.fait.ko{border-color:var(--ko);background:var(--ko-bg)}
 .pick[aria-pressed="true"]{border-color:var(--brand);background:var(--sel)}
 .readout{display:grid;grid-template-columns:64px 1fr 64px;gap:10px;align-items:center}
 .step{height:64px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:1.8rem;font-weight:600;cursor:pointer}
@@ -439,7 +442,10 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       else sub='<span>À relever – cible '+esc(rangeShort(fnum(f.min),fnum(f.max)))+'</span>';
       if(l&&isToday(l.at)&&statutDe(l)==="normal") sub+='<span class="nmtxt">Hors cible – normal</span>';
       const cmf=cmPour("frigo",f.nom); if(cmf) sub+=cmTexte();
-      h+='<button type="button" class="pick" data-lieu="'+esc(f.nom)+'" aria-pressed="'+(F.lieu===f.nom)+'"><b>'+esc(f.nom)+'</b>'+sub+'</button>';
+      // Cadre coloré une fois la chambre relevée aujourd'hui : vert, orange (hors cible – normal), rouge (contre-mesure à faire)
+      const fait=(l&&isToday(l.at))||savedToday.has(f.nom);
+      const cls=fait?" fait"+(cmf?" ko":l&&isToday(l.at)&&statutDe(l)==="normal"?" nm":""):"";
+      h+='<button type="button" class="pick'+cls+'" data-lieu="'+esc(f.nom)+'" aria-pressed="'+(F.lieu===f.nom)+'"><b>'+esc(f.nom)+'</b>'+sub+'</button>';
     }
       h+='</div>';
     }
