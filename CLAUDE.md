@@ -82,7 +82,7 @@ Points importants :
 
 - **Frigos** : tournée guidée (la chambre suivante non relevée est proposée après chaque enregistrement), état En service, Vide ou À l'arrêt, température avec échelle et cible, hygrométrie facultative, action corrective obligatoire en cas d'écart.
 - **Produits** : contrôle à cœur de 1 à 5 mesures par produit, dans une cellule **alliums** uniquement, avec numéro de lot facultatif.
-- **Historique** : tableau du mois au format STOC E12.1 (dernier relevé du jour par chambre) ; un clic sur une case ouvre la ligne dans la liste détaillée. Filtres et export Excel.
+- **Historique** : tableau du mois au format STOC E12.1 (dernier relevé du jour par chambre) ; un clic sur une case ouvre la ligne dans la liste détaillée. Filtres et export Excel. **Chambres affichées** : Toutes, Frigos légumes, Cellules alliums, ou chambre par chambre ; le choix s'applique au tableau, à la liste et à l'export, et il est mémorisé sur le poste (`localStorage`).
 - Avec le rôle Consultation, seul l'Historique est accessible.
 - Une lecture refusée (par exemple les archives pour un non-admin) affiche un message simple, jamais d'erreur bloquante.
 - Le nom de l'opérateur est mémorisé dans le `localStorage` du poste.

@@ -79,6 +79,12 @@ textarea{min-height:80px;resize:vertical}
 .hidden{display:none!important}
 .grp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:1rem;font-weight:700;margin:14px 0 8px}
 .grp span{color:var(--muted);font-weight:600;font-size:.9rem}
+.chsel{margin-top:6px}
+.seg3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 4px}
+.seg3 button{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:600;cursor:pointer;padding:4px 6px}
+.seg3 button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
+#hchd summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:var(--brand);font-weight:600}
+.chlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0 10px;padding:4px 0}
 :root{--nm:#8A5300;--nm-bg:#FCEFD9}
 :root[data-theme="dark"]{--nm:#F2B868;--nm-bg:#3D2C12}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--nm:#F2B868;--nm-bg:#3D2C12}}
@@ -230,7 +236,9 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
 
   const F = { lieu:null, etat:"service", temp:"", hr:"", choix:null, action:"", comment:"" };
   const P = { cellule:null, produit:null, lot:"", mesures:[""], choix:null, action:"", comment:"", filtre:"" };
-  const H = { mois: monthKey(new Date()), type:"all", ko:false, vue:"tableau", focus:null };
+  const H = { mois: monthKey(new Date()), type:"all", ko:false, vue:"tableau", focus:null, chambres:null, choixOuvert:false };
+  // Chambres affichées dans l'historique (null = toutes) : mémorisé sur le poste
+  try { const c=JSON.parse(localStorage.getItem("ll-hist-chambres")||"null"); if(Array.isArray(c)) H.chambres=c; } catch(e){}
 
   const MOIS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
   function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
@@ -587,11 +595,33 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       .then(s=>{ if(!s.empty){ archInfo[mk]=s.docs[0].data(); if(tab==="hist"&&H.mois===mk) drawHist(); } })
       .catch(()=>{ /* lecture non autorisée pour ce rôle : rien à signaler */ });
   }
-  function filteredHist(){ return histSource().filter(d=>(H.type==="all"||d.type===H.type)&&(!H.ko||statutDe(d)==="ecart")).slice().sort((a,b)=>a.at<b.at?1:-1); }
+  function filteredHist(){ return histVisible().filter(d=>(H.type==="all"||d.type===H.type)&&(!H.ko||statutDe(d)==="ecart")).slice().sort((a,b)=>a.at<b.at?1:-1); }
   function chambresDuMois(docs){
     const names=config.frigos.map(f=>f.nom);
     for(const d of docs) if(d.type==="frigo"&&!names.includes(d.lieu)) names.push(d.lieu);
-    return names;
+    return names.filter(chambreVisible);
+  }
+  // ---- choix des chambres affichées (tableau, liste et export)
+  function chambreVisible(nom){ return !H.chambres||H.chambres.indexOf(nom)>=0; }
+  function histVisible(){ return histSource().filter(d=>chambreVisible(d.lieu)); }
+  function chambresConnues(){ const n=config.frigos.map(f=>f.nom); for(const d of histSource()) if(!n.includes(d.lieu)) n.push(d.lieu); return n; }
+  function nomsFamille(fam){ return config.frigos.filter(f=>f.famille===fam).map(f=>f.nom); }
+  function groupeActif(){
+    if(!H.chambres) return "all";
+    const meme=l=>l.length===H.chambres.length&&l.every(n=>H.chambres.indexOf(n)>=0);
+    return meme(nomsFamille("legumes"))?"legumes":meme(nomsFamille("alliums"))?"alliums":"";
+  }
+  function choisirChambres(liste){
+    H.chambres=liste&&liste.length===chambresConnues().length&&chambresConnues().every(n=>liste.indexOf(n)>=0)?null:liste;
+    try{ if(H.chambres) localStorage.setItem("ll-hist-chambres",JSON.stringify(H.chambres)); else localStorage.removeItem("ll-hist-chambres"); }catch(e){}
+    H.focus=null; renderHist();
+  }
+  function blocChambres(){
+    const toutes=chambresConnues(), g=groupeActif(), nb=toutes.filter(chambreVisible).length;
+    return '<div class="chsel"><span class="f">Chambres affichées</span><div class="seg3">'+
+      [["all","Toutes"],["legumes","Frigos légumes"],["alliums","Cellules alliums"]].map(([k,l])=>'<button type="button" data-chg="'+k+'" aria-pressed="'+(g===k)+'">'+l+'</button>').join("")+'</div>'+
+      '<details id="hchd"'+(H.choixOuvert?" open":"")+'><summary>Choisir chambre par chambre ('+nb+' sur '+toutes.length+')</summary><div class="chlist">'+
+      toutes.map(n=>'<label class="chk"><input type="checkbox" data-chn="'+esc(n)+'"'+(chambreVisible(n)?" checked":"")+'> '+esc(n)+'</label>').join("")+'</div></details></div>';
   }
   function grilleMois(docs){
     // dernier relevé frigo par jour et par chambre
@@ -605,6 +635,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       '<div class="filters"><div><label class="f" for="hm">Mois</label><input id="hm" type="month" value="'+H.mois+'"></div>'+
       '<div id="htype-w"><label class="f" for="ht">Type</label><select id="ht"><option value="all">Tous les contrôles</option><option value="frigo">Frigos</option><option value="produit">Produits à cœur</option></select></div></div>'+
       '<label class="chk" id="hk-w"><input type="checkbox" id="hk"'+(H.ko?" checked":"")+'> Afficher seulement les écarts</label>'+
+      blocChambres()+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="secondary" id="hx">Exporter le mois (Excel + graphiques)</button></div></div>'+
       '<div class="card"><div id="hsum" class="hint"></div><div class="scroll" id="htab"></div></div>';
     document.getElementById("ht").value=H.type;
@@ -615,6 +646,9 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     document.getElementById("ht").addEventListener("change",e=>{H.type=e.target.value; drawHist();});
     document.getElementById("hk").addEventListener("change",e=>{H.ko=e.target.checked; drawHist();});
     document.getElementById("hx").addEventListener("click",exportMois);
+    v.querySelectorAll("[data-chg]").forEach(b=>b.addEventListener("click",()=>{ const k=b.dataset.chg; choisirChambres(k==="all"?null:nomsFamille(k)); }));
+    v.querySelectorAll("[data-chn]").forEach(c=>c.addEventListener("change",()=>{ H.choixOuvert=true; choisirChambres(Array.from(v.querySelectorAll("[data-chn]")).filter(x=>x.checked).map(x=>x.dataset.chn)); }));
+    document.getElementById("hchd").addEventListener("toggle",e=>{ H.choixOuvert=e.target.open; });
     drawHist();
   }
   function drawHist(){
@@ -623,7 +657,8 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     if(!courant&&histDocs===null){ tabEl.innerHTML='<p class="empty">Chargement…</p>'; return; }
     const errLecture=courant?curErr:histErr;
     if(errLecture){ document.getElementById("hsum").textContent=monthLabel(H.mois)+" :"; tabEl.innerHTML='<p class="empty">'+esc(errLecture)+'</p>'; return; }
-    const all=histSource(), ko=all.filter(d=>statutDe(d)==="ecart").length, nm=all.filter(d=>statutDe(d)==="normal").length;
+    if(H.chambres&&!H.chambres.length){ document.getElementById("hsum").textContent=monthLabel(H.mois)+" :"; tabEl.innerHTML='<p class="empty">Aucune chambre sélectionnée : cochez au moins une chambre.</p>'; return; }
+    const all=histVisible(), ko=all.filter(d=>statutDe(d)==="ecart").length, nm=all.filter(d=>statutDe(d)==="normal").length;
     document.getElementById("hsum").textContent=monthLabel(H.mois)+" : "+all.length+" contrôle"+(all.length>1?"s":"")+", dont "+ko+" écart"+(ko>1?"s":"")+(nm?" et "+nm+" hors cible normal"+(nm>1?"s":""):"")+".";
     if(!all.length){
       chercherArchive(H.mois);
@@ -676,10 +711,11 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     });
   }
   function exportMois(){
-    const docs=histSource().slice().sort((a,b)=>a.at<b.at?-1:1);
+    const docs=histVisible().slice().sort((a,b)=>a.at<b.at?-1:1);
     if(!window.XlsxReleves){ toast("Export Excel indisponible"); return; }
+    if(H.chambres&&!H.chambres.length){ toast("Aucune chambre sélectionnée"); return; }
     try{
-      const data=window.XlsxReleves.construire(docs, config.frigos, { mois:H.mois, periode:monthLabel(H.mois) });
+      const data=window.XlsxReleves.construire(docs, config.frigos.filter(f=>chambreVisible(f.nom)), { mois:H.mois, periode:monthLabel(H.mois) });
       telecharger("STOC_E12.1_Releve_T_chambres_froides_"+H.mois+".xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }catch(e){ console.error(e); toast("Export impossible"); }
   }
