@@ -757,6 +757,8 @@
     h += '<button type="button" class="adm-link" id="admMotAdd">+ Ajouter un motif</button></section>';
     h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveRel">Enregistrer les réglages des relevés</button>' + (relDirty ? '<button type="button" class="adm-sec" id="admCancelRel">Annuler les modifications</button>' : '') + '</div>' +
       '<p class="adm-muted">Enregistré dans temperatures/config. Le plan de stockage n\'est pas concerné.</p>';
+    h += '<section class="adm-card"><h2>Export complet des relevés (JSON)</h2><p class="adm-muted">Un seul fichier avec tous les relevés (en cours et archivés), les chambres, les produits et les motifs, pour les réintégrer dans une autre application si besoin. Rangez-le dans un dossier partagé sauvegardé, jamais dans GitHub.</p>' +
+      '<div class="adm-actions"><button type="button" class="adm-sec" id="admRelJson">Exporter tous les relevés (JSON)</button></div></section>';
     return h;
   }
   function bindRel(o){
@@ -773,6 +775,20 @@
     on('[data-rmotdel]', 'click', function(e){ R.motifs.splice(+e.dataset.rmotdel, 1); relDirty = true; draw(); });
     on('#admMotAdd', 'click', function(){ R.motifs.push(''); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rmot]'); if (ins.length) ins[ins.length - 1].focus(); });
     on('#admRpAdd', 'click', function(){ R.produits.push({ nom: '', min: null, max: null }); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rp$="|nom"]'); if (ins.length) ins[ins.length - 1].focus(); });
+    on('#admRelJson', 'click', async function(btn){
+      btn.disabled = true; A.err = ''; A.msg = '';
+      try{
+        var enCours = (await RELEVES.orderBy('at').get()).docs.map(function(d){ return Object.assign({ id: d.id }, enClair(d.data())); });
+        var archives = [];
+        (await db.collection('archives').where('type', '==', 'releves').get()).docs.forEach(function(d){
+          donneesArchive(d.data()).forEach(function(r){ archives.push(Object.assign({}, enClair(r), { archive: d.id })); }); });
+        var tous = enCours.concat(archives).sort(function(a, b){ return a.at < b.at ? -1 : a.at > b.at ? 1 : 0; });
+        telecharger('releves-temperature-complet-' + today() + '.json', JSON.stringify({ format: 'releves-temperature', version: 1, exporteLe: new Date().toISOString(), exportePar: me.email,
+          perimetre: { tout: true, enCours: enCours.length, archives: archives.length }, config: relConfig, nb: tous.length, releves: tous }, null, 2), 'application/json');
+        A.msg = 'Export JSON : ' + tous.length + ' relevé' + (tous.length > 1 ? 's' : '') + ' (dont ' + archives.length + ' archivé' + (archives.length > 1 ? 's' : '') + ').';
+      }catch(e){ console.error(e); A.err = 'Export impossible : ' + (e && e.message || e); }
+      draw();
+    });
     on('#admCancelRel', 'click', function(){ relDraft = clone(relConfig); relDirty = false; A.msg = ''; A.err = ''; draw(); });
     on('#admSaveRel', 'click', async function(btn){
       var out = { frigos: [], produits: [], motifs: [] }, noms, i, f, n, bad = null;
@@ -923,6 +939,12 @@
     chargerArchivage(); draw();
   }
   function nomArchive(a){ return 'archive-' + (a.type === 'releves' ? 'releves' : 'mouvements') + '-' + String(a.du).slice(0, 10) + '_' + String(a.au).slice(0, 10); }
+  function enClair(v){
+    if (v && typeof v.toDate === 'function') return v.toDate().toISOString();
+    if (Array.isArray(v)) return v.map(enClair);
+    if (v && typeof v === 'object'){ var o = {}; for (var k in v) o[k] = enClair(v[k]); return o; }
+    return v;
+  }
   function donneesArchive(a){ try{ return JSON.parse(a.donnees || '[]'); }catch(e){ return []; } }
   function exporterArchive(a){
     var data = donneesArchive(a);

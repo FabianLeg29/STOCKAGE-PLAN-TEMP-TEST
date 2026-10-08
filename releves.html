@@ -724,7 +724,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       '<div id="htype-w"><label class="f" for="ht">Type</label><select id="ht"><option value="all">Tous les contrôles</option><option value="frigo">Frigos</option><option value="produit">Produits à cœur</option></select></div></div>'+
       '<label class="chk" id="hk-w"><input type="checkbox" id="hk"'+(H.ko?" checked":"")+'> Afficher seulement les écarts</label>'+
       blocChambres()+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="secondary" id="hx">Exporter le mois (Excel + graphiques)</button></div></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button type="button" class="secondary" id="hx">Exporter le mois (Excel + graphiques)</button><button type="button" class="secondary" id="hj">Exporter le mois (JSON)</button></div></div>'+
       '<div class="card"><div id="hsum" class="hint"></div><div class="scroll" id="htab"></div></div>';
     document.getElementById("ht").value=H.type;
     v.querySelectorAll("[data-vue]").forEach(b=>b.addEventListener("click",()=>{H.vue=b.dataset.vue; if(H.vue==="tableau"){ H.focus=null; if(H.retourChambres!==undefined){ H.chambres=H.retourChambres; H.retourChambres=undefined; } } renderHist();}));
@@ -734,6 +734,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     document.getElementById("ht").addEventListener("change",e=>{H.type=e.target.value; drawHist();});
     document.getElementById("hk").addEventListener("change",e=>{H.ko=e.target.checked; drawHist();});
     document.getElementById("hx").addEventListener("click",exportMois);
+    document.getElementById("hj").addEventListener("click",exportMoisJson);
     document.getElementById("hch").addEventListener("change",e=>{ const k=e.target.value; if(!k) return; H.retourChambres=undefined; choisirChambres(k==="all"?null:k.indexOf("c:")===0?[k.slice(2)]:nomsFamille(k)); });
     drawHist();
   }
@@ -880,6 +881,24 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       const data=window.XlsxReleves.construire(docs, config.frigos.filter(f=>chambreVisible(f.nom)), { mois:H.mois, periode:monthLabel(H.mois) });
       telecharger("STOC_E12.1_Releve_T_chambres_froides_"+H.mois+".xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     }catch(e){ console.error(e); toast("Export impossible"); }
+  }
+
+  // Export JSON (même périmètre que l'Excel) : relevés complets, dates en ISO, pour réintégration ailleurs
+  function enClair(v){
+    if(v&&typeof v.toDate==="function") return v.toDate().toISOString();
+    if(Array.isArray(v)) return v.map(enClair);
+    if(v&&typeof v==="object"){ const o={}; for(const k in v) o[k]=enClair(v[k]); return o; }
+    return v;
+  }
+  function exportMoisJson(){
+    if(H.chambres&&!H.chambres.length){ toast("Aucune chambre sélectionnée"); return; }
+    const docs=histVisible().slice().sort((a,b)=>a.at<b.at?-1:1);
+    const u=auth.currentUser;
+    const out={ format:"releves-temperature", version:1, exporteLe:new Date().toISOString(), exportePar:u?u.email:"",
+      perimetre:{ mois:H.mois, type:H.type, ecartsSeuls:!!H.ko, chambres:H.chambres||"toutes" },
+      config:{ frigos:config.frigos, produits:config.produits, motifs:config.motifs },
+      nb:docs.length, releves:docs.map(d=>{ const x=enClair(d); delete x._id; return Object.assign({ id:d._id }, x); }) };
+    telecharger("releves-temperature-"+H.mois+".json", JSON.stringify(out,null,2), "application/json");
   }
 
   // ---------- navigation ----------
