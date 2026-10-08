@@ -27,6 +27,7 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 | `prototype-plan-stockage-releves.html` | Maquette validée (démo avec Firebase simulé). **Référence seulement**, aucun lien depuis l'application. |
 | `docs/index.html` | Ancienne démo autonome du plan seul, sans Firebase, non maintenue. |
 | `SETUP-FIREBASE.md` | Guide de configuration Firebase. |
+| `BASCULE.md` | Procédure de bascule vers la production (Plan_stockage_allium) : choix retenu, points d'attention sur les comptes, étapes, consigne pour la session Claude Code de production, retour arrière, feuille de bascule. |
 
 **Navigation** : une barre de module identique sur plan, relevés et administration. À gauche, le nom du module avec son repère de couleur (plan #963E88, relevés #62B4BB, administration #D2C9B4). À droite, le bouton blanc « Accueil » (lien vers `index.html`). On ne passe d'un module à l'autre que par l'accueil.
 
