@@ -295,9 +295,8 @@
   var FRIGOS_LEGUMES = ['lp1', 'lp2', 'lp3', 'lbp', 'zone prepa', 'cellule carotte'];
   function familleParDefaut(nom){ var k = String(nom || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); return FRIGOS_LEGUMES.indexOf(k) >= 0 ? 'legumes' : 'alliums'; }
   function avecFamille(l){ return l.map(function(f){ return Object.assign({}, f, { famille: f.famille === 'legumes' || f.famille === 'alliums' ? f.famille : familleParDefaut(f.nom) }); }); }
-  // Motifs « hors cible – normal » proposés aux opérateurs, et délai de la contre-mesure suggérée après un écart
+  // Motifs « hors cible – normal » proposés aux opérateurs
   var MOTIFS_DEFAUT = ['Dégivrage en cours', 'Chargement récent (produit en descente en température)', 'Porte ouverte (manutention)', 'Chambre en remise en route', 'Autre (préciser en remarque)'];
-  var DELAI_DEFAUT = 30;
   // Chambres de la fiche STOC E12.1, utilisées pour initialiser temperatures/config s'il n'existe pas
   const CHAMBRES_STOC = [['LP1',3,5],['LP2',6,12],['LP3',3,6],['LBP',2,4],['Zone prépa',6,14],
     ['Cellule 1',-0.5,1.5],['Cellule 2',-0.5,1.5],['Cellule 3',-0.5,1.5],['Cellule 4',-0.5,1.5],['Cellule 5',-0.5,1.5],
@@ -715,12 +714,11 @@
         '<button type="button" class="adm-x" aria-label="Supprimer ' + esc(f.nom) + '" data-rpdel="' + i + '">×</button></div>';
     });
     h += '<button type="button" class="adm-link" id="admRpAdd">+ Ajouter un produit</button></section>';
-    h += '<section class="adm-card"><h2>Motifs « hors cible – normal »</h2><p class="adm-muted">Quand une mesure est hors cible, l\'opérateur choisit un de ces motifs si la situation est normale : pas d\'action corrective ni de contre-mesure, le prochain relevé se fait à la tournée suivante. Sinon il choisit « Écart » : action corrective obligatoire et contre-mesure suggérée. Un motif commençant par « Autre » oblige à préciser en remarque.</p>';
+    h += '<section class="adm-card"><h2>Motifs « hors cible – normal »</h2><p class="adm-muted">Quand une mesure est hors cible, l\'opérateur choisit un de ces motifs si la situation est normale : pas d\'action corrective ni de contre-mesure, le prochain relevé se fait à la tournée suivante. Sinon il choisit « Écart » : action corrective obligatoire, la mesure initiale est enregistrée, puis la contre-mesure est demandée aussitôt. Un motif commençant par « Autre » oblige à préciser en remarque.</p>';
     r.motifs.forEach(function(m, i){
       h += '<div class="adm-row"><label class="sr" for="mot' + i + '">Motif ' + (i + 1) + '</label><input id="mot' + i + '" type="text" data-rmot="' + i + '" value="' + esc(m) + '"><button type="button" class="adm-del" data-rmotdel="' + i + '">Supprimer</button></div>';
     });
-    h += '<button type="button" class="adm-link" id="admMotAdd">+ Ajouter un motif</button>' +
-      '<div class="adm-pair"><label>Contre-mesure suggérée après un écart, dans un délai de<select id="admDelai">' + [15, 30, 45, 60, 90, 120].map(function(m){ return '<option value="' + m + '"' + (r.delaiContreMesure === m ? ' selected' : '') + '>' + m + ' minutes</option>'; }).join('') + '</select></label></div></section>';
+    h += '<button type="button" class="adm-link" id="admMotAdd">+ Ajouter un motif</button></section>';
     h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveRel">Enregistrer les réglages des relevés</button>' + (relDirty ? '<button type="button" class="adm-sec" id="admCancelRel">Annuler les modifications</button>' : '') + '</div>' +
       '<p class="adm-muted">Enregistré dans temperatures/config. Le plan de stockage n\'est pas concerné.</p>';
     return h;
@@ -737,11 +735,10 @@
     on('[data-rmot]', 'input', function(e){ R.motifs[+e.dataset.rmot] = e.value; relDirty = true; });
     on('[data-rmotdel]', 'click', function(e){ R.motifs.splice(+e.dataset.rmotdel, 1); relDirty = true; draw(); });
     on('#admMotAdd', 'click', function(){ R.motifs.push(''); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rmot]'); if (ins.length) ins[ins.length - 1].focus(); });
-    on('#admDelai', 'change', function(e){ R.delaiContreMesure = parseInt(e.value, 10) || DELAI_DEFAUT; relDirty = true; });
     on('#admRpAdd', 'click', function(){ R.produits.push({ nom: '', min: null, max: null }); relDirty = true; draw(); var ins = o.querySelectorAll('[data-rp$="|nom"]'); if (ins.length) ins[ins.length - 1].focus(); });
     on('#admCancelRel', 'click', function(){ relDraft = clone(relConfig); relDirty = false; A.msg = ''; A.err = ''; draw(); });
     on('#admSaveRel', 'click', async function(btn){
-      var out = { frigos: [], produits: [], motifs: [], delaiContreMesure: R.delaiContreMesure || DELAI_DEFAUT }, noms, i, f, n, bad = null;
+      var out = { frigos: [], produits: [], motifs: [] }, noms, i, f, n, bad = null;
       var lire = function(x, k, nom){ var s = String(x[k] == null ? '' : x[k]).trim(); if (!s) return null; var v = num(s); if (v == null && !bad) bad = nom; return v; };
       for (i = 0; i < R.frigos.length; i++){ f = R.frigos[i]; n = String(f.nom || '').trim(); if (!n) continue;
         var o2 = { nom: n, famille: f.famille === 'legumes' ? 'legumes' : 'alliums' }; ['min', 'max', 'hrMin', 'hrMax'].forEach(function(k){ o2[k] = lire(f, k, n); });
@@ -941,15 +938,15 @@
     if (isRelAdmin()){
       CONFIG_REF.onSnapshot(function(snap){
         if (!snap.exists){
-          relConfig = { frigos: clone(CHAMBRES_STOC), produits: [], motifs: MOTIFS_DEFAUT.slice(), delaiContreMesure: DELAI_DEFAUT };
+          relConfig = { frigos: clone(CHAMBRES_STOC), produits: [], motifs: MOTIFS_DEFAUT.slice() };
           CONFIG_REF.set(relConfig).catch(function(e){ console.warn('Initialisation de temperatures/config impossible', e); });
         } else {
           var d = snap.data();
           relConfig = { frigos: avecFamille(Array.isArray(d.frigos) ? d.frigos : []), produits: Array.isArray(d.produits) ? d.produits : [],
-            motifs: Array.isArray(d.motifs) && d.motifs.length ? d.motifs : MOTIFS_DEFAUT.slice(), delaiContreMesure: d.delaiContreMesure > 0 ? d.delaiContreMesure : DELAI_DEFAUT };
+            motifs: Array.isArray(d.motifs) && d.motifs.length ? d.motifs : MOTIFS_DEFAUT.slice() };
         }
         if (!relDirty){ relDraft = clone(relConfig); if (A.tab === 'rel' && !saisieEnCours()) draw(); }
-      }, function(e){ relConfig = { frigos: [], produits: [], motifs: MOTIFS_DEFAUT.slice(), delaiContreMesure: DELAI_DEFAUT }; relDraft = clone(relConfig); A.err = 'Lecture des réglages des relevés impossible : ' + errTxt(e); if (A.tab === 'rel') draw(); });
+      }, function(e){ relConfig = { frigos: [], produits: [], motifs: MOTIFS_DEFAUT.slice() }; relDraft = clone(relConfig); A.err = 'Lecture des réglages des relevés impossible : ' + errTxt(e); if (A.tab === 'rel') draw(); });
       CONS_REF.onSnapshot(function(snap){
         var avant = JSON.stringify(cons);
         cons = Object.assign({}, CONS_DEFAUT, snap.exists ? snap.data() : {}); consLoaded = true;

@@ -218,7 +218,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     .map(c=>({ nom:c[0], famille:familleParDefaut(c[0]), min:c[1], max:c[2], hrMin:null, hrMax:null }));
 
   let roleReleves = "none", rolePlan = "viewer";
-  let config = { frigos: [], produits: [], motifs: [], delaiContreMesure: 30 };
+  let config = { frigos: [], produits: [], motifs: [] };
   let configLoaded = false;
   let currentMonthDocs = [];
   let histDocs = null, histUnsub = null, histErr = false, curErr = false;
@@ -314,22 +314,21 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
 
   // ---------- Statut d'un relevé ----------
   // conforme : dans la cible ; normal : hors cible avec un motif accepté (pas d'action corrective, pas de contre-mesure) ;
-  // ecart : hors cible sans motif accepté (action corrective obligatoire, contre-mesure suggérée). Anciens relevés sans
+  // ecart : hors cible sans motif accepté (action corrective obligatoire, puis contre-mesure). Anciens relevés sans
   // champ statut : déduit de conforme. Le champ conforme vaut false uniquement pour un écart.
   const MOTIFS_DEFAUT=["Dégivrage en cours","Chargement récent (produit en descente en température)","Porte ouverte (manutention)","Chambre en remise en route","Autre (préciser en remarque)"];
-  const DELAI_DEFAUT=30;
   function statutDe(d){ if(d.etat==="arret") return "arret"; if(d.statut==="conforme"||d.statut==="normal"||d.statut==="ecart") return d.statut; return d.conforme===false?"ecart":"conforme"; }
   function libelleStatut(st){ return ({conforme:"Conforme",normal:"Hors cible – normal",ecart:"Écart",arret:"Arrêt"})[st]; }
   function estAutre(m){ return /^autre/i.test(String(m||"").trim()); }
-  // Contre-mesure suggérée : écart du jour qui n'a pas été suivi d'un autre relevé (même chambre ; ou même cellule, produit et lot)
+  // Contre-mesure à faire : écart du jour qui n'a pas été suivi d'un autre relevé (même chambre ; ou même cellule, produit et lot).
+  // La mesure initiale (l'écart) est enregistrée d'abord, puis la contre-mesure est un nouveau relevé rattaché par contreMesureDe.
   function cleCM(d){ return d.type==="frigo"?"f|"+d.lieu:"p|"+d.lieu+"|"+d.produit+"|"+(d.lot||""); }
   function contreMesuresEnAttente(){ const dernier={}; for(const d of currentMonthDocs){ if(!isToday(d.at)) continue; const k=cleCM(d); if(!dernier[k]||d.at>dernier[k].at) dernier[k]=d; } return Object.values(dernier).filter(d=>statutDe(d)==="ecart").sort((a,b)=>a.at<b.at?-1:1); }
   function cmPour(type,lieu,produit,lot){ return contreMesuresEnAttente().find(d=>d.type===type&&d.lieu===lieu&&(type==="frigo"||(d.produit===produit&&(d.lot||"")===(lot||"")))); }
-  function echeanceCM(d){ return new Date(new Date(d.at).getTime()+(config.delaiContreMesure||DELAI_DEFAUT)*60000); }
-  function hhmm(dt){ return dt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); }
-  function cmTexte(d){ const e=echeanceCM(d); return '<span class="cm'+(e<new Date()?" late":"")+'">Contre-mesure suggérée avant '+hhmm(e)+'</span>'; }
-  function cmCarte(d){ return '<div class="card cmcard"><b>Contre-mesure</b> du relevé de '+hm(d.at)+' ('+(d.temps||[d.temp]).map(fmtT).join(" / ")+' °C, écart). '+
-    'Suggérée avant '+hhmm(echeanceCM(d))+'. L\'enregistrement sera rattaché à ce relevé.</div>'; }
+  function cmTexte(){ return '<span class="cm">Contre-mesure à faire</span>'; }
+  function cmCarte(d){ return '<div class="card cmcard" id="cmcard"><h2>Contre-mesure</h2><p class="hint" style="margin:0 0 6px">Mesure initiale enregistrée à '+hm(d.at)+' : '+(d.temps||[d.temp]).map(fmtT).join(" / ")+' °C, écart'+(d.action?' (action : '+esc(d.action)+')':'')+'.</p>'+
+    '<p class="hint" style="margin:0">Refaites la mesure et enregistrez-la ci-dessous : elle sera enregistrée à part et rattachée à cette mesure initiale.</p>'+
+    '<button type="button" class="secondary" id="cmplustard" style="margin-top:10px">Faire la contre-mesure plus tard</button></div>'; }
   // Bloc « Hors cible : pourquoi ? » : un motif (situation normale) ou « Écart »
   function blocHorsCible(pre,choix){
     return '<div class="card hidden" id="'+pre+'-hc"><h2>Hors cible : pourquoi ?</h2><p class="hint">Situation normale : choisissez le motif (pas d\'action corrective, le prochain relevé se fera à la tournée suivante). Sinon, choisissez « Écart ».</p><div class="motifs">'+
@@ -352,7 +351,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     const nbDone=config.frigos.filter(f=>doneToday(f.nom)).length;
     let h=opField();
     const nbCM=contreMesuresEnAttente().filter(d=>d.type==="frigo").length;
-    h+='<div class="card"><h2>Chambre froide contrôlée</h2><p class="hint">'+nbDone+' sur '+config.frigos.length+' relevées aujourd\'hui.'+(nbCM?' <b class="cmtxt">'+nbCM+' contre-mesure'+(nbCM>1?"s":"")+' suggérée'+(nbCM>1?"s":"")+'.</b>':'')+'</p>';
+    h+='<div class="card"><h2>Chambre froide contrôlée</h2><p class="hint">'+nbDone+' sur '+config.frigos.length+' relevées aujourd\'hui.'+(nbCM?' <b class="cmtxt">'+nbCM+' contre-mesure'+(nbCM>1?"s":"")+' à faire.</b>':'')+'</p>';
     for(const [fam,titre] of FAMILLES){
       const liste=config.frigos.filter(f=>f.famille===fam); if(!liste.length) continue;
       h+='<h3 class="grp">'+titre+' <span>'+liste.filter(f=>doneToday(f.nom)).length+' / '+liste.length+'</span></h3><div class="grid">';
@@ -363,7 +362,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       else if(savedToday.has(f.nom)) sub='<span class="done">Fait</span>';
       else sub='<span>À relever – cible '+esc(rangeShort(fnum(f.min),fnum(f.max)))+'</span>';
       if(l&&isToday(l.at)&&statutDe(l)==="normal") sub+='<span class="nmtxt">Hors cible – normal</span>';
-      const cmf=cmPour("frigo",f.nom); if(cmf) sub+=cmTexte(cmf);
+      const cmf=cmPour("frigo",f.nom); if(cmf) sub+=cmTexte();
       h+='<button type="button" class="pick" data-lieu="'+esc(f.nom)+'" aria-pressed="'+(F.lieu===f.nom)+'"><b>'+esc(f.nom)+'</b>'+sub+'</button>';
     }
       h+='</div>';
@@ -404,12 +403,22 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     bindSteps();
     v.querySelectorAll("[data-etat]").forEach(b=>b.addEventListener("click",()=>{ F.etat=b.dataset.etat; v.querySelectorAll("[data-etat]").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); update(); }));
     lierHorsCible("f",F,update);
+    const pt=document.getElementById("cmplustard"); if(pt) pt.addEventListener("click",()=>{ allerSuivante(fr.nom); renderFrigo(); window.scrollTo(0,0); });
     document.getElementById("fa").addEventListener("input",e=>F.action=e.target.value);
     document.getElementById("fc").addEventListener("input",e=>F.comment=e.target.value);
     document.getElementById("fsave").addEventListener("click",()=>saveFrigo(fr));
     update();
   }
 
+  function allerSuivante(nom){
+    const idx=config.frigos.findIndex(f=>f.nom===nom);
+    const order=config.frigos.slice(idx+1).concat(config.frigos.slice(0,idx));
+    const next=order.find(f=>!doneToday(f.nom));
+    F.temp=""; F.hr=""; F.choix=null; F.action=""; F.comment=""; F.etat="service"; F.lieu=next?next.nom:null;
+    return next;
+  }
+  // garde l'écart qui vient d'être enregistré dans la liste du jour, même avant le retour de Firestore
+  function memoriser(id,doc){ if(!currentMonthDocs.some(x=>x._id===id)) currentMonthDocs.unshift(Object.assign({_id:id},doc)); }
   async function saveFrigo(fr){
     const err=document.getElementById("ferr"), btn=document.getElementById("fsave");
     const show=m=>{err.textContent=m;err.classList.remove("hidden");};
@@ -438,13 +447,19 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       action:statut==="ecart"?F.action.trim():"", commentaire:F.comment.trim(), operateur:operateur.trim(), at:now.toISOString(), mois:monthKey(now) };
     btn.disabled=true;
     try{
-      await withRetry(()=>RELEVES.doc().set(doc));
+      const ref=RELEVES.doc();
+      await withRetry(()=>ref.set(doc));
+      memoriser(ref.id,doc);
       savedToday.add(fr.nom);
-      const idx=config.frigos.findIndex(f=>f.nom===fr.nom);
-      const order=config.frigos.slice(idx+1).concat(config.frigos.slice(0,idx));
-      const next=order.find(f=>!doneToday(f.nom));
-      F.temp=""; F.hr=""; F.choix=null; F.action=""; F.comment=""; F.etat="service"; F.lieu=next?next.nom:null;
-      toast((statut==="ecart"?"Écart enregistré – contre-mesure suggérée avant "+hhmm(new Date(now.getTime()+(config.delaiContreMesure||DELAI_DEFAUT)*60000)):statut==="normal"?"Relevé enregistré (hors cible – normal)":"Relevé enregistré")+(next?" – suivant : "+next.nom:" – tournée terminée"));
+      if(statut==="ecart"){
+        // Mesure initiale enregistrée : on reste sur la chambre pour saisir la contre-mesure
+        F.temp=""; F.hr=""; F.choix=null; F.action=""; F.comment=""; F.etat="service";
+        toast("Écart enregistré. Saisissez maintenant la contre-mesure.");
+        renderFrigo(); const c=document.getElementById("cmcard"); if(c) c.scrollIntoView({block:"start"});
+        return;
+      }
+      const next=allerSuivante(fr.nom);
+      toast((cm?"Contre-mesure enregistrée":statut==="normal"?"Relevé enregistré (hors cible – normal)":"Relevé enregistré")+(next?" – suivant : "+next.nom:" – tournée terminée"));
       renderFrigo();
       const tgt=next?document.querySelector(".etat"):null; if(tgt) tgt.scrollIntoView({block:"start"}); else window.scrollTo(0,0);
     }catch(e){ show(errMsg(e)); btn.disabled=false; }
@@ -463,7 +478,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     const pr=config.produits.find(p=>p.nom===P.produit);
     let h=opField();
     const cmsP=contreMesuresEnAttente().filter(d=>d.type==="produit");
-    if(cmsP.length) h+='<div class="card cmcard"><h2>Contre-mesures suggérées</h2>'+cmsP.map((d,i)=>'<button type="button" class="pick" data-cmp="'+i+'"><b>'+esc(d.produit)+' – '+esc(d.lieu)+'</b><span>'+(d.lot?'Lot '+esc(d.lot)+' – ':'')+'écart à '+hm(d.at)+' ('+(d.temps||[d.temp]).map(fmtT).join(" / ")+' °C)</span>'+cmTexte(d)+'</button>').join("")+'</div>';
+    if(cmsP.length) h+='<div class="card cmcard"><h2>Contre-mesures à faire</h2>'+cmsP.map((d,i)=>'<button type="button" class="pick" data-cmp="'+i+'"><b>'+esc(d.produit)+' – '+esc(d.lieu)+'</b><span>'+(d.lot?'Lot '+esc(d.lot)+' – ':'')+'écart à '+hm(d.at)+' ('+(d.temps||[d.temp]).map(fmtT).join(" / ")+' °C)</span>'+cmTexte()+'</button>').join("")+'</div>';
     h+='<div class="card"><h2>Cellule alliums</h2><p class="hint">Seules les cellules alliums sont proposées pour le contrôle à cœur.</p><div class="grid">';
     for(const f of cellules) h+='<button type="button" class="pick" data-cel="'+esc(f.nom)+'" aria-pressed="'+(P.cellule===f.nom)+'"><b>'+esc(f.nom)+'</b></button>';
     h+='</div></div>';
@@ -512,6 +527,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     drawMes();
     document.getElementById("addm").addEventListener("click",()=>{P.mesures.push(""); drawMes();});
     lierHorsCible("p",P,update);
+    const ptp=document.getElementById("cmplustard"); if(ptp) ptp.addEventListener("click",()=>{ P.produit=null; P.lot=""; P.mesures=[""]; P.choix=null; P.action=""; P.comment=""; renderProduit(); window.scrollTo(0,0); });
     document.getElementById("plot").addEventListener("input",e=>P.lot=e.target.value);
     document.getElementById("pa").addEventListener("input",e=>P.action=e.target.value);
     document.getElementById("pc").addEventListener("input",e=>P.comment=e.target.value);
@@ -537,9 +553,18 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       min:fin(min)?min:null, max:fin(max)?max:null, hrMin:null, hrMax:null, tempConforme:!horsCible, conforme, statut, motif, contreMesureDe:cm?cm._id:"", action:statut==="ecart"?P.action.trim():"", commentaire:P.comment.trim(), operateur:operateur.trim(), at:now.toISOString(), mois:monthKey(now) };
     btn.disabled=true;
     try{
-      await withRetry(()=>RELEVES.doc().set(doc));
+      const ref=RELEVES.doc();
+      await withRetry(()=>ref.set(doc));
+      memoriser(ref.id,doc);
+      if(statut==="ecart"){
+        // Mesure initiale enregistrée : même cellule, produit et lot, pour saisir la contre-mesure
+        P.mesures=[""]; P.choix=null; P.action=""; P.comment="";
+        toast("Écart enregistré. Saisissez maintenant la contre-mesure.");
+        renderProduit(); const c=document.getElementById("cmcard"); if(c) c.scrollIntoView({block:"start"});
+        return;
+      }
       P.produit=null; P.lot=""; P.mesures=[""]; P.choix=null; P.action=""; P.comment="";
-      toast(statut==="ecart"?"Écart enregistré – contre-mesure suggérée avant "+hhmm(new Date(now.getTime()+(config.delaiContreMesure||DELAI_DEFAUT)*60000)):statut==="normal"?"Contrôle enregistré (hors cible – normal)":"Contrôle enregistré"); renderProduit(); window.scrollTo(0,0);
+      toast(cm?"Contre-mesure enregistrée":statut==="normal"?"Contrôle enregistré (hors cible – normal)":"Contrôle enregistré"); renderProduit(); window.scrollTo(0,0);
     }catch(e){ show(errMsg(e)); btn.disabled=false; }
   }
 
@@ -682,14 +707,14 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       const d=s.exists?s.data():null;
       if(!d){
         // Première utilisation : chambres de la fiche STOC E12.1. Un admin enregistre cette liste de départ.
-        config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[], motifs:MOTIFS_DEFAUT.slice(), delaiContreMesure:DELAI_DEFAUT };
-        if(peutConfigurer) CONFIG_REF.set({ frigos:CHAMBRES_STOC, produits:[], motifs:MOTIFS_DEFAUT, delaiContreMesure:DELAI_DEFAUT }).catch(e=>console.warn("Initialisation des réglages impossible",e));
+        config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[], motifs:MOTIFS_DEFAUT.slice() };
+        if(peutConfigurer) CONFIG_REF.set({ frigos:CHAMBRES_STOC, produits:[], motifs:MOTIFS_DEFAUT }).catch(e=>console.warn("Initialisation des réglages impossible",e));
       } else {
         config={ frigos:normaliserFrigos(Array.isArray(d.frigos)?d.frigos:[]), produits:Array.isArray(d.produits)?d.produits:[],
-          motifs:Array.isArray(d.motifs)&&d.motifs.length?d.motifs:MOTIFS_DEFAUT.slice(), delaiContreMesure:d.delaiContreMesure>0?d.delaiContreMesure:DELAI_DEFAUT };
+          motifs:Array.isArray(d.motifs)&&d.motifs.length?d.motifs:MOTIFS_DEFAUT.slice() };
       }
       configLoaded=true; render();
-    },e=>{ console.warn(e); config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[], motifs:MOTIFS_DEFAUT.slice(), delaiContreMesure:DELAI_DEFAUT }; configLoaded=true; banner("Réglages des relevés illisibles : liste des chambres par défaut affichée. "+lectureMsg(e)); render(); });
+    },e=>{ console.warn(e); config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[], motifs:MOTIFS_DEFAUT.slice() }; configLoaded=true; banner("Réglages des relevés illisibles : liste des chambres par défaut affichée. "+lectureMsg(e)); render(); });
     moisQuery(monthKey(new Date())).onSnapshot(s=>{
       curErr=false;
       currentMonthDocs=s.docs.map(d=>Object.assign({_id:d.id},d.data()));
