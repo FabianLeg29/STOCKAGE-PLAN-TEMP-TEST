@@ -51,8 +51,19 @@ service cloud.firestore {
       return isSignedIn() && (roleReleves() == 'admin' || userRole() == 'admin');
     }
 
-    // Un document par relevé : création seule, jamais modifié.
-    // Suppression uniquement par un admin, lors de l'archivage (même lot d'écritures que l'archive).
+    // Un document par relevé. Chaque relevé porte son auteur (uid) et sa date de création serveur (creeLe).
+    // Modification ou suppression : par son auteur (rôle Gestion ou Admin relevés) pendant 24 h,
+    // ou à tout moment par un admin relevés ou un admin du plan (aussi pour l'archivage).
+    // Une modification ne touche que les mesures, le statut et les textes ; la date, la chambre,
+    // le type, l'auteur et la date de création ne changent jamais.
+    function auteurRecent() {
+      return resource.data.get('uid', '') == request.auth.uid
+        && resource.data.get('creeLe', null) is timestamp
+        && request.time < resource.data.creeLe + duration.value(24, 'h');
+    }
+    function canManageReleve() {
+      return isRelevesAdmin() || (canWriteReleves() && auteurRecent());
+    }
     match /releves/{releveId} {
       allow read: if canReadReleves();
       allow create: if canWriteReleves()
@@ -61,9 +72,13 @@ service cloud.firestore {
         && request.resource.data.mois is string
         && request.resource.data.lieu is string
         && request.resource.data.operateur is string
+        && request.resource.data.conforme is bool
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.creeLe == request.time;
+      allow update: if canManageReleve()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['etat', 'temp', 'temps', 'hr', 'lot', 'tempConforme', 'hrConforme', 'conforme', 'statut', 'motif', 'action', 'commentaire', 'modifications'])
         && request.resource.data.conforme is bool;
-      allow update: if false;
-      allow delete: if isRelevesAdmin();
+      allow delete: if canManageReleve();
     }
 
     // Réglages du module relevés (temperatures/config : chambres et produits du contrôle à cœur).

@@ -49,7 +49,8 @@ users/{uid}         { email, role, roleReleves }
 releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret' ('' pour produit), produit, lot,
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
                       statut:'conforme'|'normal'|'ecart', motif, contreMesureDe (id de l'écart d'origine ou ''),
-                      action, commentaire, operateur, at (ISO), mois ('AAAA-MM') }   ← création seule
+                      action, commentaire, operateur, at (ISO), mois ('AAAA-MM'),
+                      uid (auteur), creeLe (Timestamp serveur), modifications:[{le, par, raison, avant:{…}}] }
 temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',min,max,hrMin,hrMax}], produits:[{nom,min,max}],
                       motifs:[texte…] }   ← listes propres aux relevés
 archives/{id}       { type:'releves'|'mouvements', mois:['AAAA-MM'], du, au, nb, creeLe (ISO), par (email),
@@ -65,6 +66,11 @@ Points importants :
   - `ecart` : hors cible sans motif. **Action corrective obligatoire**. La mesure initiale est enregistrée, puis l'écran reste sur la même chambre (ou la même cellule, le même produit et le même lot) pour saisir **aussitôt la contre-mesure**, sans délai. Un bouton « Faire la contre-mesure plus tard » permet de la reporter : la chambre affiche alors « Contre-mesure à faire ».
   - Le champ `conforme` vaut `false` uniquement pour un écart. Les anciens relevés sans `statut` sont lus à partir de `conforme`.
   - Une contre-mesure est un nouveau relevé dont `contreMesureDe` contient l'id de l'écart (le relevé d'origine n'est jamais modifié). Elle reste « à faire » tant qu'aucun relevé n'a suivi l'écart le même jour : même chambre pour un frigo ; même cellule, même produit et même lot pour un contrôle à cœur.
+- **Modification / suppression d'un relevé** (Historique, liste détaillée) :
+  - Qui : l'**auteur** (rôle Gestion ou Admin relevés) pendant **24 h** après la création (`creeLe`), ou un **admin relevés / admin du plan** à tout moment. Un compte Consultation ne peut rien changer. Les relevés anciens sans `uid` ni `creeLe` ne sont modifiables que par un admin.
+  - Modification : raison obligatoire, statut recalculé (conforme / normal / écart, avec motif ou action corrective). Les valeurs d'avant sont ajoutées à `modifications` (qui, quand, pourquoi). La date, la chambre, le type, l'auteur et `creeLe` ne changent jamais (contrôlé par les règles).
+  - Suppression : définitive, après confirmation.
+  - L'export Excel (onglet Détail) a une colonne « Modifications ».
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
 - **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide.
 - **Famille des chambres** (`famille`) : `legumes` (frigos légumes : LP1, LP2, LP3, LBP, Zone prépa, Cellule carotte par défaut) ou `alliums` (toutes les autres). L'admin la règle dans Administration, rubrique Relevés de température. Si le champ manque (anciens réglages), il est déduit du nom. Dans les relevés, la tournée est affichée par groupe (frigos légumes, puis cellules alliums), et **seules les cellules alliums sont proposées pour le contrôle à cœur**. L'écriture est faite par le premier admin qui ouvre l'Administration ou les relevés. Les autres rôles voient cette liste par défaut sans l'écrire.
@@ -90,7 +96,7 @@ Points importants :
 ## Règles Firestore (résumé)
 
 Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception près : la lecture de `planStockage` exige `estConnu()`, c'est-à-dire un compte connecté qui possède une fiche `users`. La lecture de sa propre fiche `users` reste autorisée. Ajouts :
-- `releves` : lecture pour roleReleves viewer et plus, ou admin du plan. Création pour editor ou admin relevés, avec des champs validés. Modification interdite. Suppression par un admin, pour l'archivage.
+- `releves` : lecture pour roleReleves viewer et plus, ou admin du plan. Création pour editor ou admin relevés, avec des champs validés, `uid` = auteur et `creeLe` = heure serveur. Modification (champs de mesure, de statut et de texte seulement) et suppression : par l'auteur pendant 24 h, ou par un admin relevés / admin du plan (suppression aussi utilisée par l'archivage).
 - `temperatures` : lecture comme `releves`, écriture par un admin relevés ou un admin du plan.
 - `archives` : lecture et création des archives de relevés par un admin relevés ou un admin du plan ; archives de mouvements réservées à l'admin du plan. Jamais modifiées. Suppression seulement si `expireLe` est dépassé.
 - `parametres` : admins. Un admin relevés qui n'est pas admin du plan ne peut pas changer les durées de l'historique du plan.

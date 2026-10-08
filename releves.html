@@ -80,6 +80,12 @@ textarea{min-height:80px;resize:vertical}
 .grp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:1rem;font-weight:700;margin:14px 0 8px}
 .grp span{color:var(--muted);font-weight:600;font-size:.9rem}
 .chsel{margin-top:6px}
+td.acts{white-space:nowrap}
+.mini{min-height:40px;padding:0 10px;margin:2px 4px 2px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-weight:600;cursor:pointer}
+.mini.del{color:var(--ko);border-color:var(--ko)}
+.edit input[type=text],.edit select,.edit textarea{margin-bottom:2px}
+.edit-bts{display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-top:14px}
+.hint.modif{font-style:italic}
 .seg3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:6px 0 4px}
 .seg3 button{min-height:44px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-weight:600;cursor:pointer;padding:4px 6px}
 .seg3 button[aria-pressed="true"]{background:var(--brand);color:var(--brand-ink);border-color:var(--brand)}
@@ -236,7 +242,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
 
   const F = { lieu:null, etat:"service", temp:"", hr:"", choix:null, action:"", comment:"" };
   const P = { cellule:null, produit:null, lot:"", mesures:[""], choix:null, action:"", comment:"", filtre:"" };
-  const H = { mois: monthKey(new Date()), type:"all", ko:false, vue:"tableau", focus:null, chambres:null, choixOuvert:false };
+  const H = { mois: monthKey(new Date()), type:"all", ko:false, vue:"tableau", focus:null, chambres:null, choixOuvert:false, edit:null };
   // Chambres affichées dans l'historique (null = toutes) : mémorisé sur le poste
   try { const c=JSON.parse(localStorage.getItem("ll-hist-chambres")||"null"); if(Array.isArray(c)) H.chambres=c; } catch(e){}
 
@@ -319,6 +325,18 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   }
   function lastFrigo(lieu){ let l=null; for(const d of currentMonthDocs){ if(d.type==="frigo"&&d.lieu===lieu&&(!l||d.at>l.at)) l=d; } return l; }
   function doneToday(nom){ if(savedToday.has(nom)) return true; const l=lastFrigo(nom); return !!(l&&isToday(l.at)); }
+
+  // ---------- Gestion des relevés (modification / suppression) ----------
+  // Compte Gestion : ses propres relevés pendant 24 h. Admin relevés (ou admin du plan) : tous les relevés.
+  // Chaque relevé garde son auteur (uid) et sa date de création serveur (creeLe), contrôlés par les règles Firestore.
+  function auteur(){ const u=auth.currentUser; return { uid:u?u.uid:"", creeLe:firebase.firestore.FieldValue.serverTimestamp() }; }
+  function estAdminRel(){ return roleReleves==="admin"||rolePlan==="admin"; }
+  function peutGerer(d){
+    if(estAdminRel()) return true;
+    const u=auth.currentUser;
+    return roleReleves==="editor"&&!!u&&d.uid===u.uid&&(Date.now()-new Date(d.at).getTime())<24*3600*1000;
+  }
+  function nul(x){ return x===undefined?null:x; }
 
   // ---------- Statut d'un relevé ----------
   // conforme : dans la cible ; normal : hors cible avec un motif accepté (pas d'action corrective, pas de contre-mesure) ;
@@ -452,7 +470,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       temp:arret?null:t, temps:arret?[]:[t], hr:(!arret&&hrTxt)?Math.round(hv*10)/10:null,
       min:fin(min)?min:null, max:fin(max)?max:null, hrMin:fin(hrMin)?hrMin:null, hrMax:fin(hrMax)?hrMax:null,
       tempConforme:tOk!==false, hrConforme:hOk!==false, conforme, statut, motif, contreMesureDe:cm?cm._id:"",
-      action:statut==="ecart"?F.action.trim():"", commentaire:F.comment.trim(), operateur:operateur.trim(), at:now.toISOString(), mois:monthKey(now) };
+      action:statut==="ecart"?F.action.trim():"", commentaire:F.comment.trim(), operateur:operateur.trim(), at:now.toISOString(), mois:monthKey(now), ...auteur() };
     btn.disabled=true;
     try{
       const ref=RELEVES.doc();
@@ -558,7 +576,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     const cm=cmPour("produit",P.cellule,pr.nom,P.lot.trim());
     const now=new Date();
     const doc={ type:"produit", lieu:P.cellule, etat:"", produit:pr.nom, lot:P.lot.trim(), temps, temp:Math.max(...temps), hr:null,
-      min:fin(min)?min:null, max:fin(max)?max:null, hrMin:null, hrMax:null, tempConforme:!horsCible, conforme, statut, motif, contreMesureDe:cm?cm._id:"", action:statut==="ecart"?P.action.trim():"", commentaire:P.comment.trim(), operateur:operateur.trim(), at:now.toISOString(), mois:monthKey(now) };
+      min:fin(min)?min:null, max:fin(max)?max:null, hrMin:null, hrMax:null, tempConforme:!horsCible, conforme, statut, motif, contreMesureDe:cm?cm._id:"", action:statut==="ecart"?P.action.trim():"", commentaire:P.comment.trim(), operateur:operateur.trim(), at:now.toISOString(), mois:monthKey(now), ...auteur() };
     btn.disabled=true;
     try{
       const ref=RELEVES.doc();
@@ -666,13 +684,17 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       if(arch){ tabEl.innerHTML='<p class="empty">Ce mois a été archivé le '+new Date(arch.creeLe).toLocaleDateString("fr-FR")+'. Il reste consultable et exportable dans Administration, rubrique Archives et conservation.</p>'; return; }
     }
     if(H.vue==="tableau") return drawMonthTable(tabEl,all);
-    const rows=filteredHist();
+    if(H.edit){ const d=histSource().find(x=>x._id===H.edit); if(d&&peutGerer(d)) return drawEdit(tabEl,d); H.edit=null; }
+    const rows=filteredHist(), gestion=rows.some(peutGerer);
     if(!rows.length){ tabEl.innerHTML='<p class="empty">Aucun contrôle pour cette sélection. Les relevés apparaîtront ici dès leur enregistrement.</p>'; return; }
-    tabEl.innerHTML='<table><thead><tr><th>Date</th><th>Contrôle</th><th>Chambre / cellule</th><th>Produit</th><th>T° (°C)</th><th>Hygro.</th><th>Résultat</th><th>Opérateur</th><th>Action / remarques</th></tr></thead><tbody>'+
+    tabEl.innerHTML='<table><thead><tr><th>Date</th><th>Contrôle</th><th>Chambre / cellule</th><th>Produit</th><th>T° (°C)</th><th>Hygro.</th><th>Résultat</th><th>Opérateur</th><th>Action / remarques</th>'+(gestion?'<th></th>':'')+'</tr></thead><tbody>'+
       rows.map(d=>{ const st=statutDe(d), orig=d.contreMesureDe?all.find(x=>x._id===d.contreMesureDe):null; return '<tr id="r-'+esc(d._id)+'" class="'+(st==="ecart"?"ko":st==="normal"?"nm":"")+(H.focus&&d._id===H.focus?" focus":"")+'"><td>'+fmtDate(d.at)+'</td><td>'+(d.type==="frigo"?"Frigo":"À cœur")+'</td><td>'+esc(d.lieu)+'</td><td>'+esc(d.produit||"")+(d.lot?'<br><span class="hint">Lot '+esc(d.lot)+'</span>':'')+'</td>'+
         '<td class="t">'+(d.etat==="arret"?"–":(d.temps||[d.temp]).map(fmtT).join(" / "))+'</td><td>'+(d.hr!=null?fmtH(d.hr):"")+'</td>'+
         '<td><span class="tag '+(st==="ecart"?"ko":st==="normal"?"nm":"ok")+'">'+libelleStatut(st)+'</span>'+(d.motif?'<br><span class="hint">'+esc(d.motif)+'</span>':'')+(d.contreMesureDe?'<br><span class="hint">Contre-mesure'+(orig?' de l\'écart de '+hm(orig.at):'')+'</span>':'')+(d.etat==="vide"?'<br><span class="hint">Chambre vide</span>':'')+'</td>'+
-        '<td>'+esc(d.operateur)+'</td><td>'+esc(d.action)+(d.commentaire?'<br><span class="hint">'+esc(d.commentaire)+'</span>':'')+'</td></tr>'; }).join("")+'</tbody></table>';
+        '<td>'+esc(d.operateur)+'</td><td>'+esc(d.action)+(d.commentaire?'<br><span class="hint">'+esc(d.commentaire)+'</span>':'')+derniereModif(d)+'</td>'+
+        (gestion?'<td class="acts">'+(peutGerer(d)?'<button type="button" class="mini" data-hmod="'+esc(d._id)+'">Modifier</button><button type="button" class="mini del" data-hdel="'+esc(d._id)+'">Supprimer</button>':'')+'</td>':'')+'</tr>'; }).join("")+'</tbody></table>';
+    tabEl.querySelectorAll("[data-hmod]").forEach(b=>b.addEventListener("click",()=>{ H.edit=b.dataset.hmod; drawHist(); window.scrollTo(0,document.getElementById("htab").getBoundingClientRect().top+window.scrollY-80); }));
+    tabEl.querySelectorAll("[data-hdel]").forEach(b=>b.addEventListener("click",()=>supprimerReleve(rows.find(x=>x._id===b.dataset.hdel))));
     if(H.focus){
       const row=document.getElementById("r-"+H.focus);
       if(row){ requestAnimationFrame(()=>row.scrollIntoView({block:"center",behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth"})); }
@@ -682,6 +704,69 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
         tabEl.parentNode.insertBefore(b,tabEl);
       }
     }
+  }
+  function derniereModif(d){
+    const m=Array.isArray(d.modifications)&&d.modifications.length?d.modifications[d.modifications.length-1]:null;
+    return m?'<br><span class="hint modif">Modifié le '+fmtDate(m.le)+' par '+esc(m.par)+' : '+esc(m.raison)+(d.modifications.length>1?' ('+d.modifications.length+' modifications)':'')+'</span>':'';
+  }
+  async function supprimerReleve(d){
+    if(!d) return;
+    const t=d.etat==="arret"?"arrêt":(d.temps||[d.temp]).map(fmtT).join(" / ")+" °C";
+    if(!confirm("Supprimer définitivement ce relevé ?\n\n"+fmtDate(d.at)+" – "+d.lieu+(d.produit?" – "+d.produit:"")+" – "+t+"\n\nCette action est irréversible.")) return;
+    try{ await RELEVES.doc(d._id).delete(); toast("Relevé supprimé"); }
+    catch(e){ toast(e&&e.code==="permission-denied"?"Suppression refusée : vos droits ne le permettent pas (relevé de plus de 24 h ou d'un autre opérateur).":"Suppression impossible ("+(e.code||"erreur")+")"); }
+  }
+  // Écran de modification d'un relevé : valeurs corrigées, statut recalculé, raison obligatoire, valeurs d'avant conservées
+  function drawEdit(el,d){
+    const frigo=d.type==="frigo", st=statutDe(d), motifs=config.motifs.slice();
+    if(d.motif&&motifs.indexOf(d.motif)<0) motifs.push(d.motif);
+    const E={ etat:d.etat||"service", choix:st==="ecart"?"ecart":st==="normal"?d.motif:"" };
+    el.innerHTML='<div class="edit"><h2>Modifier le relevé</h2><p class="hint">'+fmtDate(d.at)+' – '+(frigo?"Frigo":"À cœur")+' – '+esc(d.lieu)+(d.produit?' – '+esc(d.produit):'')+' – opérateur : '+esc(d.operateur)+'. Cible : '+rangeTxt(fnum(d.min),fnum(d.max))+'.</p>'+
+      (frigo?'<label class="f">État</label><div class="etat" style="margin-bottom:12px">'+['service','vide','arret'].map(e=>'<button type="button" data-eetat="'+e+'" aria-pressed="'+(E.etat===e)+'">'+({service:"En service",vide:"Vide",arret:"À l'arrêt"})[e]+'</button>').join("")+'</div>':'')+
+      '<div id="e-mes"><label class="f" for="et">'+(frigo?'Température (°C)':'Températures à cœur (°C), séparées par « / »')+'</label><input id="et" type="text" inputmode="decimal" value="'+esc((d.temps&&d.temps.length?d.temps:(d.temp!=null?[d.temp]:[])).map(fmtT).join(" / "))+'">'+
+      (frigo?'<label class="f" for="eh" style="margin-top:10px">Hygrométrie (%), facultatif</label><input id="eh" type="text" inputmode="decimal" value="'+esc(d.hr!=null?String(d.hr).replace(".",","):"")+'">':'')+'</div>'+
+      (!frigo?'<label class="f" for="el" style="margin-top:10px">N° de lot ou commande</label><input id="el" type="text" value="'+esc(d.lot||"")+'">':'')+
+      '<div id="e-hc" class="hidden" style="margin-top:10px"><label class="f" for="ech">Hors cible : motif ou écart</label><select id="ech"><option value="">— Choisir —</option>'+motifs.map((m,i)=>'<option value="m'+i+'"'+(E.choix===m?" selected":"")+'>'+esc(m)+'</option>').join("")+'<option value="ecart"'+(E.choix==="ecart"?" selected":"")+'>Écart : action corrective</option></select></div>'+
+      '<div id="e-act" class="hidden" style="margin-top:10px"><label class="f" for="ea">Action corrective</label><textarea id="ea">'+esc(d.action||"")+'</textarea></div>'+
+      '<label class="f" for="ec" style="margin-top:10px">Remarques</label><textarea id="ec">'+esc(d.commentaire||"")+'</textarea>'+
+      '<label class="f" for="er" style="margin-top:10px">Raison de la modification (obligatoire)</label><input id="er" type="text" placeholder="Ex. : erreur de saisie, mauvaise chambre…">'+
+      '<div class="edit-bts"><button type="button" class="primary" id="esave">Enregistrer la modification</button><button type="button" class="secondary" id="ecancel">Annuler</button></div><p class="err hidden" id="eerr"></p>'+
+      (Array.isArray(d.modifications)&&d.modifications.length?'<p class="hint" style="margin-top:10px">Modifications précédentes : '+d.modifications.map(m=>fmtDate(m.le)+' par '+esc(m.par)+' ('+esc(m.raison)+')').join(" ; ")+'</p>':'')+'</div>';
+    const g=id=>document.getElementById(id);
+    const lire=()=>{
+      const arret=frigo&&E.etat==="arret";
+      const temps=arret?[]:String(g("et").value).split("/").map(x=>num(x));
+      const hrTxt=frigo?String(g("eh").value).trim():"", hv=parseHr(hrTxt);
+      const tOk=arret?null:(temps.every(fin)&&temps.length?temps.every(t=>inRange(t,fnum(d.min),fnum(d.max))!==false):null);
+      const hOk=!frigo||arret||!hrTxt?null:inRange(hv,fnum(d.hrMin),fnum(d.hrMax));
+      return { arret, temps, hrTxt, hv, tOk, hOk, horsCible:!arret&&(tOk===false||hOk===false) };
+    };
+    const maj=()=>{ const L=lire(); g("e-mes").classList.toggle("hidden",L.arret); g("e-hc").classList.toggle("hidden",!L.horsCible); g("e-act").classList.toggle("hidden",!(L.horsCible&&E.choix==="ecart")); };
+    el.querySelectorAll("[data-eetat]").forEach(b=>b.addEventListener("click",()=>{ E.etat=b.dataset.eetat; el.querySelectorAll("[data-eetat]").forEach(x=>x.setAttribute("aria-pressed",String(x===b))); maj(); }));
+    g("et").addEventListener("input",maj); if(frigo) g("eh").addEventListener("input",maj);
+    g("ech").addEventListener("change",e=>{ const v=e.target.value; E.choix=v==="ecart"?"ecart":v?motifs[+v.slice(1)]:""; maj(); });
+    g("ecancel").addEventListener("click",()=>{ H.edit=null; drawHist(); });
+    g("esave").addEventListener("click",async()=>{
+      const err=g("eerr"), show=m=>{ err.textContent=m; err.classList.remove("hidden"); }; err.classList.add("hidden");
+      const L=lire(), raison=g("er").value.trim(), action=g("ea").value.trim(), commentaire=g("ec").value.trim();
+      if(!L.arret&&(!L.temps.length||!L.temps.every(fin))) return show(frigo?"Saisissez la température.":"Saisissez chaque température à cœur, séparées par « / ».");
+      if(frigo&&!L.arret&&L.hrTxt&&(!fin(L.hv)||L.hv<0||L.hv>100)) return show("L'hygrométrie doit être un pourcentage entre 0 et 100.");
+      if(L.horsCible&&!E.choix) return show("Mesure hors cible : choisissez le motif, ou « Écart ».");
+      const statut=!L.horsCible?"conforme":(E.choix==="ecart"?"ecart":"normal"), motif=statut==="normal"?E.choix:"";
+      if(statut==="ecart"&&!action) return show("Décrivez l'action corrective.");
+      if(statut==="normal"&&estAutre(motif)&&!commentaire) return show("Motif « Autre » : précisez-le dans les remarques.");
+      if(!raison) return show("Indiquez la raison de la modification.");
+      const u=auth.currentUser;
+      const avant={ etat:nul(d.etat), temp:nul(d.temp), temps:nul(d.temps), hr:nul(d.hr), lot:nul(d.lot), statut:st, motif:nul(d.motif)||"", action:nul(d.action)||"", commentaire:nul(d.commentaire)||"" };
+      const upd={ temp:L.arret?null:(frigo?L.temps[0]:Math.max(...L.temps)), temps:L.temps, conforme:statut!=="ecart", statut, motif, action:statut==="ecart"?action:"", commentaire,
+        modifications:firebase.firestore.FieldValue.arrayUnion({ le:new Date().toISOString(), par:(u&&u.email)||"", raison, avant }) };
+      if(frigo){ upd.etat=E.etat; upd.hr=(!L.arret&&L.hrTxt)?Math.round(L.hv*10)/10:null; upd.tempConforme=L.tOk!==false; upd.hrConforme=L.hOk!==false; }
+      else { upd.lot=g("el").value.trim(); upd.tempConforme=L.tOk!==false; }
+      g("esave").disabled=true;
+      try{ await RELEVES.doc(d._id).update(upd); H.edit=null; H.focus=d._id; toast("Relevé modifié"); drawHist(); }
+      catch(e){ show(e&&e.code==="permission-denied"?"Modification refusée : vos droits ne le permettent pas (relevé de plus de 24 h ou d'un autre opérateur).":errMsg(e)); g("esave").disabled=false; }
+    });
+    maj();
   }
   function drawMonthTable(el,docs){
     const chs=chambresDuMois(docs);

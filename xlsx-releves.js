@@ -158,19 +158,20 @@
     var t2 = [[{ v: 'Graphiques des températures par chambre – ' + (options.periode || ''), s: 4 }], [{ v: 'Trait plein : température relevée (dernier relevé du jour). Pointillés : cibles mini (vert) et maxi (rouge). Les jours sans relevé ou à l\'arrêt sont laissés vides.', s: 0 }]];
 
     // Feuille 4 : détail de tous les relevés (frigos et contrôles à cœur)
-    var t4 = [[{ v: 'Date', s: 5 }, { v: 'Heure', s: 5 }, { v: 'Contrôle', s: 5 }, { v: 'Chambre / cellule', s: 5 }, { v: 'État', s: 5 }, { v: 'Produit', s: 5 }, { v: 'Lot', s: 5 }, { v: 'Température (°C)', s: 5 }, { v: 'Autres mesures', s: 5 }, { v: 'Cible mini', s: 5 }, { v: 'Cible maxi', s: 5 }, { v: 'Hygrométrie (%)', s: 5 }, { v: 'Résultat', s: 5 }, { v: 'Motif (hors cible normal)', s: 5 }, { v: 'Contre-mesure de', s: 5 }, { v: 'Opérateur', s: 5 }, { v: 'Action corrective', s: 5 }, { v: 'Remarques', s: 5 }]];
+    var t4 = [[{ v: 'Date', s: 5 }, { v: 'Heure', s: 5 }, { v: 'Contrôle', s: 5 }, { v: 'Chambre / cellule', s: 5 }, { v: 'État', s: 5 }, { v: 'Produit', s: 5 }, { v: 'Lot', s: 5 }, { v: 'Température (°C)', s: 5 }, { v: 'Autres mesures', s: 5 }, { v: 'Cible mini', s: 5 }, { v: 'Cible maxi', s: 5 }, { v: 'Hygrométrie (%)', s: 5 }, { v: 'Résultat', s: 5 }, { v: 'Motif (hors cible normal)', s: 5 }, { v: 'Contre-mesure de', s: 5 }, { v: 'Opérateur', s: 5 }, { v: 'Action corrective', s: 5 }, { v: 'Remarques', s: 5 }, { v: 'Modifications', s: 5 }]];
     releves.slice().sort(function(a, b){ return a.at < b.at ? -1 : 1; }).forEach(function(r){
       var ts = r.temps && r.temps.length ? r.temps : (r.temp != null ? [r.temp] : []), st = statut(r), o = r.contreMesureDe ? parId[r.contreMesureDe] : null;
       t4.push([fr(jour(r.at)), hm(r.at), r.type === 'frigo' ? 'Frigo' : 'À cœur', r.lieu, r.type === 'frigo' ? ({ service: 'En service', vide: 'Vide', arret: 'À l\'arrêt' }[r.etat] || '') : '', r.produit || '', r.lot || '',
         { v: r.etat === 'arret' ? '' : r.temp, s: st === 'ecart' ? 3 : 2 }, ts.length > 1 ? ts.map(function(v){ return String(v).replace('.', ','); }).join(' / ') : '',
-        { v: r.min, s: 2 }, { v: r.max, s: 2 }, { v: r.hr == null ? '' : r.hr, s: 6 }, st === 'ecart' ? { v: LIB.ecart, s: 7 } : LIB[st], r.motif || '', r.contreMesureDe ? (o ? 'Écart du ' + fr(jour(o.at)) + ' ' + hm(o.at) : 'Écart précédent') : '', r.operateur || '', r.action || '', r.commentaire || '']);
+        { v: r.min, s: 2 }, { v: r.max, s: 2 }, { v: r.hr == null ? '' : r.hr, s: 6 }, st === 'ecart' ? { v: LIB.ecart, s: 7 } : LIB[st], r.motif || '', r.contreMesureDe ? (o ? 'Écart du ' + fr(jour(o.at)) + ' ' + hm(o.at) : 'Écart précédent') : '', r.operateur || '', r.action || '', r.commentaire || '',
+        (r.modifications || []).map(function(m){ return fr(jour(m.le)) + ' ' + hm(m.le) + ' par ' + (m.par || '?') + ' : ' + (m.raison || ''); }).join(' ; ')]);
     });
 
     var sheets = [
       { name: 'Tableau', xml: sheet(t1, { widths: w1, freeze: [1, 5], landscape: true }) },
       { name: 'Graphiques', xml: sheet(t2, { widths: [10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10], drawing: noms.length > 0, landscape: true }) },
       { name: D, xml: sheet(t3, { widths: [12].concat(noms.map(function(){ return [10, 10, 10]; }).reduce(function(a, b){ return a.concat(b); }, [])), freeze: [1, 1] }) },
-      { name: 'Détail', xml: sheet(t4, { widths: [11, 7, 9, 18, 11, 16, 12, 10, 14, 9, 9, 10, 18, 26, 20, 14, 30, 30], freeze: [0, 1] }) }
+      { name: 'Détail', xml: sheet(t4, { widths: [11, 7, 9, 18, 11, 16, 12, 10, 14, 9, 9, 10, 18, 26, 20, 14, 30, 30, 40], freeze: [0, 1] }) }
     ];
     var files = [];
     var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
