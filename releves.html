@@ -80,8 +80,31 @@ textarea{min-height:80px;resize:vertical}
 .grp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:1rem;font-weight:700;margin:14px 0 8px}
 .grp span{color:var(--muted);font-weight:600;font-size:.9rem}
 .chsel{margin-top:6px}
-td.acts{width:1%}
-td.acts .mini{display:block;width:100%;margin:0 0 6px}
+/* Liste détaillée */
+body.hist .wrap{max-width:1180px}
+table.liste{min-width:720px}
+table.liste td.t{white-space:nowrap}
+table.liste td.rem{min-width:180px}
+table.liste .acts{position:sticky;right:0;background:var(--surface);width:1%;box-shadow:-8px 0 8px -8px rgba(0,0,0,.35)}
+table.liste tr.ko td.acts{background:var(--ko-bg)}
+table.liste tr.nm td.acts{background:var(--nm-bg)}
+table.liste tr.focus td.acts{background:var(--sel)}
+table.liste td.acts .mini{display:block;width:100%;margin:0 0 6px;white-space:nowrap}
+@media (max-width:700px){
+  table.liste{min-width:0}
+  table.liste thead{display:none}
+  table.liste tbody{display:block}
+  table.liste tr{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+  table.liste tr.ko{background:var(--ko-bg)} table.liste tr.nm{background:var(--nm-bg)}
+  table.liste tr td{display:block;grid-column:1;border:0;padding:2px 0;background:transparent!important;box-shadow:none!important}
+  table.liste tr.focus{background:var(--sel);border:2px solid var(--brand)}
+  table.liste td:empty{display:none}
+  table.liste td.dt br{display:none} table.liste td.dt .hint::before{content:" – "}
+  table.liste td.t{font-size:1.4rem}
+  table.liste td[data-l]::before{content:attr(data-l)" : ";color:var(--muted);font-size:.85rem}
+  table.liste td.rem{min-width:0}
+  table.liste tr td.acts{grid-column:2;grid-row:1 / span 6;position:static;width:auto;align-self:start}
+}
 .mini{min-height:44px;padding:0 10px;margin:2px 4px 2px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-weight:600;cursor:pointer}
 .mini.del{color:var(--ko);border-color:var(--ko)}
 .edit input[type=text],.edit select,.edit textarea{margin-bottom:2px}
@@ -688,12 +711,18 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     if(H.edit){ const d=histSource().find(x=>x._id===H.edit); if(d&&peutGerer(d)) return drawEdit(tabEl,d); H.edit=null; }
     const rows=filteredHist(), gestion=rows.some(peutGerer);
     if(!rows.length){ tabEl.innerHTML='<p class="empty">Aucun contrôle pour cette sélection. Les relevés apparaîtront ici dès leur enregistrement.</p>'; return; }
-    tabEl.innerHTML='<table><thead><tr>'+(gestion?'<th></th>':'')+'<th>Date</th><th>Contrôle</th><th>Chambre / cellule</th><th>Produit</th><th>T° (°C)</th><th>Hygro.</th><th>Résultat</th><th>Opérateur</th><th>Action / remarques</th></tr></thead><tbody>'+
-      rows.map(d=>{ const st=statutDe(d), orig=d.contreMesureDe?all.find(x=>x._id===d.contreMesureDe):null; return '<tr id="r-'+esc(d._id)+'" class="'+(st==="ecart"?"ko":st==="normal"?"nm":"")+(H.focus&&d._id===H.focus?" focus":"")+'">'+
-        (gestion?'<td class="acts">'+(peutGerer(d)?'<button type="button" class="mini" data-hmod="'+esc(d._id)+'">Modifier</button><button type="button" class="mini del" data-hdel="'+esc(d._id)+'">Supprimer</button>':'')+'</td>':'')+'<td>'+fmtDate(d.at)+'</td><td>'+(d.type==="frigo"?"Frigo":"À cœur")+'</td><td>'+esc(d.lieu)+'</td><td>'+esc(d.produit||"")+(d.lot?'<br><span class="hint">Lot '+esc(d.lot)+'</span>':'')+'</td>'+
-        '<td class="t">'+(d.etat==="arret"?"–":(d.temps||[d.temp]).map(fmtT).join(" / "))+'</td><td>'+(d.hr!=null?fmtH(d.hr):"")+'</td>'+
+    // Liste détaillée : colonnes regroupées ; boutons Modifier / Supprimer dans la dernière colonne, fixée au bord droit
+    // (ordinateur) ; sur téléphone, chaque relevé devient une fiche (voir CSS table.liste).
+    tabEl.innerHTML='<table class="liste"><thead><tr><th>Date</th><th>Chambre / produit</th><th>T° (°C)</th><th>Résultat</th><th>Opérateur</th><th>Action / remarques</th>'+(gestion?'<th class="acts"></th>':'')+'</tr></thead><tbody>'+
+      rows.map(d=>{ const st=statutDe(d), orig=d.contreMesureDe?all.find(x=>x._id===d.contreMesureDe):null, rem=esc(d.action)+(d.commentaire?(d.action?'<br>':'')+'<span class="hint">'+esc(d.commentaire)+'</span>':'')+derniereModif(d);
+        return '<tr id="r-'+esc(d._id)+'" class="'+(st==="ecart"?"ko":st==="normal"?"nm":"")+(H.focus&&d._id===H.focus?" focus":"")+'">'+
+        '<td class="dt">'+fmtDate(d.at)+'<br><span class="hint">'+(d.type==="frigo"?"Frigo":"À cœur")+'</span></td>'+
+        '<td class="lieu"><b>'+esc(d.lieu)+'</b>'+(d.produit?'<br>'+esc(d.produit):'')+(d.lot?'<br><span class="hint">Lot '+esc(d.lot)+'</span>':'')+'</td>'+
+        '<td class="t">'+(d.etat==="arret"?"–":(d.temps||[d.temp]).map(fmtT).join(" / "))+(d.hr!=null?'<br><span class="hint">'+fmtH(d.hr)+'</span>':'')+'</td>'+
         '<td><span class="tag '+(st==="ecart"?"ko":st==="normal"?"nm":"ok")+'">'+libelleStatut(st)+'</span>'+(d.motif?'<br><span class="hint">'+esc(d.motif)+'</span>':'')+(d.contreMesureDe?'<br><span class="hint">Contre-mesure'+(orig?' de l\'écart de '+hm(orig.at):'')+'</span>':'')+(d.etat==="vide"?'<br><span class="hint">Chambre vide</span>':'')+'</td>'+
-        '<td>'+esc(d.operateur)+'</td><td>'+esc(d.action)+(d.commentaire?'<br><span class="hint">'+esc(d.commentaire)+'</span>':'')+derniereModif(d)+'</td>'+
+        '<td data-l="Opérateur">'+esc(d.operateur)+'</td>'+
+        '<td class="rem"'+(rem?' data-l="Action / remarques"':'')+'>'+rem+'</td>'+
+        (gestion?'<td class="acts">'+(peutGerer(d)?'<button type="button" class="mini" data-hmod="'+esc(d._id)+'">Modifier</button><button type="button" class="mini del" data-hdel="'+esc(d._id)+'">Supprimer</button>':'')+'</td>':'')+
         '</tr>'; }).join("")+'</tbody></table>';
     tabEl.querySelectorAll("[data-hmod]").forEach(b=>b.addEventListener("click",()=>{ H.edit=b.dataset.hmod; drawHist(); window.scrollTo(0,document.getElementById("htab").getBoundingClientRect().top+window.scrollY-80); }));
     tabEl.querySelectorAll("[data-hdel]").forEach(b=>b.addEventListener("click",()=>supprimerReleve(rows.find(x=>x._id===b.dataset.hdel))));
@@ -808,7 +837,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   }
 
   // ---------- navigation ----------
-  function setTab(t){ tab=t; document.querySelectorAll("nav.rtabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t))); render(); window.scrollTo(0,0); }
+  function setTab(t){ tab=t; document.body.classList.toggle("hist",t==="hist"); document.querySelectorAll("nav.rtabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t))); render(); window.scrollTo(0,0); }
   function render(){ if(tab==="frigo") renderFrigo(); else if(tab==="produit") renderProduit(); else renderHist(); }
   document.querySelectorAll("nav.rtabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
 
@@ -819,7 +848,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
 
   function demarrer(){
     if(roleReleves==="viewer"){
-      tab="hist";
+      tab="hist"; document.body.classList.add("hist");
       document.getElementById("rtabs").classList.add("lecture");
       document.querySelectorAll("nav.rtabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab==="hist")));
       banner("Rôle Consultation : historique en lecture seule. La saisie des relevés est réservée aux rôles Gestion et Admin.",true);

@@ -88,6 +88,7 @@ Points importants :
 
 - **Frigos** : tournée guidée (la chambre suivante non relevée est proposée après chaque enregistrement), état En service, Vide ou À l'arrêt, température avec échelle et cible, hygrométrie facultative, action corrective obligatoire en cas d'écart.
 - **Produits** : contrôle à cœur de 1 à 5 mesures par produit, dans une cellule **alliums** uniquement, avec numéro de lot facultatif.
+- **Historique, liste détaillée** : boutons Modifier / Supprimer dans la dernière colonne, fixée au bord droit sur ordinateur (la page s'élargit dans l'onglet Historique) ; sur téléphone (700 px ou moins), chaque relevé s'affiche en fiche, avec les boutons à droite.
 - **Historique** : tableau du mois au format STOC E12.1 (dernier relevé du jour par chambre) ; un clic sur une case ouvre la ligne dans la liste détaillée. Filtres et export Excel. **Chambres affichées** : Toutes, Frigos légumes, Cellules alliums, ou chambre par chambre ; le choix s'applique au tableau, à la liste et à l'export, et il est mémorisé sur le poste (`localStorage`).
 - Avec le rôle Consultation, seul l'Historique est accessible.
 - Une lecture refusée (par exemple les archives pour un non-admin) affiche un message simple, jamais d'erreur bloquante.
@@ -115,6 +116,7 @@ Les règles du plan (`users`, `planStockage`) sont inchangées, à une exception
 
 ## Pour continuer le développement
 
+- À chaque mise à jour publiée, incrémenter `VERSION` dans `index.html` : les liens de l'accueil ajoutent `?v=VERSION`, ce qui évite d'ouvrir une ancienne copie des modules gardée en cache.
 - Toujours valider la syntaxe après édition : `node --check` sur le contenu de chaque `<script>` en ligne, et sur `xlsx-releves.js`.
 - Garder `plan.html` aussi proche que possible de l'original. Une comparaison avec l'ancien `index.html` ne doit montrer que les retraits des deux onglets, la barre de module et la configuration Firebase.
 - Pour tester sans toucher au projet réel : émulateur Firebase local (`firebase emulators:exec --only firestore,auth`), en faisant pointer les pages vers l'émulateur au moment du test.

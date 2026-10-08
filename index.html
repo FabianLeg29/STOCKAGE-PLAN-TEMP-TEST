@@ -123,6 +123,9 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
 
+  // Version de l'application : à changer à chaque mise à jour, pour que les liens de l'accueil
+  // ouvrent la nouvelle version des modules au lieu d'une copie gardée en cache par le navigateur.
+  const VERSION = '2026-10-08.2';
   const COMPTE_NON_AUTORISE = 'Compte non autorisé, contactez un administrateur';
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function show(id){ ['loadingScreen', 'loginScreen', 'homeScreen'].forEach(x => document.getElementById(x).classList.toggle('hidden', x !== id)); }
@@ -141,15 +144,15 @@
     const el = document.getElementById('homeScreen');
     el.innerHTML = '<div><h1>Que voulez-vous faire ?</h1><p class="who">Connecté : ' + esc(user.email || '') + ' – La Légumière</p></div>' +
       '<div class="tiles">' +
-        '<a class="tile plan" href="plan.html"><span class="ic">' + ICONES.plan + '</span><b>Plan de stockage</b>' +
+        '<a class="tile plan" href="plan.html?v=' + VERSION + '"><span class="ic">' + ICONES.plan + '</span><b>Plan de stockage</b>' +
           '<span class="d">Échalotes et oignons : cellules, lignes, palox. Entrées, sorties, déplacements, recherche et stock global.</span><span class="go">Ouvrir le plan</span></a>' +
         (okR
-          ? '<a class="tile rel" href="releves.html"><span class="ic">' + ICONES.rel + '</span><b>Relevés des températures</b>' +
+          ? '<a class="tile rel" href="releves.html?v=' + VERSION + '"><span class="ic">' + ICONES.rel + '</span><b>Relevés des températures</b>' +
             '<span class="d">Tournée des chambres froides (T° et hygrométrie), contrôles à cœur des produits, historique du mois et export STOC E12.1.</span><span class="go">Ouvrir les relevés</span></a>'
           : '<div class="tile rel off" aria-disabled="true"><span class="ic">' + ICONES.rel + '</span><b>Relevés des températures</b>' +
             '<span class="d">Tournée des chambres froides (T° et hygrométrie), contrôles à cœur des produits, historique du mois et export STOC E12.1.</span>' + bloque + '</div>') +
         (okA
-          ? '<a class="tile adm" href="admin.html"><span class="ic">' + ICONES.adm + '</span><b>Administration</b>' +
+          ? '<a class="tile adm" href="admin.html?v=' + VERSION + '"><span class="ic">' + ICONES.adm + '</span><b>Administration</b>' +
             '<span class="d">Comptes et accès, réglages du plan de stockage et des relevés, archives et durées de conservation.</span><span id="archBadge"></span><span class="go">Ouvrir l\'administration</span></a>'
           : '') +
       '</div>' +
