@@ -295,8 +295,8 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   const F = { lieu:null, propose:null, etat:"service", temp:"", hr:"", choix:null, action:"", comment:"" };
   const P = { cellule:null, produit:null, lot:"", mesures:[""], choix:null, action:"", comment:"", filtre:"" };
   const H = { mois: monthKey(new Date()), type:"all", ko:false, vue:"tableau", focus:null, chambres:null, choixOuvert:false, edit:null };
-  // Chambres affichées dans l'historique (null = toutes) : mémorisé sur le poste
-  try { const c=JSON.parse(localStorage.getItem("ll-hist-chambres")||"null"); if(Array.isArray(c)) H.chambres=c; } catch(e){}
+  // Chambres affichées dans l'historique (null = toutes) : « Toutes les chambres » à chaque arrivée sur l'onglet
+  try { localStorage.removeItem("ll-hist-chambres"); } catch(e){}
 
   const MOIS=["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
   function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
@@ -704,7 +704,6 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   }
   function choisirChambres(liste){
     H.chambres=liste&&liste.length===chambresConnues().length&&chambresConnues().every(n=>liste.indexOf(n)>=0)?null:liste;
-    try{ if(H.chambres) localStorage.setItem("ll-hist-chambres",JSON.stringify(H.chambres)); else localStorage.removeItem("ll-hist-chambres"); }catch(e){}
     H.focus=null; renderHist();
   }
   // Liste déroulante : toutes, une famille, ou une seule chambre
@@ -909,7 +908,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   }
 
   // ---------- navigation ----------
-  function setTab(t){ tab=t; document.body.classList.toggle("hist",t==="hist"); document.querySelectorAll("nav.rtabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t))); render(); window.scrollTo(0,0); }
+  function setTab(t){ if(t==="hist"&&tab!=="hist"){ H.chambres=null; H.retourChambres=undefined; H.focus=null; } tab=t; document.body.classList.toggle("hist",t==="hist"); document.querySelectorAll("nav.rtabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t))); render(); window.scrollTo(0,0); }
   const TITRES={ frigo:"Relevé de température chambres froides", produit:"Relevé de température produits", hist:"Historique des relevés de température" };
   function render(){ const t=document.getElementById("titre"); if(t) t.textContent=TITRES[tab]||TITRES.frigo; if(tab==="frigo") renderFrigo(); else if(tab==="produit") renderProduit(); else renderHist(); }
   document.querySelectorAll("nav.rtabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
