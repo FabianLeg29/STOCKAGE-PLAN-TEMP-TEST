@@ -221,17 +221,19 @@
 .adm-err{background:#F1D6CC;color:#6E1F17;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-weight:600;font-size:14px}
 .adm-hyg{display:flex;align-items:center;gap:6px;font-size:13px;color:#5C554A;min-height:40px;white-space:nowrap}
 .adm-hyg input{width:20px;height:20px}
-.adm-head5,.adm-grid5{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) auto repeat(4,minmax(0,1fr)) 40px;gap:6px;align-items:center}
+.adm-head5,.adm-grid5{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) repeat(2,minmax(0,1fr)) auto repeat(2,minmax(0,1fr)) 40px;gap:6px;align-items:center}
 .adm-head3,.adm-grid3{display:grid;grid-template-columns:minmax(0,3fr) repeat(2,minmax(0,1fr)) 40px;gap:6px;align-items:center}
 .adm-head5,.adm-head3{font-size:12px;color:#5C554A;margin-bottom:4px}
 .adm-grid5,.adm-grid3{margin-bottom:6px}
 .adm-grid5 input,.adm-grid3 input,.adm-grid5 select{width:100%;min-width:0}
+.adm-grid5 input:disabled{background:#EEE9DD;border-color:#E2DCCD;cursor:not-allowed}
+.adm-grid5 input:disabled::placeholder{color:transparent}
 .adm-x{min-height:40px;border:1px solid #D2C9B4;border-radius:8px;background:#FBF9F3;cursor:pointer;font-size:18px;color:#2B2620}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 @media (max-width:640px){.adm-tabs{grid-template-columns:1fr}.adm-head5,.adm-head3{display:none}
   .adm-grid5,.adm-grid3{grid-template-columns:repeat(2,minmax(0,1fr));border:1px solid #ECE8DE;border-radius:10px;padding:8px;margin-bottom:8px}
   .adm-grid5 input:first-child,.adm-grid3 input:first-child{grid-column:1/-1;font-weight:600}
-  .adm-grid5 select{grid-column:1/-1}
+  .adm-grid5 select,.adm-grid5 .adm-hyg{grid-column:1/-1}
   .adm-grid5 .adm-x,.adm-grid3 .adm-x{grid-column:1/-1;justify-self:end;width:44px;min-height:44px}
   .adm-grid5 input::placeholder,.adm-grid3 input::placeholder{color:#8A8174}}
 .adm-h3{font-size:15px;margin:14px 0 4px}
@@ -738,12 +740,15 @@ label.adm-sec{display:inline-flex;align-items:center}
     var r = relDraft, h = '';
     if (!r) return '<section class="adm-card"><p class="adm-muted">Chargement des réglages des relevés…</p></section>';
     h += '<section class="adm-card"><h2>Chambres froides et cellules</h2><p class="adm-muted">Liste du module relevés, indépendante du plan de stockage. Laissez une limite vide si elle ne s\'applique pas. Changer une cible ne modifie pas les relevés déjà enregistrés. Famille : les frigos légumes et les cellules alliums sont séparés dans la tournée ; seules les cellules alliums sont proposées pour le contrôle à cœur des produits. Hygro décoché : pas de saisie d\'hygrométrie pour cette chambre, ni de colonne Hygro dans l\'Excel.</p>' +
-      '<div class="adm-head5"><span>Nom</span><span>Famille</span><span>Hygro</span><span>T° mini</span><span>T° maxi</span><span>Hygro mini %</span><span>Hygro maxi %</span><span></span></div>';
+      '<div class="adm-head5"><span>Nom</span><span>Famille</span><span>T° mini</span><span>T° maxi</span><span>Hygro</span><span>Hygro mini %</span><span>Hygro maxi %</span><span></span></div>';
     r.frigos.forEach(function(f, i){
+      // Hygro mini et maxi : saisissables seulement si la case Hygro est cochée
+      var champs = function(ks, off){ return ks.map(function(k){ return '<input type="text" inputmode="decimal" placeholder="' + k[1] + '" aria-label="' + k[1] + ' ' + esc(f.nom) + '" data-rf="' + i + '|' + k[0] + '" value="' + (off ? '' : val(f[k[0]])) + '"' + (off ? ' disabled' : '') + '>'; }).join(''); };
       h += '<div class="adm-grid5"><input type="text" aria-label="Nom de la chambre" placeholder="Nom de la chambre" data-rf="' + i + '|nom" value="' + esc(f.nom) + '">' +
         '<select aria-label="Famille ' + esc(f.nom) + '" data-rffam="' + i + '">' + [['legumes', 'Légumes'], ['alliums', 'Alliums']].map(function(o){ return '<option value="' + o[0] + '"' + (f.famille === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+        champs([['min','T° mini'], ['max','T° maxi']], false) +
         '<label class="adm-hyg"><input type="checkbox" data-rfhyg="' + i + '"' + (f.hygro !== false ? ' checked' : '') + '> Hygro</label>' +
-        [['min','T° mini'], ['max','T° maxi'], ['hrMin','HR mini %'], ['hrMax','HR maxi %']].map(function(k){ return '<input type="text" inputmode="decimal" placeholder="' + k[1] + '" aria-label="' + k[1] + ' ' + esc(f.nom) + '" data-rf="' + i + '|' + k[0] + '" value="' + val(f[k[0]]) + '">'; }).join('') +
+        champs([['hrMin','HR mini %'], ['hrMax','HR maxi %']], f.hygro === false) +
         '<button type="button" class="adm-x" aria-label="Supprimer ' + esc(f.nom) + '" data-rfdel="' + i + '">×</button></div>';
     });
     h += '<button type="button" class="adm-link" id="admRfAdd">+ Ajouter une chambre</button></section>';
@@ -785,7 +790,8 @@ label.adm-sec{display:inline-flex;align-items:center}
     var on = function(sel, ev, f){ o.querySelectorAll(sel).forEach(function(e){ e.addEventListener(ev, function(){ f(e); }); }); };
     on('[data-rf]', 'input', function(e){ var k = e.dataset.rf.split('|'); R.frigos[+k[0]][k[1]] = e.value; relDirty = true; });
     on('[data-rffam]', 'change', function(e){ R.frigos[+e.dataset.rffam].famille = e.value; relDirty = true; });
-    on('[data-rfhyg]', 'change', function(e){ R.frigos[+e.dataset.rfhyg].hygro = e.checked; relDirty = true; });
+    on('[data-rfhyg]', 'change', function(e){ var f = R.frigos[+e.dataset.rfhyg]; f.hygro = e.checked; if (!e.checked){ f.hrMin = null; f.hrMax = null; } relDirty = true; draw();
+      var c = document.querySelector('[data-rfhyg="' + e.dataset.rfhyg + '"]'); if (c) c.focus(); });
     on('[data-rp]', 'input', function(e){ var k = e.dataset.rp.split('|'); R.produits[+k[0]][k[1]] = e.value; relDirty = true; });
     on('[data-rfdel]', 'click', function(e){ R.frigos.splice(+e.dataset.rfdel, 1); relDirty = true; draw(); });
     on('[data-rpdel]', 'click', function(e){ R.produits.splice(+e.dataset.rpdel, 1); relDirty = true; draw(); });
@@ -818,6 +824,7 @@ label.adm-sec{display:inline-flex;align-items:center}
       var lire = function(x, k, nom){ var s = String(x[k] == null ? '' : x[k]).trim(); if (!s) return null; var v = num(s); if (v == null && !bad) bad = nom; return v; };
       for (i = 0; i < R.frigos.length; i++){ f = R.frigos[i]; n = String(f.nom || '').trim(); if (!n) continue;
         var o2 = { nom: n, famille: f.famille === 'legumes' ? 'legumes' : 'alliums', hygro: f.hygro !== false }; ['min', 'max', 'hrMin', 'hrMax'].forEach(function(k){ o2[k] = lire(f, k, n); });
+        if (!o2.hygro){ o2.hrMin = null; o2.hrMax = null; }
         if (o2.min != null && o2.max != null && o2.min > o2.max){ A.err = 'Pour « ' + n + ' », la T° mini est supérieure à la maxi.'; A.msg = ''; return draw(); }
         if (o2.hrMin != null && o2.hrMax != null && o2.hrMin > o2.hrMax){ A.err = 'Pour « ' + n + ' », l\'hygro mini est supérieure à la maxi.'; A.msg = ''; return draw(); }
         out.frigos.push(o2); }
