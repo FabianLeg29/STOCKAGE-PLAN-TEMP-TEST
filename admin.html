@@ -856,7 +856,6 @@ label.adm-sec{display:inline-flex;align-items:center}
         '<li>' + ri.deja + ' ' + pl(ri.deja, 'déjà importée') + ' (' + pl(ri.deja, 'ignorée') + ')</li>' +
         (ri.invalides.length ? '<li>' + ri.invalides.length + ' ' + pl(ri.invalides.length, 'ligne') + ' ' + pl(ri.invalides.length, 'illisible') + ' (' + pl(ri.invalides.length, 'ignorée') + ') : ' +
           esc(ri.invalides.slice(0, 5).map(function(x){ return 'ligne ' + x[0] + ' (' + x[1] + ')'; }).join(' ; ')) + (ri.invalides.length > 5 ? '…' : '') + '</li>' : '') +
-        (ri.aConfirmer ? '<li>' + ri.aConfirmer + ' ' + pl(ri.aConfirmer, 'mouvement') + ' de juin – juillet sans récolte déductible : « à confirmer », à attribuer ensuite lot par lot dans la synthèse des mouvements</li>' : '') +
         '<li><b>' + ri.lignes.length + ' ' + pl(ri.lignes.length, 'mouvement') + ' à importer</b>' + (ri.lignes.length ? ' (du ' + esc(frDate(ri.du)) + ' au ' + esc(frDate(ri.au)) + ', ' + Math.round(ri.kg).toLocaleString('fr-FR') + ' kg)' : '') + '</li></ul>' +
         '<div class="adm-actions">' + (ri.lignes.length ? '<button type="button" class="adm-save" id="admMvtGo">Importer ' + ri.lignes.length + ' ' + pl(ri.lignes.length, 'mouvement') + '</button>' : '') +
         '<button type="button" class="adm-sec" id="admMvtNon">Annuler</button></div></div>'; }
@@ -912,9 +911,6 @@ label.adm-sec{display:inline-flex;align-items:center}
   }
   // Calibre « 7080 » -> « 70/80 » ; « 50/56 » ; « +70 » ou « Tv » inchangés
   function calibreNorm(s){ s = String(s || '').trim().replace(/\s*\/\s*/g, '/'); return /^\d{4}$/.test(s) ? s.slice(0, 2) + '/' + s.slice(2) : s; }
-  // Récolte (même règle que mouvements.html) : année de début (juin) ; chevauchement de juin à fin juillet
-  function recolteParDefaut(j){ var y = +String(j).slice(0, 4), m = +String(j).slice(5, 7); return m >= 6 ? y : y - 1; }
-  function enChevauchement(j){ var m = +String(j).slice(5, 7); return m >= 6 && m <= 7; }
   // Identifiant stable d'une ligne de la feuille : réimporter le même fichier ne crée jamais de doublon
   function empreinte(s){ var h1 = 0x811c9dc5, h2 = 0x01000193; for (var i = 0; i < s.length; i++){ var c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 ^ c, 2246822519) >>> 0; } return ('0000000' + h1.toString(16)).slice(-8) + ('0000000' + h2.toString(16)).slice(-8); }
   function preparerImportMvt(file){
@@ -938,7 +934,6 @@ label.adm-sec{display:inline-flex;align-items:center}
           else if (k.indexOf('conditionnement') >= 0 && col.conditionnement == null) col.conditionnement = i;
           else if (k.indexOf('ponsable') >= 0 && col.responsable == null) col.responsable = i;
           else if ((k.indexOf('remarque') >= 0 || k.indexOf('commentaire') >= 0) && col.commentaire == null) col.commentaire = i;
-          else if (k.indexOf('recolte') >= 0 && col.recolte == null) col.recolte = i;
         });
         var manque = [['produit', 'Produit'], ['lot', 'Lot'], ['quantite', 'Quantité']].filter(function(x){ return col[x[0]] == null; }).map(function(x){ return x[1]; });
         if (col.date == null && col.horodateur == null) manque.unshift('Date de chargement');
@@ -960,20 +955,11 @@ label.adm-sec{display:inline-flex;align-items:center}
           vus.add(id);
           var variete = col.varietes.map(function(i){ return g(r, i); }).filter(Boolean)[0] || '';
           var q = Math.round(pes.reduce(function(a, b){ return a + b; }, 0) * 1000) / 1000;
-          ri.lignes.push({ id: id, ligne: ligne, horodateur: horo, recolteCsv: g(r, col.recolte), d: { date: date, prestataire: prest, produit: produit, variete: variete, lot: lot, origine: g(r, col.origine),
+          ri.lignes.push({ id: id, ligne: ligne, horodateur: horo, d: { date: date, prestataire: prest, produit: produit, variete: variete, lot: lot, origine: g(r, col.origine),
             calibre: calibreNorm(g(r, col.calibre)), pesees: pes, quantite: q, conditionnement: g(r, col.conditionnement), responsable: g(r, col.responsable), commentaire: g(r, col.commentaire) } });
           ri.kg += q;
           if (!ri.du || date < ri.du) ri.du = date;
           if (!ri.au || date > ri.au) ri.au = date;
-        });
-        // Récolte de chaque ligne : colonne « Récolte » si elle existe ; sinon déduite de la date hors chevauchement,
-        // et, pendant le chevauchement, des autres lignes du même lot ; sinon laissée « à confirmer » (attribuée ensuite par lot).
-        var idx = {};
-        ri.lignes.forEach(function(x){ var k = x.d.produit + '|' + x.d.lot; if (!enChevauchement(x.d.date) && idx[k] == null) idx[k] = recolteParDefaut(x.d.date); });
-        ri.aConfirmer = 0;
-        ri.lignes.forEach(function(x){
-          var r = /^\d{4}$/.test(String(x.recolteCsv || '').trim()) ? +x.recolteCsv : (!enChevauchement(x.d.date) ? recolteParDefaut(x.d.date) : idx[x.d.produit + '|' + x.d.lot]);
-          if (r) x.d.recolte = r; else ri.aConfirmer++;
         });
         mvtImport = ri; A.msg = '';
       }catch(e){ console.error(e); A.err = 'Impossible de lire ce fichier : ' + (e && e.message || e); }
