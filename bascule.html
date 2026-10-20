@@ -1,0 +1,257 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bascule vers la production – Plan_stockage_allium</title><style>
+@page{size:A4;margin:16mm 14mm 18mm}
+body{font-family:"DejaVu Sans",Arial,sans-serif;font-size:10pt;line-height:1.45;color:#2B2620}
+h1{font-size:18pt;color:#963E88;border-bottom:3px solid #963E88;padding-bottom:6px;margin:0 0 12px}
+h2{font-size:13.5pt;color:#5B2A66;margin:20px 0 8px;break-after:avoid}
+h3{font-size:11pt;margin:14px 0 6px;break-after:avoid}
+table{border-collapse:collapse;width:100%;margin:8px 0 12px;font-size:9pt;break-inside:auto}
+tr{break-inside:avoid}
+th,td{border:1px solid #D2C9B4;padding:5px 6px;text-align:left;vertical-align:top}
+th{background:#EAD7E6}
+tr:nth-child(even) td{background:#FBF9F3}
+code{font-family:"DejaVu Sans Mono",monospace;font-size:8.5pt;background:#F1ECDE;padding:0 3px;border-radius:3px}
+blockquote{margin:8px 0;padding:8px 12px;border:1px solid #D2C9B4;border-left:4px solid #963E88;background:#FBF9F3;font-size:9pt}
+blockquote ol{padding-left:18px}
+ul,ol{padding-left:20px} li{margin:2px 0}
+</style></head><body><h1>Bascule vers la production : Plan_stockage_allium</h1>
+<h2>Choix retenu</h2>
+<p>On <strong>installe la nouvelle application sur la production</strong>, à la même adresse et sur le même Firebase. La base de test <strong>ne devient pas</strong> la production.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>A. Installer sur la production (retenu)</th>
+<th>B. Faire du test la production</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Données du plan</td>
+<td><strong>Restent en place</strong>, aucun transfert</td>
+<td>Export puis import : les mouvements saisis entre les deux sont perdus, sauf arrêt de l&#39;activité</td>
+</tr>
+<tr>
+<td>Comptes</td>
+<td><strong>Inchangés</strong> : mêmes e-mails, mêmes mots de passe, mêmes rôles</td>
+<td>Tous à recréer ; mots de passe nouveaux (Firebase ne permet pas de les copier depuis la console)</td>
+</tr>
+<tr>
+<td>Adresse</td>
+<td><strong>Inchangée</strong> : <code>https://fabianleg29.github.io/Plan_stockage_allium/</code></td>
+<td>Nouvelle adresse à communiquer à tout le monde</td>
+</tr>
+<tr>
+<td>Données de test</td>
+<td>Restent dans le projet de test</td>
+<td>Mélangées aux vraies données</td>
+</tr>
+<tr>
+<td>Retour arrière</td>
+<td>15 min, sans perte (le format des données ne change pas)</td>
+<td>Difficile : il faudrait refaire la bascule dans l&#39;autre sens</td>
+</tr>
+</tbody></table>
+<p>Ce qui rend l&#39;option A sûre :</p>
+<ul>
+<li><code>planStockage/main</code> garde exactement son format.</li>
+<li>Le code du plan (<code>plan.html</code>) est l&#39;ancien code, à quelques retouches près.</li>
+<li>Tout le reste est un <strong>ajout</strong> : de nouvelles collections et un champ <code>roleReleves</code> dans <code>users</code>.</li>
+</ul>
+<h2>Version de production de référence</h2>
+<p>Le <code>plan.html</code> du test est construit sur <strong>la dernière version de production</strong> : le commit <code>021e29f</code> du 20/10/2026 (« Replace the onion/shallot icon with the La Légumière logo »), sur la branche publiée <code>claude/stockage-echalotes-oignons-6m4x91</code>. Il reprend donc les 13 changements faits en production depuis septembre :</p>
+<ul>
+<li>familles de produits et de calibres (Echalote, Oignon, Ail) : calibres proposés selon le produit ;</li>
+<li>couleur verte pour l&#39;Échalote BIO ;</li>
+<li>filtre par dates dans l&#39;Historique des mouvements ;</li>
+<li>logo La Légumière ;</li>
+<li>retouches d&#39;affichage : onglet Cellules, case « Marchandise extérieure non achetée », bouton « supprimer », champs de nom plus larges, libellé « Sous-total » décalé.</li>
+</ul>
+<p>Les anciens onglets Cellules et Comptes du plan sont devenus la rubrique <strong>Administration › Plan de stockage</strong> (<code>admin.html</code>). Les changements de ces onglets y sont repris aussi : choix de la famille de chaque produit, cases de familles pour chaque calibre, retouches de l&#39;affichage des cellules.</p>
+<p><strong>Si la production a encore changé après <code>021e29f</code>, la bascule ne doit pas se faire telle quelle.</strong> Il faut d&#39;abord reporter ces nouveaux changements dans le dépôt de test (<code>plan.html</code> et, s&#39;ils touchent les onglets Cellules ou Comptes, <code>admin.html</code>), puis les tester. La consigne de l&#39;étape 5 fait cette vérification et s&#39;arrête si besoin.</p>
+<h2>Points d&#39;attention</h2>
+<h3>1. Les utilisateurs (le point le plus sensible)</h3>
+<p>Les nouvelles règles refusent l&#39;accès au plan à tout compte <strong>sans fiche <code>users</code></strong> (<code>estConnu()</code>). L&#39;ancienne application, elle, laissait ces comptes en Consultation.</p>
+<p><strong>Avant de publier les règles</strong>, il faut donc vérifier que <strong>chaque compte</strong> de Authentication a une fiche dans <code>users</code> :</p>
+<ul>
+<li><strong>Comparer les deux listes :</strong> Authentication › Users d&#39;un côté, Firestore › <code>users</code> de l&#39;autre. Il faut autant de fiches que de comptes, et l&#39;ID de chaque fiche doit être exactement l&#39;UID du compte.</li>
+<li><strong>Vérifier le champ <code>role</code></strong> de chaque fiche : il doit valoir <code>viewer</code>, <code>editor</code> ou <code>admin</code>, en anglais. Une valeur comme « gestion » donne Consultation, comme dans l&#39;ancienne application.</li>
+<li><strong>Compléter les fiches manquantes</strong>, au moins <code>email</code> et <code>role: &quot;viewer&quot;</code>. C&#39;est à faire dans la console, ou depuis l&#39;ancien onglet Comptes <strong>avant</strong> la bascule.</li>
+<li><strong>Après la bascule</strong>, l&#39;admin attribue les rôles relevés (<code>roleReleves</code>) dans <strong>Administration › Comptes et accès</strong>. Tant que ce n&#39;est pas fait, personne n&#39;a accès aux relevés (valeur par défaut : Aucun accès).</li>
+</ul>
+<h3>2. Les données</h3>
+<ul>
+<li><strong>Aucune donnée du plan n&#39;est copiée ni transformée</strong> à la bascule.</li>
+<li><strong>Familles de produits et de calibres</strong> (<code>produitFamilles</code>, <code>calibreFamilles</code> dans <code>planStockage/main</code>) : elles sont lues, conservées et modifiées par le plan comme par l&#39;Administration. Aucun réglage fait en production n&#39;est perdu.</li>
+<li><strong>Relevés saisis dans la base de test :</strong> ils <strong>ne sont pas repris</strong>, car ce sont des données de test. S&#39;il y en a de vrais à garder, prévoir un export Excel et JSON depuis le test <strong>avant</strong> la bascule (un import pourra être ajouté si besoin).</li>
+<li><strong>Archivage de l&#39;historique du plan :</strong> il reste sur <strong>« Jamais »</strong> au moins un mois, pour garder le retour arrière simple.</li>
+</ul>
+<h3>3. L&#39;ordre des opérations</h3>
+<p>D&#39;abord le code, ensuite les règles :</p>
+<ul>
+<li>Les <strong>nouvelles règles</strong> refusent la création d&#39;un relevé sans auteur. L&#39;ancien code ne crée pas de relevés, donc ce n&#39;est pas un problème pour lui.</li>
+<li>Le <strong>nouveau code</strong> fonctionne avec les <strong>anciennes règles</strong> pour le plan. Les relevés et l&#39;Administration ne marchent qu&#39;une fois les nouvelles règles publiées.</li>
+</ul>
+<h2>Déroulé</h2>
+<p>Prévoir <strong>1 h</strong>, à un moment calme, en prévenant les utilisateurs de recharger la page après la bascule.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Étape</th>
+<th>Qui</th>
+<th>Vérification</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>1</td>
+<td><strong>Sauvegarde du plan</strong> : ancien onglet Cellules › Exporter une sauvegarde (.json). Ranger le fichier sur le NAS ou le dossier partagé, <strong>jamais dans GitHub</strong></td>
+<td>Admin</td>
+<td>Fichier ouvert, il contient <code>cellules</code>, <code>lots</code> et <code>transactions</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Chiffres de contrôle</strong> : total des palox, total du Stock global, nombre de lignes de l&#39;Historique</td>
+<td>Admin</td>
+<td>Notés dans la feuille ci-dessous</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Règles actuelles</strong> : Firestore › Règles, copier le texte dans <code>regles-avant-bascule.txt</code> (même dossier)</td>
+<td>Admin</td>
+<td>Fichier rangé</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Comptes</strong> : contrôle Authentication ↔ <code>users</code> (point 1), fiches manquantes complétées, liste des rôles notée</td>
+<td>Admin</td>
+<td>Autant de fiches que de comptes</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Code</strong> : session Claude Code ouverte <strong>sur le dépôt Plan_stockage_allium</strong> avec la consigne ci-dessous</td>
+<td>Claude Code</td>
+<td>Comparaison du code validée, étiquette <code>avant-bascule</code> posée</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Publication</strong> : attendre le déploiement GitHub Pages (Actions › pages build and deployment ✔), puis Ctrl + F5 sur l&#39;adresse habituelle</td>
+<td>Admin</td>
+<td>L&#39;accueil s&#39;affiche avec 3 tuiles</td>
+</tr>
+<tr>
+<td>7</td>
+<td><strong>Règles</strong> : publier le <code>firestore.rules</code> du dépôt de production dans la console</td>
+<td>Admin</td>
+<td>Le plan s&#39;ouvre ; les chiffres de contrôle sont identiques</td>
+</tr>
+<tr>
+<td>8</td>
+<td><strong>Réglages des relevés</strong> : ouvrir Administration › Relevés de température (les 15 chambres se créent), vérifier les familles, ajouter les produits du contrôle à cœur et les motifs</td>
+<td>Admin</td>
+<td>Liste enregistrée</td>
+</tr>
+<tr>
+<td>9</td>
+<td><strong>Rôles relevés</strong> : Administration › Comptes et accès, colonne Relevés</td>
+<td>Admin</td>
+<td>Chaque opérateur voit la tuile Relevés</td>
+</tr>
+<tr>
+<td>10</td>
+<td><strong>Essai réel</strong> : un relevé frigo, un contrôle à cœur, un export Excel, puis une entrée et une sortie de stock dans le plan</td>
+<td>Admin et un opérateur</td>
+<td>Tout fonctionne ; chiffres de contrôle cohérents</td>
+</tr>
+</tbody></table>
+<h2>Consigne à donner à la session Claude Code sur Plan_stockage_allium (étape 5)</h2>
+<p>À coller tel quel dans une <strong>nouvelle</strong> session ouverte sur le dépôt <code>Plan_stockage_allium</code> :</p>
+<blockquote>
+<p>Bascule de l&#39;application vers la version à trois modules, développée et validée dans le dépôt <code>FabianLeg29/STOCKAGE-PLAN-TEMP-TEST</code> (branche <code>main</code>, lecture seule : ne rien y modifier).</p>
+<ol start="0">
+<li><strong>Vérification préalable, avant toute modification.</strong> Sur la branche publiée par GitHub Pages (<code>claude/stockage-echalotes-oignons-6m4x91</code>), lance <code>git log --oneline 021e29f..HEAD</code>. Si cette commande liste des commits, ARRÊTE-TOI sans rien modifier et montre-moi la liste : ces changements de production ne sont pas encore dans le dépôt de test et seraient perdus. Continue seulement si la liste est vide.</li>
+<li>Sur la branche publiée, pose l&#39;étiquette Git <code>avant-bascule</code> sur le dernier commit, puis pousse-la.</li>
+<li>Copie l&#39;actuel <code>index.html</code> en <code>ancien-plan.html</code>, sans le modifier.</li>
+<li>Renomme l&#39;actuel <code>CLAUDE.md</code> en <code>PLAN-DETAILS.md</code>, sans perdre son contenu : il décrit en détail le code du plan, qui est désormais dans <code>plan.html</code>. Ajoute en tête une ligne qui le précise. Puis récupère depuis le dépôt de test : <code>index.html</code>, <code>plan.html</code>, <code>releves.html</code>, <code>admin.html</code>, <code>xlsx-releves.js</code>, <code>firestore.rules</code>, <code>SETUP-FIREBASE.md</code>, <code>CLAUDE.md</code> et <code>BASCULE.md</code>. <strong>Ne prends pas</strong> <code>prototype-plan-stockage-releves.html</code>.</li>
+<li>Dans <code>index.html</code>, <code>plan.html</code>, <code>releves.html</code> et <code>admin.html</code>, remplace la configuration Firebase du projet de test par celle de production, reprise <strong>à l&#39;identique</strong> de l&#39;ancien <code>index.html</code> (projet <code>plan-de-stockage-alliums</code>). Ensuite, vérifie qu&#39;il ne reste <strong>aucune</strong> trace de <code>stockage-plan-temp-test</code> dans le dépôt.</li>
+<li>Adapte <code>CLAUDE.md</code> et <code>SETUP-FIREBASE.md</code> à la production : projet <code>plan-de-stockage-alliums</code>, adresse <code>https://fabianleg29.github.io/Plan_stockage_allium/</code>, branche publiée. Dans <code>index.html</code>, mets une nouvelle valeur à <code>VERSION</code>.</li>
+<li>Vérifications avant l&#39;envoi :<ul>
+<li><code>node --check</code> sur chaque <code>&lt;script&gt;</code> en ligne et sur <code>xlsx-releves.js</code> ;</li>
+<li>comparaison de <code>plan.html</code> avec <code>ancien-plan.html</code> : elle ne doit montrer que le retrait des onglets Cellules et Comptes, la barre de module, le blocage du rôle <code>none</code>, le bandeau « Version de TEST » (quelques lignes après <code>firebase.initializeApp</code>, inactif avec la configuration de production) et, cette fois, aucune différence de configuration Firebase. <strong>Toute autre différence</strong> (familles, filtre par dates, logo, couleur BIO, etc.) veut dire qu&#39;un changement de production manque : arrête-toi et montre-la-moi ;</li>
+<li><code>CLAUDE.md</code> mentionne bien <code>PLAN-DETAILS.md</code>.</li>
+</ul>
+</li>
+<li>Montre-moi la liste des fichiers et le résultat des vérifications, <strong>puis</strong> pousse sur la branche publiée. Ne publie pas les règles : je le fais moi-même dans la console.</li>
+</ol>
+</blockquote>
+<h2>Retour arrière (si besoin, environ 15 min)</h2>
+<ol>
+<li><strong>Code :</strong> dans une session sur Plan_stockage_allium, demander : « Remets la branche publiée dans l&#39;état de l&#39;étiquette <code>avant-bascule</code>, par un revert, sans effacer l&#39;historique Git ». L&#39;ancien plan revient à la même adresse en quelques minutes.</li>
+<li><strong>Règles :</strong> dans la console, coller <code>regles-avant-bascule.txt</code> (ou republier la version précédente depuis l&#39;historique des règles), puis cliquer sur Publier.</li>
+<li><strong>Données :</strong> en temps normal, <strong>rien à restaurer</strong>. Les mouvements faits depuis la bascule sont au bon format et l&#39;ancien plan les affiche. Les relevés, les réglages des relevés et les champs <code>roleReleves</code> restent dans Firebase, ignorés par l&#39;ancien plan. N&#39;importer la sauvegarde de l&#39;étape 1 que si le stock est abîmé, en notant d&#39;abord les mouvements faits depuis la bascule.</li>
+<li><strong>Contrôle :</strong> comparer les chiffres de contrôle, en tenant compte des mouvements faits entre-temps.</li>
+</ol>
+<p>Garder l&#39;étiquette <code>avant-bascule</code>, <code>ancien-plan.html</code>, la sauvegarde JSON et <code>regles-avant-bascule.txt</code> <strong>au moins un mois</strong>.</p>
+<h2>Feuille de bascule</h2>
+<table>
+<thead>
+<tr>
+<th>Point de contrôle</th>
+<th>Avant</th>
+<th>Après</th>
+<th>Après un retour éventuel</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Total des palox</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Total du Stock global</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Nombre de mouvements (Historique)</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Comptes Authentication = fiches <code>users</code></td>
+<td>☐</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Sauvegarde JSON rangée (date, emplacement)</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td><code>regles-avant-bascule.txt</code> rangé</td>
+<td>☐</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Étiquette <code>avant-bascule</code> posée</td>
+<td>☐</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Visa</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody></table>
+<h2>Après la bascule : le dépôt de test</h2>
+<ul>
+<li><strong>Projet Firebase <code>stockage-plan-temp-test</code> :</strong> à garder, pour tester les prochaines évolutions avant de les reporter en production. Il peut être supprimé plus tard sans effet sur la production.</li>
+<li><strong>Dépôt <code>STOCKAGE-PLAN-TEMP-TEST</code> :</strong> à garder comme terrain d&#39;essai. GitHub Pages peut y être désactivé pour éviter toute confusion d&#39;adresse.</li>
+</ul>
+</body></html>

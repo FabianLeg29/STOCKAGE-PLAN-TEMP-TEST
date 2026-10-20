@@ -295,6 +295,8 @@ label.adm-sec{display:inline-flex;align-items:center}
     appId: "1:1020932560553:web:02fad075d7ba49f65d7bb8"
   };
   firebase.initializeApp(firebaseConfig);
+  // Base de TEST : bandeau d'avertissement, affiché seulement avec la configuration du projet de test
+  (function(){ if(firebaseConfig.projectId!=='stockage-plan-temp-test') return; document.title='[TEST] '+document.title; var b=document.createElement('div'); b.id='bandeauTest'; b.setAttribute('role','note'); b.style.cssText='background:#B3261E;color:#fff;font:600 14px/1.35 Inter,Arial,sans-serif;text-align:center;padding:8px 12px;overflow-wrap:anywhere'; b.innerHTML='⚠ Version de TEST : les données ne sont pas réelles, ne pas s\'en servir pour le travail. Application réelle : <a href="https://fabianleg29.github.io/Plan_stockage_allium/" style="color:#fff;text-decoration:underline">fabianleg29.github.io/Plan_stockage_allium</a>'; document.body.insertBefore(b, document.body.firstChild); })();
   const auth = firebase.auth();
   const db = firebase.firestore();
   // Cache local Firestore (IndexedDB) : les données déjà vues sur ce poste (rôle, réglages, relevés) s'affichent

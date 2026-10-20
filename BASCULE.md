@@ -85,7 +85,7 @@ Prévoir **1 h**, à un moment calme, en prévenant les utilisateurs de recharge
 > 5. Adapte `CLAUDE.md` et `SETUP-FIREBASE.md` à la production : projet `plan-de-stockage-alliums`, adresse `https://fabianleg29.github.io/Plan_stockage_allium/`, branche publiée. Dans `index.html`, mets une nouvelle valeur à `VERSION`.
 > 6. Vérifications avant l'envoi :
 >    - `node --check` sur chaque `<script>` en ligne et sur `xlsx-releves.js` ;
->    - comparaison de `plan.html` avec `ancien-plan.html` : elle ne doit montrer que le retrait des onglets Cellules et Comptes, la barre de module, le blocage du rôle `none` et, cette fois, aucune différence de configuration Firebase. **Toute autre différence** (familles, filtre par dates, logo, couleur BIO, etc.) veut dire qu'un changement de production manque : arrête-toi et montre-la-moi ;
+>    - comparaison de `plan.html` avec `ancien-plan.html` : elle ne doit montrer que le retrait des onglets Cellules et Comptes, la barre de module, le blocage du rôle `none`, le bandeau « Version de TEST » (quelques lignes après `firebase.initializeApp`, inactif avec la configuration de production) et, cette fois, aucune différence de configuration Firebase. **Toute autre différence** (familles, filtre par dates, logo, couleur BIO, etc.) veut dire qu'un changement de production manque : arrête-toi et montre-la-moi ;
 >    - `CLAUDE.md` mentionne bien `PLAN-DETAILS.md`.
 > 7. Montre-moi la liste des fichiers et le résultat des vérifications, **puis** pousse sur la branche publiée. Ne publie pas les règles : je le fais moi-même dans la console.
 

@@ -114,6 +114,7 @@ Les règles du plan (`users`, `planStockage`) sont inchangées, à deux exceptio
 
 ## Style / thème
 
+- **Bandeau « Version de TEST »** (rouge, en haut des 4 pages, lien vers l'application réelle, titre de l'onglet préfixé par [TEST]) : ajouté juste après `firebase.initializeApp`, il ne s'affiche que si `firebaseConfig.projectId` vaut `stockage-plan-temp-test`. Avec la configuration de production, il reste inactif.
 - Logo La Légumière (image JPEG en base64, reprise de la production) : écran de connexion de l'accueil (grand, centré) et du plan.
 - Plan, accueil et administration : palette du logo **la légumière** (`--copper: #963E88`, vague `--wave-1`/`--wave-2`, polices Fraunces et Inter).
 - Relevés : thème bleu-vert du module (police Barlow, `--brand: #1F5C63`), avec un mode sombre.
@@ -129,5 +130,5 @@ Les règles du plan (`users`, `planStockage`) sont inchangées, à deux exceptio
 
 - À chaque mise à jour publiée, incrémenter `VERSION` dans `index.html` : les liens de l'accueil ajoutent `?v=VERSION`, ce qui évite d'ouvrir une ancienne copie des modules gardée en cache.
 - Toujours valider la syntaxe après édition : `node --check` sur le contenu de chaque `<script>` en ligne, et sur `xlsx-releves.js`.
-- Garder `plan.html` aussi proche que possible de l'original. Une comparaison avec l'ancien `index.html` ne doit montrer que les retraits des deux onglets, la barre de module, la configuration Firebase et le blocage du rôle `none`.
+- Garder `plan.html` aussi proche que possible de l'original. Une comparaison avec l'ancien `index.html` ne doit montrer que les retraits des deux onglets, la barre de module, la configuration Firebase, le blocage du rôle `none` et le bandeau de test (inactif en production).
 - Pour tester sans toucher au projet réel : émulateur Firebase local (`firebase emulators:exec --only firestore,auth`), en faisant pointer les pages vers l'émulateur au moment du test.
