@@ -111,6 +111,10 @@ Garder l'étiquette `avant-bascule`, `ancien-plan.html`, la sauvegarde JSON et `
 | Étiquette `avant-bascule` posée | ☐ | | |
 | Visa | | | |
 
+## Module « Mouvements prestation » (ajouté après la bascule, en test)
+
+Le module `mouvements.html` n'existe que dans le dépôt de test. L'`index.html` du test affiche sa tuile. **À la prochaine mise à jour de la production**, il faut soit reprendre aussi `mouvements.html`, le nouveau `xlsx-releves.js`, `admin.html` et les règles (collections `mouvements` et `prestation`), soit ne pas reprendre l'`index.html` du test, sinon la tuile mènerait à une page absente.
+
 ## Après la bascule : le dépôt de test
 
 - **Projet Firebase `stockage-plan-temp-test` :** à garder, pour tester les prochaines évolutions avant de les reporter en production. Il peut être supprimé plus tard sans effet sur la production.

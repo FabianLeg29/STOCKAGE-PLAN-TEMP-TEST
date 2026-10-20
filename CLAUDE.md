@@ -18,10 +18,11 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Connexion, puis **accueil** « Que voulez-vous faire ? » avec 3 tuiles : Plan de stockage, Relevés des températures (grisée si `roleReleves` = none), Administration (visible si `role` = admin ou `roleReleves` = admin). Badge « Archivage à faire » sur la tuile Administration. Bouton Déconnexion. |
+| `index.html` | Connexion, puis **accueil** « Que voulez-vous faire ? » avec 4 tuiles : Plan de stockage, Relevés des températures (grisée si `roleReleves` = none), Mouvements prestation (grisée si `roleMouvements` = none, sauf pour l'admin du plan), Administration (visible si `role`, `roleReleves` ou `roleMouvements` = admin). Badge « Archivage à faire » sur la tuile Administration. Bouton Déconnexion. |
 | `plan.html` | L'application historique (ancien `index.html`), code **inchangé** sauf : boutons d'onglet Cellules et Comptes retirés, barre de module ajoutée, configuration Firebase de test, et blocage du rôle « Aucun accès » (message « Accès non autorisé » au lieu du plan). Les fonctions de ces onglets restent dans le code, inutilisées : c'est voulu, pour garder un code identique à l'original. |
 | `releves.html` | Module relevés de température (onglets Frigos, Produits, Historique). |
-| `admin.html` | Administration, 4 rubriques (voir plus bas). |
+| `admin.html` | Administration, 5 rubriques (voir plus bas). |
+| `mouvements.html` | Module **mouvements alliums prestation** (fiche E14.3, remplace le Google Form) : onglets Saisie et Historique. **En test seulement**, pas encore en production. |
 | `xlsx-releves.js` | Générateur Excel sans dépendance (`window.XlsxReleves.construire(releves, chambres, options)`). Onglets Tableau (STOC E12.1), Graphiques (un par chambre, avec les cibles), Données graphiques, Détail. Utilisé par `releves.html` et `admin.html`. |
 | `firestore.rules` | Règles de sécurité de **référence** : l'utilisateur les publie lui-même dans la console. |
 | `prototype-plan-stockage-releves.html` | Maquette validée (démo avec Firebase simulé). **Référence seulement**, aucun lien depuis l'application. |
@@ -35,10 +36,11 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 
 ## Rôles
 
-Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `email`, `role`, `roleReleves`.
+Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `email`, `role`, `roleReleves`, `roleMouvements`.
 
 - `role` (plan) : `none` (« Aucun accès » : tuile Plan grisée, lecture du plan refusée par les règles), `viewer` (« Consultation », par défaut si absent), `editor` (« Gestion ») ou `admin`. `canManageStock()` = editor ou admin, `isAdmin()` = admin seul.
 - `roleReleves` (relevés) : `none` (par défaut si absent), `viewer` (historique seul, lecture seule), `editor` (saisie) ou `admin` (saisie, plus les rubriques relevés et archives de l'Administration).
+- `roleMouvements` (mouvements prestation) : mêmes valeurs et même logique que `roleReleves` (`none` par défaut). L'admin du plan consulte l'historique et administre les listes, mais ne saisit pas sans rôle Gestion ou Admin mouvements.
 - **Compte sans fiche `users`** (créé dans Authentication mais pas déclaré) : refusé. Les règles lui interdisent la lecture du plan (`estConnu()`). L'accueil, les relevés et l'administration affichent « Compte non autorisé, contactez un administrateur » puis le déconnectent.
 - Seul un **admin du plan** attribue les rôles (rubrique Comptes et accès). Un compte ne peut jamais modifier le sien. Création de compte : toujours dans la console Firebase.
 - Un admin du plan a aussi accès aux rubriques relevés et archives de l'Administration, même si son `roleReleves` vaut none.
@@ -49,7 +51,7 @@ Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `e
 planStockage/main   { data: "<JSON du state>", updatedAt }   ← inchangé
   state = { cellules:[{id,nom,nonAchetee,lignes:[{id,nom,capacite}]}], lots:[palox…], transactions:[…], produits:[…], calibres:[…],
             produitFamilles:{ produit: 'Echalote'|'Oignon'|'Ail' }, calibreFamilles:{ calibre: ['Echalote',…] } }
-users/{uid}         { email, nom (facultatif), role, roleReleves }
+users/{uid}         { email, nom (facultatif), role, roleReleves, roleMouvements }
 releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret' ('' pour produit), produit, lot,
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
                       statut:'conforme'|'normal'|'ecart', motif, contreMesureDe (id de l'écart d'origine ou ''),
@@ -60,6 +62,11 @@ temperatures/config { frigos:[{nom,famille:'legumes'|'alliums',hygro:bool,min,ma
                       motifs:[texte…] }   ← listes propres aux relevés
 archives/{id}       { type:'releves'|'mouvements', mois:['AAAA-MM'], du, au, nb, creeLe (ISO), par (email),
                       expireLe (Timestamp ou null = illimitée), donnees (JSON en texte) }
+mouvements/{id}     { date ('AAAA-MM-JJ', chargement), prestataire, produit:'Ail'|'Oignon'|'Echalote', variete, lot (majuscules), origine,
+                      calibre, pesees:[kg…], quantite (total kg), conditionnement, responsable, commentaire,
+                      uid, creeLe (Timestamp serveur), modifications:[{le, par, raison, avant:{…}}],
+                      import:{source:'google-sheet', fichier, ligne, horodateur, le, par} (lignes importées ; id = 'gs-' + empreinte de la ligne) }
+prestation/config   { prestataires:[…], varietes:{Ail:[…],Oignon:[…],Echalote:[…]}, origines:[…], conditionnements:[…], responsables:[…] }
 parametres/conservation { relArchiveApresMois (13), relConservationAns (5), planArchiveApresMois (0 = jamais), planConservationAns (0) }
 ```
 
@@ -80,6 +87,11 @@ Points importants :
   - L'export Excel (onglet Détail) a une colonne « Modifications ».
 - **Export JSON des relevés** (`format: 'releves-temperature'`, `version: 1`) : `{ exporteLe, exportePar, perimetre, config:{frigos,produits,motifs}, nb, releves:[{ id, …champs du relevé }] }`. Les Timestamp (`creeLe`) sont convertis en texte ISO. Sert à réintégrer les données ailleurs, ou à les restaurer ici par l'import.
 - **Import JSON des relevés** (Administration › Relevés, rôle relevés Admin seulement, car les règles réservent la création aux rôles relevés Gestion et Admin) : un aperçu est affiché avant toute écriture. Seuls les relevés **absents** sont recréés, avec leur id d'origine. Sont ignorés : un id déjà présent, un relevé dont l'archive existe encore, une ligne invalide. Rien n'est écrasé ni supprimé. Comme les règles imposent `uid` = auteur et `creeLe` = heure serveur, l'auteur et la date de création d'origine sont gardés dans `restaure`. Écriture par lots de 400. Un import interrompu se relance avec le même fichier. Les réglages ne sont remplacés que si la case est cochée.
+- **Mouvements prestation** (`mouvements.html`) :
+  - Saisie : reprise du formulaire E14.3 V6 (date de chargement, prestataire, produit puis variété selon le produit, lot, origine, calibre, pesées, conditionnement prévu, responsable, remarques). Choix en boutons, avec « Autre » et saisie libre. Une ligne par pesée, total calculé (« 1086 + 1097 » du formulaire). Calibres proposés : ceux du plan, filtrés par la famille du produit, si le compte peut lire le plan. Responsable par défaut : dernière valeur saisie par ce compte sur le poste, sinon le nom du compte. Après enregistrement, la date, le prestataire, le produit, l'origine et le responsable restent remplis.
+  - Historique : période (mois en cours par défaut), filtres prestataire, produit, lot ; totaux en kg par produit ; modification (raison obligatoire, tracée dans `modifications`) et suppression avec les mêmes droits que les relevés (auteur 24 h, admin à tout moment) ; export Excel de la sélection (`XlsxReleves.tableau`).
+  - Requête par plage sur `date` (index simple). Listes absentes = listes par défaut du formulaire.
+  - Import de la Google Sheet : Administration › Mouvements prestation, fichier CSV, colonnes reconnues par leur titre, aperçu avant écriture, sans doublon (id dérivé de la ligne). Rôle mouvements Admin requis.
 - **Relevés du mois** : requête par plage sur `at` (index simple, sans index composite à créer).
 - **temperatures/config absent** : il est initialisé avec les 15 chambres de la fiche STOC E12.1 (LP1, LP2, LP3, LBP, Zone prépa, Cellule 1 à 8, Cellule ail, Cellule carotte), avec une liste de produits vide.
 - **Hygrométrie par chambre** (`hygro`) : case « Hygro » dans Administration. Par défaut, pas d'hygrométrie pour LP2, LP3, LBP, Zone prépa, Cellule ail et Cellule 8 (déduit du nom si le champ manque). Sans hygrométrie : pas de zone de saisie dans les relevés, ni de colonne Hygro dans le tableau STOC de l'Excel.
@@ -92,6 +104,7 @@ Points importants :
 - **a) Comptes et accès** (admin du plan) : par compte, nom (facultatif), rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Pour son propre compte, seul le nom est modifiable.
 - **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes, version de production `021e29f` (familles des produits et des calibres comprises). Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits`, `calibres`, `produitFamilles` et `calibreFamilles` sont remplacés.
 - **c) Relevés de température** (admin relevés ou admin du plan) : liste des motifs « hors cible – normal », chambres (famille Légumes ou Alliums, T° mini et maxi, case Hygro puis hygrométrie mini et maxi : ces deux champs ne sont saisissables que si Hygro est coché, et décocher les efface) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer. Bouton « Exporter tous les relevés (JSON) » : relevés en cours et archivés (champ `archive` = id de l'archive), réglages des relevés, en un seul fichier. Bouton « Importer un fichier JSON » : restauration des relevés manquants (voir plus haut).
+- **e) Mouvements prestation** (admin mouvements ou admin du plan) : listes proposées à la saisie (une valeur par ligne) et import CSV de l'historique de la Google Sheet.
 - **d) Archives et conservation** : durées réglables (les durées de l'historique du plan ne sont visibles que de l'admin du plan), boutons « Archiver maintenant », liste des archives, export Excel avec graphiques (relevés) ou CSV (mouvements), et JSON. Suppression seulement après l'échéance, avec confirmation.
 
 ## Relevés (`releves.html`)
@@ -110,6 +123,8 @@ Les règles du plan (`users`, `planStockage`) sont inchangées, à deux exceptio
 - `releves` : lecture pour roleReleves viewer et plus, ou admin du plan. Création pour editor ou admin relevés, avec des champs validés, `uid` = auteur et `creeLe` = heure serveur. Modification (champs de mesure, de statut et de texte seulement) et suppression : par l'auteur pendant 24 h, ou par un admin relevés / admin du plan (suppression aussi utilisée par l'archivage).
 - `temperatures` : lecture comme `releves`, écriture par un admin relevés ou un admin du plan.
 - `archives` : lecture et création des archives de relevés par un admin relevés ou un admin du plan ; archives de mouvements réservées à l'admin du plan. Jamais modifiées. Suppression seulement si `expireLe` est dépassé.
+- `mouvements` : lecture pour roleMouvements viewer et plus, ou admin du plan. Création pour editor ou admin mouvements (`uid` = auteur, `creeLe` = heure serveur, produit dans la liste, quantité numérique). Modification des seuls champs métier et suppression : auteur pendant 24 h, ou admin mouvements / admin du plan.
+- `prestation` : lecture comme `mouvements`, écriture par un admin mouvements ou un admin du plan.
 - `parametres` : admins. Un admin relevés qui n'est pas admin du plan ne peut pas changer les durées de l'historique du plan.
 
 ## Style / thème

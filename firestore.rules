@@ -104,6 +104,50 @@ service cloud.firestore {
         && resource.data.expireLe < request.time;
     }
 
+    // ===================================================================
+    // Module mouvements alliums prestation (E14.3).
+    // Rôle : champ roleMouvements de users/{uid} — none / viewer / editor / admin (absent = none).
+    // L'admin du plan peut consulter et administrer, comme pour les relevés.
+    // ===================================================================
+    function roleMouvements() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roleMouvements', 'none');
+    }
+    function canReadMouvements() {
+      return isSignedIn() && (roleMouvements() in ['viewer', 'editor', 'admin'] || userRole() == 'admin');
+    }
+    function canWriteMouvements() {
+      return isSignedIn() && roleMouvements() in ['editor', 'admin'];
+    }
+    function isMouvementsAdmin() {
+      return isSignedIn() && (roleMouvements() == 'admin' || userRole() == 'admin');
+    }
+    function canManageMouvement() {
+      return isMouvementsAdmin() || (canWriteMouvements() && auteurRecent());
+    }
+    // Un document par mouvement (chargement vers un prestataire). Auteur (uid) et date de création serveur (creeLe)
+    // imposés ; modification ou suppression par l'auteur pendant 24 h, ou par un admin à tout moment.
+    match /mouvements/{mouvementId} {
+      allow read: if canReadMouvements();
+      allow create: if canWriteMouvements()
+        && request.resource.data.date is string
+        && request.resource.data.prestataire is string
+        && request.resource.data.produit in ['Ail', 'Oignon', 'Echalote']
+        && request.resource.data.lot is string
+        && request.resource.data.quantite is number
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.creeLe == request.time;
+      allow update: if canManageMouvement()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'prestataire', 'produit', 'variete', 'lot', 'origine', 'calibre', 'pesees', 'quantite', 'conditionnement', 'responsable', 'commentaire', 'modifications'])
+        && request.resource.data.produit in ['Ail', 'Oignon', 'Echalote']
+        && request.resource.data.quantite is number;
+      allow delete: if canManageMouvement();
+    }
+    // Listes proposées à la saisie (prestation/config).
+    match /prestation/{docId} {
+      allow read: if canReadMouvements();
+      allow write: if isMouvementsAdmin();
+    }
+
     // Durées de conservation (parametres/conservation).
     // Un admin relevés qui n'est pas admin du plan ne peut pas changer les durées de l'historique du plan.
     match /parametres/{docId} {

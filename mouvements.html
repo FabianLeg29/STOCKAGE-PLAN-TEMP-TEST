@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mouvements alliums prestation – La Légumière</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E3DECF; --panel:#FBF9F3; --ink:#2B2620; --ink-soft:#6B6355; --line:#D2C9B4;
+    --vert:#4E6647; --vert-bg:#E4ECDF; --warn:#A13B2F; --warn-bg:#F1D6CC; --ok:#1F7444; --ok-bg:#DCEFE3;
+    --radius:12px; --shadow:0 1px 2px rgba(43,38,32,.06),0 4px 14px rgba(43,38,32,.06);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
+  .hidden{display:none!important}
+  .mod-bar{position:sticky;top:0;z-index:39;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:#2B2620;color:#fff}
+  .mod-bar .mod-t{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mod-bar .mod-dot{width:12px;height:12px;border-radius:3px;flex:none}
+  .mod-home{display:inline-flex;align-items:center;gap:8px;flex:none;background:#fff;color:#2B2620;border-radius:10px;padding:0 14px;min-height:44px;font:600 14px 'Inter',sans-serif;text-decoration:none}
+  .mod-home:focus-visible{outline:3px solid #fff;outline-offset:2px}
+  .wrap{max-width:900px;margin:0 auto;padding:18px 16px 60px}
+  body.hist .wrap{max-width:1400px}
+  header.top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  header.top h1{font-family:'Fraunces',Georgia,serif;font-size:24px;font-weight:600;margin:0}
+  header.top .ref{color:var(--ink-soft);font-size:13px}
+  nav.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+  nav.tabs button{min-height:48px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font:600 15px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
+  nav.tabs button[aria-selected="true"]{background:var(--vert);border-color:var(--vert);color:#fff}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
+  .card h2{font-size:15px;margin:0 0 10px;font-weight:700}
+  .card h2 .req{color:var(--warn)}
+  .hint{color:var(--ink-soft);font-size:13px;margin:0 0 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{min-height:44px;padding:8px 14px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font:600 14px 'Inter',sans-serif;color:var(--ink);cursor:pointer;text-align:left}
+  .chip[aria-pressed="true"]{border-color:var(--vert);background:var(--vert-bg);color:#24361F}
+  input[type=text],input[type=date],input[type=search],select,textarea{font:500 16px 'Inter',sans-serif;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;min-height:44px;width:100%;min-width:0}
+  textarea{min-height:70px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--vert)}
+  .autre{margin-top:8px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pesees{display:flex;flex-direction:column;gap:8px}
+  .pesee{display:flex;gap:8px;align-items:center}
+  .pesee span.n{width:72px;flex:none;color:var(--ink-soft);font-size:13px}
+  .pesee input{max-width:220px}
+  .pesee .kg{color:var(--ink-soft)}
+  .x{min-width:44px;min-height:44px;border:1.5px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-size:18px}
+  .total{margin-top:10px;font-weight:700;font-size:17px}
+  .btn{font:700 15px 'Inter',sans-serif;cursor:pointer;border:none;border-radius:10px;padding:12px 18px;min-height:48px}
+  .btn-main{background:var(--vert);color:#fff;width:100%}
+  .btn-main:disabled{opacity:.6}
+  .btn-sec{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+  .btn-link{background:none;border:none;color:var(--vert);font:600 14px 'Inter',sans-serif;cursor:pointer;min-height:44px;padding:0 4px;text-align:left}
+  .err{color:var(--warn);font-weight:600;margin:8px 0 0}
+  .empty{color:var(--ink-soft);text-align:center;padding:30px 0}
+  .banner{border-radius:10px;padding:12px 14px;margin-bottom:12px;background:var(--warn-bg);color:#6E1F17;font-weight:600}
+  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2B2620;color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:calc(100% - 32px)}
+  .toast.on{opacity:1}
+  .filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end}
+  .filters label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .sum{font-size:14px;margin:0 0 10px}
+  .sum b{font-size:15px}
+  .scroll{overflow-x:auto}
+  table.mv{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff}
+  table.mv th,table.mv td{border-bottom:1px solid #ECE8DE;padding:8px;text-align:left;vertical-align:top}
+  table.mv th{background:#F3F0E8;font-size:12px;color:var(--ink-soft);white-space:nowrap}
+  table.mv td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  table.mv td.num small{display:block;color:var(--ink-soft);font-size:11.5px}
+  table.mv td.acts{white-space:nowrap;position:sticky;right:0;background:#fff;box-shadow:-6px 0 8px -6px rgba(43,38,32,.25)}
+  table.mv th.acts{position:sticky;right:0}
+  table.mv tr.imp td:first-child{border-left:3px solid #B88A1B}
+  .mini{min-height:40px;padding:0 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:600 13px 'Inter',sans-serif;cursor:pointer;color:var(--ink)}
+  .mini.del{color:var(--warn)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:5px;background:#F4E9CF;color:#7A5A12;margin-left:4px}
+  .edit .row2{margin-bottom:10px}
+  .edit label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+  @media (max-width:700px){
+    .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
+    table.mv thead{display:none}
+    table.mv,table.mv tbody,table.mv tr,table.mv td{display:block;width:100%}
+    table.mv tr{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:8px 10px;background:#fff;position:relative}
+    table.mv td{border:none;padding:2px 0}
+    table.mv td[data-l]::before{content:attr(data-l) " : ";color:var(--ink-soft);font-size:12px}
+    table.mv td.num{text-align:left}
+    table.mv td.acts{position:static;box-shadow:none;padding-top:8px;display:flex;gap:8px;justify-content:flex-end}
+    table.mv tr.imp td:first-child{border-left:none}
+  }
+  @media (max-width:640px){
+    .mod-bar{padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px))}.mod-bar .mod-t{font-size:14px}
+    .row2{grid-template-columns:1fr}
+    header.top h1{font-size:20px}
+  }
+</style>
+</head>
+<body>
+<div class="mod-bar"><span class="mod-t"><span class="mod-dot" style="background:#7C9A6E"></span>Mouvements prestation</span><a class="mod-home" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Accueil</a></div>
+<div class="wrap">
+  <header class="top">
+    <h1 id="titre">Mouvements alliums prestation</h1>
+    <span class="ref">Réf. E14.3 – La Légumière</span>
+  </header>
+  <div id="banner" class="banner hidden" role="status"></div>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="Rubriques">
+    <button role="tab" data-tab="saisie" aria-selected="true">Saisie</button>
+    <button role="tab" data-tab="hist" aria-selected="false">Historique</button>
+  </nav>
+  <main id="view"><p class="empty">Chargement…</p></main>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="xlsx-releves.js"></script>
+<script>
+(function(){
+  "use strict";
+  const firebaseConfig = {
+    apiKey: "AIzaSyCE7V6RSx1akfJsFymsedaKe-uZPSrjps4",
+    authDomain: "stockage-plan-temp-test.firebaseapp.com",
+    projectId: "stockage-plan-temp-test",
+    storageBucket: "stockage-plan-temp-test.firebasestorage.app",
+    messagingSenderId: "1020932560553",
+    appId: "1:1020932560553:web:02fad075d7ba49f65d7bb8"
+  };
+  firebase.initializeApp(firebaseConfig);
+  // Base de TEST : bandeau d'avertissement, affiché seulement avec la configuration du projet de test
+  (function(){ if(firebaseConfig.projectId!=='stockage-plan-temp-test') return; document.title='[TEST] '+document.title; var b=document.createElement('div'); b.id='bandeauTest'; b.setAttribute('role','note'); b.style.cssText='background:#B3261E;color:#fff;font:600 14px/1.35 Inter,Arial,sans-serif;text-align:center;padding:8px 12px;overflow-wrap:anywhere'; b.innerHTML='⚠ Version de TEST : les données ne sont pas réelles, ne pas s\'en servir pour le travail. Application réelle : <a href="https://fabianleg29.github.io/Plan_stockage_allium/" style="color:#fff;text-decoration:underline">fabianleg29.github.io/Plan_stockage_allium</a>'; document.body.insertBefore(b, document.body.firstChild); })();
+  const auth = firebase.auth();
+  const db = firebase.firestore();
+  // Cache local Firestore : affichage immédiat des données déjà vues, mises à jour ensuite par le serveur.
+  db.enablePersistence({ synchronizeTabs: true }).catch(e => console.warn("Cache local indisponible", e && e.code));
+  async function lireFiche(ref){
+    let c = null; try{ c = await ref.get({ source: "cache" }); }catch(e){}
+    if (c && c.exists){
+      const cle = x => [x.role || "", x.roleReleves || "", x.roleMouvements || ""].join("|");
+      ref.get({ source: "server" }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
+      return c;
+    }
+    return ref.get();
+  }
+
+  // Collections du module (jamais planStockage/main ni les relevés) :
+  //   mouvements         : un document par mouvement (chargement vers un prestataire)
+  //   prestation/config  : listes proposées à la saisie (gérées dans Administration)
+  // planStockage/main est seulement LU, si le compte y a accès, pour proposer les calibres de la famille du produit.
+  const MVT = db.collection("mouvements");
+  const CONFIG_REF = db.collection("prestation").doc("config");
+  const PRODUITS = [["Ail","Ail"],["Oignon","Oignon"],["Echalote","Échalote"]];
+  const CONFIG_DEFAUT = {
+    prestataires: ["SAS CONGAR", "EARL FERME DE KERIDER"],
+    varietes: { Ail: ["AIL BLANC", "AIL VIOLET", "AIL ROSE"],
+      Oignon: ["Oignon de Roscoff AOP", "Oignon Rosé de Bretagne", "Oignon Rosé", "Oignon Rouge", "Oignon Jaune", "Oignon Doux"],
+      Echalote: ["Echalote traditionnelle longue", "Echalote traditionnelle 1/2 longue"] },
+    origines: ["FRANCE", "ESPAGNE", "ARGENTINE"],
+    conditionnements: ["TRESSE", "TUBE", "NETTOYE MAINS", "LITE"],
+    responsables: ["MAXIME KERANGUEVEN", "ROMAIN GUILLERM", "NICOLAS GUEGUEN"]
+  };
+  function normConfig(d){
+    d = d || {}; const l = (a, def) => Array.isArray(a) ? a.filter(x => String(x || "").trim()) : def.slice();
+    const v = d.varietes || {};
+    return { prestataires: l(d.prestataires, CONFIG_DEFAUT.prestataires),
+      varietes: { Ail: l(v.Ail, CONFIG_DEFAUT.varietes.Ail), Oignon: l(v.Oignon, CONFIG_DEFAUT.varietes.Oignon), Echalote: l(v.Echalote, CONFIG_DEFAUT.varietes.Echalote) },
+      origines: l(d.origines, CONFIG_DEFAUT.origines), conditionnements: l(d.conditionnements, CONFIG_DEFAUT.conditionnements), responsables: l(d.responsables, CONFIG_DEFAUT.responsables) };
+  }
+
+  let me = null, roleMvt = "none", rolePlan = "viewer";
+  let config = normConfig(null), configLoaded = false;
+  let calibresPlan = null;   // { calibres, calibreFamilles } si le plan est lisible
+  let tab = "saisie";
+  let cleResp = "";
+  const S = { date: aujourdhui(), prestataire: "", prestAutre: "", produit: "", variete: "", varAutre: "", lot: "", origine: "", origAutre: "",
+    calibre: "", pesees: [""], conditionnement: "", condAutre: "", responsable: "", respAutre: "", commentaire: "" };
+  const H = { du: debutMois(), au: aujourdhui(), prestataire: "", produit: "", lot: "", docs: null, err: "", unsub: null, edit: null };
+
+  // ---------- utilitaires ----------
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  function aujourdhui(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+  function debutMois(){ return aujourdhui().slice(0, 8) + "01"; }
+  function frDate(j){ const p = String(j || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : String(j || ""); }
+  function kg(n){ return n == null || !isFinite(n) ? "–" : (Math.round(n * 100) / 100).toLocaleString("fr-FR"); }
+  function cle(s){ return String(s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
+  function libProduit(p){ const x = PRODUITS.find(q => q[0] === p); return x ? x[1] : (p || ""); }
+  // Pesées : « 1086 + 1097 », « 1 086,5 » … -> [1086, 1097] (null si illisible)
+  function lirePesees(txt){
+    const parts = String(txt == null ? "" : txt).split(/[+;\n]/).map(x => x.replace(/\s|kg/gi, "").replace(",", ".")).filter(x => x !== "");
+    if (!parts.length) return null;
+    const v = parts.map(Number);
+    return v.every(n => isFinite(n) && n > 0) ? v : null;
+  }
+  function total(v){ return Math.round(v.reduce((a, b) => a + b, 0) * 1000) / 1000; }
+  function toast(m){ const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 3200); }
+  function banner(m){ const b = document.getElementById("banner"); b.textContent = m; b.classList.toggle("hidden", !m); }
+  function errMsg(e){ return e && e.code === "permission-denied" ? "Action refusée par les règles Firebase (droits insuffisants)." : "Enregistrement impossible : " + ((e && e.message) || "erreur inconnue") + "."; }
+  function telecharger(nom, data, type){ const b = new Blob([data], { type }), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+  function peutSaisir(){ return roleMvt === "editor" || roleMvt === "admin"; }
+  function estAdmin(){ return roleMvt === "admin" || rolePlan === "admin"; }
+  // Modification / suppression : l'auteur pendant 24 h (rôle Gestion ou Admin), ou un admin à tout moment
+  function peutGerer(m){
+    if (estAdmin()) return true;
+    if (!peutSaisir() || !me || m.uid !== me.uid || !m.creeLe || typeof m.creeLe.toMillis !== "function") return false;
+    return Date.now() - m.creeLe.toMillis() < 24 * 3600 * 1000;
+  }
+  function choixHtml(attr, liste, actuel, avecAutre){
+    return '<div class="chips">' + liste.map(v => '<button type="button" class="chip" data-' + attr + '="' + esc(v) + '" aria-pressed="' + (actuel === v) + '">' + esc(v) + '</button>').join("") +
+      (avecAutre ? '<button type="button" class="chip" data-' + attr + '="__autre" aria-pressed="' + (actuel === "__autre") + '">Autre</button>' : "") + "</div>";
+  }
+  function valeurChoix(v, autre){ return v === "__autre" ? String(autre || "").trim() : v; }
+
+  // ---------- Saisie ----------
+  function famillePlan(p){ return p === "Ail" ? "Ail" : p === "Oignon" ? "Oignon" : p === "Echalote" ? "Echalote" : ""; }
+  function calibresProposes(){
+    if (!calibresPlan) return [];
+    const f = famillePlan(S.produit), fam = calibresPlan.calibreFamilles || {};
+    return (calibresPlan.calibres || []).filter(c => !f || !fam[c] || !fam[c].length || fam[c].indexOf(f) >= 0).sort((a, b) => a.localeCompare(b, "fr"));
+  }
+  function renderSaisie(){
+    const v = document.getElementById("view");
+    if (!peutSaisir()){ v.innerHTML = '<div class="card"><p class="hint">Votre rôle « Consultation » permet seulement de consulter l\'historique.</p></div>'; return; }
+    const vars = S.produit ? (config.varietes[S.produit] || []) : [];
+    const pes = S.pesees.map((p, i) => '<div class="pesee"><span class="n">Pesée ' + (i + 1) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-pesee="' + i + '" value="' + esc(p) + '" placeholder="kg" aria-label="Pesée ' + (i + 1) + ' en kg"><span class="kg">kg</span>' +
+      (S.pesees.length > 1 ? '<button type="button" class="x" data-delpesee="' + i + '" aria-label="Retirer la pesée ' + (i + 1) + '">×</button>' : "") + "</div>").join("");
+    const cal = calibresProposes();
+    v.innerHTML =
+      '<div class="card"><div class="row2"><div><h2>Date de chargement <span class="req">*</span></h2><input type="date" id="sDate" value="' + esc(S.date) + '"></div>' +
+        '<div><h2>Responsable</h2><input type="text" id="sResp" list="lResp" value="' + esc(S.responsable) + '" autocomplete="off"><datalist id="lResp">' + config.responsables.map(r => '<option value="' + esc(r) + '">').join("") + '</datalist></div></div></div>' +
+      '<div class="card"><h2>Prestataire <span class="req">*</span></h2>' + choixHtml("presta", config.prestataires, S.prestataire, true) +
+        (S.prestataire === "__autre" ? '<input class="autre" type="text" id="sPrestAutre" value="' + esc(S.prestAutre) + '" placeholder="Nom du prestataire">' : "") + '</div>' +
+      '<div class="card"><h2>Produit <span class="req">*</span></h2>' + choixHtml("produit", PRODUITS.map(p => p[0]), S.produit, false).replace(/>Echalote</, ">Échalote<") +
+        (S.produit ? '<h2 style="margin-top:14px">Variété ' + esc(libProduit(S.produit).toLowerCase()) + (S.produit === "Ail" ? ' <span class="req">*</span>' : "") + '</h2>' + choixHtml("variete", vars, S.variete, true) +
+          (S.variete === "__autre" ? '<input class="autre" type="text" id="sVarAutre" value="' + esc(S.varAutre) + '" placeholder="Variété">' : "") : "") + '</div>' +
+      '<div class="card"><h2>Détail marchandise</h2><div class="row2"><div><h2>Lot <span class="req">*</span></h2><input type="text" id="sLot" value="' + esc(S.lot) + '" autocomplete="off" autocapitalize="characters"></div>' +
+        '<div><h2>Calibre</h2><input type="text" id="sCal" list="lCal" value="' + esc(S.calibre) + '" autocomplete="off" placeholder="ex. 70/80"><datalist id="lCal">' + cal.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist></div></div>' +
+        '<h2 style="margin-top:14px">Origine <span class="req">*</span></h2>' + choixHtml("origine", config.origines, S.origine, true) +
+        (S.origine === "__autre" ? '<input class="autre" type="text" id="sOrigAutre" value="' + esc(S.origAutre) + '" placeholder="Origine">' : "") + '</div>' +
+      '<div class="card"><h2>Quantité (kg) <span class="req">*</span></h2><p class="hint">Une ligne par pesée : le total est calculé automatiquement.</p><div class="pesees">' + pes + '</div>' +
+        '<button type="button" class="btn-link" id="addPesee">+ Ajouter une pesée</button><div class="total" id="sTotal"></div></div>' +
+      '<div class="card"><h2>Conditionnement prévu</h2>' + choixHtml("cond", config.conditionnements, S.conditionnement, true) +
+        (S.conditionnement === "__autre" ? '<input class="autre" type="text" id="sCondAutre" value="' + esc(S.condAutre) + '" placeholder="Conditionnement">' : "") + '</div>' +
+      '<div class="card"><h2>Remarques</h2><textarea id="sCom">' + esc(S.commentaire) + '</textarea></div>' +
+      '<button type="button" class="btn btn-main" id="sSave">Enregistrer le mouvement</button><p class="err hidden" id="sErr"></p>';
+    majTotal();
+    const on = (sel, ev, f) => v.querySelectorAll(sel).forEach(e => e.addEventListener(ev, () => f(e)));
+    on("#sDate", "input", e => { S.date = e.value; });
+    on("#sResp", "input", e => { S.responsable = e.value; });
+    on("#sPrestAutre", "input", e => { S.prestAutre = e.value; });
+    on("#sVarAutre", "input", e => { S.varAutre = e.value; });
+    on("#sOrigAutre", "input", e => { S.origAutre = e.value; });
+    on("#sCondAutre", "input", e => { S.condAutre = e.value; });
+    on("#sLot", "input", e => { S.lot = e.value; });
+    on("#sCal", "input", e => { S.calibre = e.value; });
+    on("#sCom", "input", e => { S.commentaire = e.value; });
+    on("[data-pesee]", "input", e => { S.pesees[+e.dataset.pesee] = e.value; majTotal(); });
+    const choix = (attr, champ, focusId, apres) => on("[data-" + attr + "]", "click", e => { const val = e.getAttribute("data-" + attr); S[champ] = S[champ] === val ? "" : val; if (apres) apres(); renderSaisie(); if (S[champ] === "__autre" && focusId){ const f = document.getElementById(focusId); if (f) f.focus(); } });
+    choix("presta", "prestataire", "sPrestAutre");
+    choix("produit", "produit", null, () => { S.variete = ""; S.varAutre = ""; });
+    choix("variete", "variete", "sVarAutre");
+    choix("origine", "origine", "sOrigAutre");
+    choix("cond", "conditionnement", "sCondAutre");
+    on("#addPesee", "click", () => { S.pesees.push(""); renderSaisie(); const l = v.querySelectorAll("[data-pesee]"); l[l.length - 1].focus(); });
+    on("[data-delpesee]", "click", e => { S.pesees.splice(+e.dataset.delpesee, 1); renderSaisie(); });
+    on("#sSave", "click", enregistrer);
+  }
+  function majTotal(){
+    const t = document.getElementById("sTotal"); if (!t) return;
+    const v = S.pesees.filter(x => String(x).trim() !== "");
+    const n = v.map(x => lirePesees(x));
+    if (!v.length){ t.textContent = ""; return; }
+    if (n.some(x => !x)){ t.textContent = "Pesée illisible : saisissez un nombre (ex. 1086 ou 1086,5)."; t.style.color = "var(--warn)"; return; }
+    t.style.color = ""; t.textContent = "Total : " + kg(total([].concat.apply([], n))) + " kg" + (v.length > 1 ? " (" + v.length + " pesées)" : "");
+  }
+  async function enregistrer(){
+    const err = document.getElementById("sErr"), btn = document.getElementById("sSave");
+    const show = m => { err.textContent = m; err.classList.remove("hidden"); };
+    err.classList.add("hidden");
+    const prestataire = valeurChoix(S.prestataire, S.prestAutre), variete = valeurChoix(S.variete, S.varAutre);
+    const origine = valeurChoix(S.origine, S.origAutre), conditionnement = valeurChoix(S.conditionnement, S.condAutre);
+    const remplies = S.pesees.filter(x => String(x).trim() !== ""), lues = remplies.map(lirePesees);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(S.date)) return show("Indiquez la date de chargement.");
+    if (!prestataire) return show("Choisissez le prestataire.");
+    if (!S.produit) return show("Choisissez le produit.");
+    if (S.produit === "Ail" && !variete) return show("Choisissez la variété d'ail.");
+    if (!S.lot.trim()) return show("Indiquez le numéro de lot.");
+    if (!origine) return show("Choisissez l'origine.");
+    if (!remplies.length) return show("Saisissez au moins une pesée (kg).");
+    if (lues.some(x => !x)) return show("Une pesée est illisible : saisissez un nombre (ex. 1086 ou 1086,5).");
+    const pesees = [].concat.apply([], lues);
+    const doc = { date: S.date, prestataire, produit: S.produit, variete, lot: S.lot.trim().toUpperCase(), origine, calibre: S.calibre.trim(),
+      pesees, quantite: total(pesees), conditionnement, responsable: S.responsable.trim(), commentaire: S.commentaire.trim(),
+      uid: me.uid, creeLe: firebase.firestore.FieldValue.serverTimestamp() };
+    btn.disabled = true;
+    try{
+      await MVT.add(doc);
+      try{ localStorage.setItem(cleResp, S.responsable.trim()); }catch(e){}
+      toast("Mouvement enregistré : " + doc.lot + " – " + kg(doc.quantite) + " kg");
+      // On garde la date, le prestataire, le produit, l'origine et le responsable (souvent identiques sur un même chargement)
+      Object.assign(S, { lot: "", calibre: "", pesees: [""], commentaire: "" });
+      renderSaisie(); window.scrollTo(0, 0);
+    }catch(e){ show(errMsg(e)); btn.disabled = false; }
+  }
+
+  // ---------- Historique ----------
+  function ecouterHist(){
+    if (H.unsub) H.unsub();
+    H.docs = null; H.err = "";
+    H.unsub = MVT.where("date", ">=", H.du).where("date", "<=", H.au).orderBy("date", "desc").limit(5000).onSnapshot(s => {
+      H.docs = s.docs.map(d => Object.assign({ _id: d.id }, d.data())); H.err = "";
+      if (tab === "hist" && !saisieHistEnCours()) drawHist();
+    }, e => { console.warn(e); H.docs = []; H.err = e && e.code === "permission-denied" ? "Lecture refusée : votre compte n'a pas accès à l'historique des mouvements." : "Lecture impossible : " + ((e && e.message) || ""); if (tab === "hist") drawHist(); });
+  }
+  function saisieHistEnCours(){ const a = document.activeElement; return !!(a && a.closest && a.closest("#hEdit")); }
+  function filtres(){
+    const l = cle(H.lot);
+    return (H.docs || []).filter(m => (!H.prestataire || m.prestataire === H.prestataire) && (!H.produit || m.produit === H.produit) && (!l || cle(m.lot).indexOf(l) >= 0))
+      .sort((a, b) => a.date === b.date ? ((b.creeLe && b.creeLe.toMillis ? b.creeLe.toMillis() : 0) - (a.creeLe && a.creeLe.toMillis ? a.creeLe.toMillis() : 0)) : (a.date < b.date ? 1 : -1));
+  }
+  function renderHist(){
+    const v = document.getElementById("view");
+    const prestas = Array.from(new Set(config.prestataires.concat((H.docs || []).map(m => m.prestataire)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr"));
+    v.innerHTML = '<div class="card"><div class="filters">' +
+      '<label>Du<input type="date" id="hDu" value="' + esc(H.du) + '"></label><label>Au<input type="date" id="hAu" value="' + esc(H.au) + '"></label>' +
+      '<label>Prestataire<select id="hPresta"><option value="">Tous</option>' + prestas.map(p => '<option' + (H.prestataire === p ? " selected" : "") + ' value="' + esc(p) + '">' + esc(p) + '</option>').join("") + '</select></label>' +
+      '<label>Produit<select id="hProd"><option value="">Tous</option>' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (H.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label>' +
+      '<label>Lot<input type="search" id="hLot" value="' + esc(H.lot) + '" placeholder="Rechercher"></label></div>' +
+      '<div class="actions"><button type="button" class="btn btn-sec" id="hXlsx">Exporter en Excel</button></div></div>' +
+      '<div id="hEditBox"></div><div class="card"><div id="hSum" class="sum"></div><div class="scroll" id="hTab"></div></div>';
+    const maj = () => drawHist();
+    document.getElementById("hDu").addEventListener("change", e => { if (e.target.value){ H.du = e.target.value; if (H.au < H.du) H.au = H.du; ecouterHist(); renderHist(); } });
+    document.getElementById("hAu").addEventListener("change", e => { if (e.target.value){ H.au = e.target.value; if (H.au < H.du) H.du = H.au; ecouterHist(); renderHist(); } });
+    document.getElementById("hPresta").addEventListener("change", e => { H.prestataire = e.target.value; maj(); });
+    document.getElementById("hProd").addEventListener("change", e => { H.produit = e.target.value; maj(); });
+    document.getElementById("hLot").addEventListener("input", e => { H.lot = e.target.value; maj(); });
+    document.getElementById("hXlsx").addEventListener("click", exporter);
+    drawHist();
+  }
+  function drawHist(){
+    const t = document.getElementById("hTab"), s = document.getElementById("hSum"); if (!t) return;
+    drawEdit();
+    if (H.err){ s.textContent = ""; t.innerHTML = '<p class="empty">' + esc(H.err) + '</p>'; return; }
+    if (H.docs === null){ s.textContent = ""; t.innerHTML = '<p class="empty">Chargement…</p>'; return; }
+    const l = filtres();
+    const parProd = PRODUITS.map(p => [p[1], l.filter(m => m.produit === p[0]).reduce((a, m) => a + (m.quantite || 0), 0)]).filter(x => x[1] > 0);
+    s.innerHTML = "<b>" + l.length + " mouvement" + (l.length > 1 ? "s" : "") + " – " + kg(l.reduce((a, m) => a + (m.quantite || 0), 0)) + " kg</b>" +
+      (parProd.length ? " (" + parProd.map(x => x[0] + " : " + kg(x[1]) + " kg").join(" · ") + ")" : "") + " du " + frDate(H.du) + " au " + frDate(H.au) + ".";
+    if (!l.length){ t.innerHTML = '<p class="empty">Aucun mouvement sur cette période.</p>'; return; }
+    t.innerHTML = '<table class="mv"><thead><tr><th>Date</th><th>Prestataire</th><th>Produit</th><th>Variété</th><th>Lot</th><th>Origine</th><th>Calibre</th><th>Quantité</th><th>Conditionnement</th><th>Responsable</th><th class="acts"></th></tr></thead><tbody>' +
+      l.map(m => '<tr' + (m.import ? ' class="imp"' : "") + '><td data-l="Date">' + frDate(m.date) + (m.import ? '<span class="tag" title="Importé de la Google Sheet">Sheet</span>' : "") + (m.modifications && m.modifications.length ? '<span class="tag" title="Modifié">Modifié</span>' : "") + '</td>' +
+        '<td data-l="Prestataire">' + esc(m.prestataire) + '</td><td data-l="Produit">' + esc(libProduit(m.produit)) + '</td><td data-l="Variété">' + esc(m.variete || "") + '</td><td data-l="Lot"><b>' + esc(m.lot) + '</b></td>' +
+        '<td data-l="Origine">' + esc(m.origine || "") + '</td><td data-l="Calibre">' + esc(m.calibre || "") + '</td>' +
+        '<td class="num" data-l="Quantité">' + kg(m.quantite) + ' kg' + (m.pesees && m.pesees.length > 1 ? "<small>" + m.pesees.map(kg).join(" + ") + "</small>" : "") + '</td>' +
+        '<td data-l="Conditionnement">' + esc(m.conditionnement || "") + '</td><td data-l="Responsable">' + esc(m.responsable || "") + (m.commentaire ? '<br><small class="hint">' + esc(m.commentaire) + '</small>' : "") + '</td>' +
+        '<td class="acts">' + (peutGerer(m) ? '<button type="button" class="mini" data-edit="' + esc(m._id) + '">Modifier</button> <button type="button" class="mini del" data-del="' + esc(m._id) + '">Supprimer</button>' : "") + '</td></tr>').join("") + '</tbody></table>';
+    t.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => { H.edit = b.dataset.edit; drawEdit(); const e = document.getElementById("hEdit"); if (e) e.scrollIntoView({ block: "start", behavior: "smooth" }); }));
+    t.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => supprimer(b.dataset.del)));
+  }
+  function drawEdit(){
+    const box = document.getElementById("hEditBox"); if (!box) return;
+    const m = H.edit && (H.docs || []).find(x => x._id === H.edit);
+    if (!m){ box.innerHTML = ""; return; }
+    if (document.getElementById("hEdit") && document.getElementById("hEdit").dataset.id === m._id) return;
+    const dl = (id, l) => '<datalist id="' + id + '">' + l.map(x => '<option value="' + esc(x) + '">').join("") + "</datalist>";
+    box.innerHTML = '<div class="card edit" id="hEdit" data-id="' + esc(m._id) + '"><h2>Modifier le mouvement du ' + frDate(m.date) + ' – lot ' + esc(m.lot) + '</h2>' +
+      '<div class="row2"><label>Date de chargement<input type="date" id="eDate" value="' + esc(m.date) + '"></label><label>Prestataire<input type="text" id="ePresta" list="eLP" value="' + esc(m.prestataire) + '">' + dl("eLP", config.prestataires) + '</label></div>' +
+      '<div class="row2"><label>Produit<select id="eProd">' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (m.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label><label>Variété<input type="text" id="eVar" list="eLV" value="' + esc(m.variete || "") + '">' + dl("eLV", [].concat(config.varietes.Ail, config.varietes.Oignon, config.varietes.Echalote)) + '</label></div>' +
+      '<div class="row2"><label>Lot<input type="text" id="eLot" value="' + esc(m.lot) + '"></label><label>Origine<input type="text" id="eOrig" list="eLO" value="' + esc(m.origine || "") + '">' + dl("eLO", config.origines) + '</label></div>' +
+      '<div class="row2"><label>Calibre<input type="text" id="eCal" value="' + esc(m.calibre || "") + '"></label><label>Pesées (kg, séparées par +)<input type="text" id="ePes" inputmode="decimal" value="' + esc((m.pesees || [m.quantite]).map(x => String(x).replace(".", ",")).join(" + ")) + '"></label></div>' +
+      '<div class="row2"><label>Conditionnement<input type="text" id="eCond" list="eLC" value="' + esc(m.conditionnement || "") + '">' + dl("eLC", config.conditionnements) + '</label><label>Responsable<input type="text" id="eResp" list="eLR" value="' + esc(m.responsable || "") + '">' + dl("eLR", config.responsables) + '</label></div>' +
+      '<label>Remarques<textarea id="eCom">' + esc(m.commentaire || "") + '</textarea></label>' +
+      '<label style="margin-top:10px">Raison de la modification (obligatoire)<input type="text" id="eRaison"></label>' +
+      '<div class="actions"><button type="button" class="btn btn-main" id="eSave" style="width:auto">Enregistrer la modification</button><button type="button" class="btn btn-sec" id="eNon">Annuler</button></div><p class="err hidden" id="eErr"></p></div>';
+    document.getElementById("eNon").addEventListener("click", () => { H.edit = null; drawEdit(); });
+    document.getElementById("eSave").addEventListener("click", () => modifier(m));
+  }
+  const CHAMPS = ["date", "prestataire", "produit", "variete", "lot", "origine", "calibre", "pesees", "quantite", "conditionnement", "responsable", "commentaire"];
+  async function modifier(m){
+    const err = document.getElementById("eErr"), show = x => { err.textContent = x; err.classList.remove("hidden"); };
+    const g = id => document.getElementById(id).value.trim();
+    const pes = lirePesees(g("ePes"));
+    const n = { date: g("eDate"), prestataire: g("ePresta"), produit: g("eProd"), variete: g("eVar"), lot: g("eLot").toUpperCase(), origine: g("eOrig"), calibre: g("eCal"),
+      pesees: pes, quantite: pes ? total(pes) : null, conditionnement: g("eCond"), responsable: g("eResp"), commentaire: g("eCom") };
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(n.date)) return show("Date de chargement invalide.");
+    if (!n.prestataire || !n.lot || !n.origine) return show("Prestataire, lot et origine sont obligatoires.");
+    if (!pes) return show("Pesées illisibles : saisissez des nombres séparés par + (ex. 1086 + 1097).");
+    const raison = g("eRaison"); if (!raison) return show("Indiquez la raison de la modification.");
+    const avant = {}, maj = {};
+    CHAMPS.forEach(k => { if (JSON.stringify(m[k] == null ? "" : m[k]) !== JSON.stringify(n[k] == null ? "" : n[k])){ avant[k] = m[k] == null ? "" : m[k]; maj[k] = n[k]; } });
+    if (!Object.keys(maj).length) return show("Aucune modification.");
+    maj.modifications = firebase.firestore.FieldValue.arrayUnion({ le: new Date().toISOString(), par: me.email, raison, avant });
+    try{ await MVT.doc(m._id).update(maj); H.edit = null; toast("Mouvement modifié."); drawEdit(); }
+    catch(e){ show(errMsg(e)); }
+  }
+  async function supprimer(id){
+    const m = (H.docs || []).find(x => x._id === id); if (!m) return;
+    if (!confirm("Supprimer définitivement le mouvement du " + frDate(m.date) + " (lot " + m.lot + ", " + kg(m.quantite) + " kg) ?")) return;
+    try{ await MVT.doc(id).delete(); toast("Mouvement supprimé."); }catch(e){ alert(errMsg(e)); }
+  }
+  function exporter(){
+    const l = filtres().slice().reverse();
+    if (!window.XlsxReleves || !window.XlsxReleves.tableau){ toast("Export Excel indisponible"); return; }
+    const h = s => ({ v: s, s: 5 });
+    const lignes = [[{ v: "MOUVEMENTS ALLIUMS PRESTATION – E14.3", s: 4 }], ["Période : du " + frDate(H.du) + " au " + frDate(H.au) +
+      (H.prestataire ? " – prestataire : " + H.prestataire : "") + (H.produit ? " – produit : " + libProduit(H.produit) : "") + (H.lot ? " – lot : " + H.lot : "")], [],
+      ["Date de chargement", "Prestataire", "Produit", "Variété", "Lot", "Origine", "Calibre", "Quantité (kg)", "Détail des pesées", "Conditionnement prévu", "Responsable", "Remarques", "Saisi le", "Modifications"].map(h)];
+    l.forEach(m => lignes.push([frDate(m.date), m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", m.calibre || "", { v: m.quantite, s: 2 },
+      (m.pesees || []).map(x => String(x).replace(".", ",")).join(" + "), m.conditionnement || "", m.responsable || "", m.commentaire || "",
+      m.import && m.import.horodateur ? m.import.horodateur + " (Google Sheet)" : (m.creeLe && m.creeLe.toDate ? m.creeLe.toDate().toLocaleString("fr-FR") : ""),
+      (m.modifications || []).map(x => new Date(x.le).toLocaleString("fr-FR") + " par " + (x.par || "?") + " : " + (x.raison || "")).join(" ; ")]));
+    lignes.push([]);
+    lignes.push([{ v: "TOTAL", s: 1 }, "", "", "", l.length + " mouvement" + (l.length > 1 ? "s" : ""), "", "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
+    PRODUITS.forEach(p => { const q = l.filter(m => m.produit === p[0]); if (q.length) lignes.push(["", "", p[1], "", q.length + " mouvement" + (q.length > 1 ? "s" : ""), "", "", { v: total(q.map(m => m.quantite || 0)), s: 2 }]); });
+    const data = window.XlsxReleves.tableau([{ nom: "Mouvements", lignes, largeurs: [12, 24, 10, 28, 14, 12, 10, 13, 22, 18, 22, 30, 20, 40], gel: [0, 4] }], { titre: "Mouvements alliums prestation E14.3" });
+    telecharger("E14.3_Mouvements_alliums_prestation_" + H.du + "_au_" + H.au + ".xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  }
+
+  // ---------- navigation ----------
+  function setTab(t){
+    tab = t; document.body.classList.toggle("hist", t === "hist");
+    document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
+    render(); window.scrollTo(0, 0);
+  }
+  function render(){ if (tab === "saisie") renderSaisie(); else renderHist(); }
+  document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
+  function bloquer(titre, texte){ document.getElementById("tabs").classList.add("hidden"); document.getElementById("view").innerHTML = '<div class="card"><h2>' + esc(titre) + '</h2><p class="hint">' + esc(texte) + '</p><a class="btn btn-sec" style="display:inline-flex;align-items:center;text-decoration:none" href="index.html">Retour à l\'accueil</a></div>'; }
+
+  function demarrer(){
+    if (!peutSaisir()){ tab = "hist"; document.body.classList.add("hist"); document.querySelector('#tabs [data-tab="saisie"]').classList.add("hidden"); document.getElementById("tabs").style.gridTemplateColumns = "1fr"; document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === "hist"))); }
+    render();
+    CONFIG_REF.onSnapshot(s => { config = normConfig(s.exists ? s.data() : null); configLoaded = true; if (tab === "saisie") renderSaisie(); }, e => { console.warn(e); banner("Listes de saisie illisibles : listes par défaut affichées."); });
+    ecouterHist();
+    // Calibres du plan (lecture seule, si le compte a accès au plan) : proposés selon la famille du produit
+    const lirePlan = s => { if (s && s.exists){ try{ const p = JSON.parse(s.data().data || "{}"); calibresPlan = { calibres: p.calibres || [], calibreFamilles: p.calibreFamilles || {} }; if (tab === "saisie" && document.getElementById("lCal")) document.getElementById("lCal").innerHTML = calibresProposes().map(c => '<option value="' + esc(c) + '">').join(""); }catch(e){} } };
+    db.collection("planStockage").doc("main").get({ source: "cache" }).then(lirePlan).catch(() => {})
+      .then(() => db.collection("planStockage").doc("main").get()).then(lirePlan).catch(() => {});
+  }
+
+  let compteRefuse = false;
+  auth.onAuthStateChanged(async user => {
+    if (!user){ if (!compteRefuse) location.replace("index.html"); return; }
+    me = { uid: user.uid, email: user.email || "" };
+    let u = {};
+    try{
+      const d = await lireFiche(db.collection("users").doc(user.uid));
+      if (!d.exists){ compteRefuse = true; bloquer("Compte non autorisé", "Compte non autorisé, contactez un administrateur."); await auth.signOut(); location.replace("index.html#non-autorise"); return; }
+      u = d.data();
+      roleMvt = ["viewer", "editor", "admin"].indexOf(u.roleMouvements) >= 0 ? u.roleMouvements : "none";
+      rolePlan = (u.role === "admin" || u.role === "editor") ? u.role : "viewer";
+    }catch(e){ console.warn(e); }
+    // Responsable par défaut : la dernière valeur saisie sur ce poste par ce compte, sinon le nom du compte
+    cleResp = "ll-responsable-" + user.uid;
+    let r = ""; try{ r = localStorage.getItem(cleResp) || ""; }catch(e){}
+    S.responsable = r || u.nom || String(user.email || "").split("@")[0];
+    if (roleMvt === "none" && rolePlan !== "admin"){ bloquer("Accès non autorisé", "Votre compte n'a pas accès au module mouvements prestation. Demandez l'accès à un admin."); return; }
+    demarrer();
+  });
+})();
+</script>
+</body>
+</html>
