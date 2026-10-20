@@ -75,6 +75,28 @@
   .mini{min-height:40px;padding:0 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:600 13px 'Inter',sans-serif;cursor:pointer;color:var(--ink)}
   .mini.del{color:var(--warn)}
   .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:5px;background:#F4E9CF;color:#7A5A12;margin-left:4px}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+  .seg button{min-height:44px;border:1.5px solid var(--line);background:#fff;border-radius:9px;font:600 14px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--vert-bg);border-color:var(--vert);color:#24361F}
+  table.sy{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
+  table.sy th,table.sy td{padding:9px 10px;text-align:left;border-bottom:1px solid #ECE8DE;vertical-align:top}
+  table.sy thead th{background:#F3F0E8;font-size:12px;color:var(--ink-soft)}
+  table.sy .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+  table.sy tr.pr th{background:#E9EFE4;color:#24361F;font-size:14.5px;border-top:2px solid var(--vert)}
+  table.sy tr.pd{cursor:pointer}
+  table.sy tr.pd:hover td,table.sy tr.lt:hover td{background:#F7F9F4}
+  table.sy tr.pd td:first-child{padding-left:14px;font-weight:600}
+  table.sy tr.pd small{color:var(--ink-soft);font-weight:500;margin-left:4px}
+  table.sy .chev{display:inline-block;width:18px;color:var(--vert)}
+  table.sy tr.lt{cursor:pointer;font-size:13.5px}
+  table.sy tr.lt td:first-child{padding-left:40px}
+  table.sy tr.lt td small{display:block;color:var(--ink-soft);font-size:12px}
+  table.sy tr.lt.focus td{background:#FFF4D6}
+  table.sy tfoot th{background:#F3F0E8;font-size:14.5px}
+  table.sy tr:focus-visible{outline:2px solid var(--vert);outline-offset:-2px}
+  table.sy .sm{display:none}
+  @media (max-width:700px){ table.sy{font-size:13px} table.sy th,table.sy td{padding:8px 5px} table.sy tr.pd td:first-child{padding-left:6px} table.sy tr.lt td:first-child{padding-left:16px}
+    table.sy thead th{font-size:11px} table.sy .c-lots{display:none} table.sy .lg{display:none} table.sy .sm{display:inline} table.sy tr.pr th{font-size:13.5px} }
   .edit .row2{margin-bottom:10px}
   .edit label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)}
   @media (max-width:700px){
@@ -174,7 +196,8 @@
   let cleResp = "";
   const S = { date: aujourdhui(), prestataire: "", prestAutre: "", produit: "", variete: "", varAutre: "", lot: "", origine: "", origAutre: "",
     calibre: "", pesees: [""], conditionnement: "", condAutre: "", responsable: "", respAutre: "", commentaire: "" };
-  const H = { du: debutMois(), au: aujourdhui(), prestataire: "", produit: "", lot: "", docs: null, err: "", unsub: null, edit: null };
+  const H = { du: debutMois(), au: aujourdhui(), prestataire: "", produit: "", lot: "", lotExact: false, docs: null, err: "", unsub: null, edit: null,
+    vue: "synthese", ouverts: new Set(), retour: null, focusLot: null };
 
   // ---------- utilitaires ----------
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -316,25 +339,30 @@
   function saisieHistEnCours(){ const a = document.activeElement; return !!(a && a.closest && a.closest("#hEdit")); }
   function filtres(){
     const l = cle(H.lot);
-    return (H.docs || []).filter(m => (!H.prestataire || m.prestataire === H.prestataire) && (!H.produit || m.produit === H.produit) && (!l || cle(m.lot).indexOf(l) >= 0))
+    return (H.docs || []).filter(m => (!H.prestataire || m.prestataire === H.prestataire) && (!H.produit || m.produit === H.produit) && (!l || (H.lotExact ? cle(m.lot) === l : cle(m.lot).indexOf(l) >= 0)))
       .sort((a, b) => a.date === b.date ? ((b.creeLe && b.creeLe.toMillis ? b.creeLe.toMillis() : 0) - (a.creeLe && a.creeLe.toMillis ? a.creeLe.toMillis() : 0)) : (a.date < b.date ? 1 : -1));
   }
   function renderHist(){
     const v = document.getElementById("view");
     const prestas = Array.from(new Set(config.prestataires.concat((H.docs || []).map(m => m.prestataire)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr"));
-    v.innerHTML = '<div class="card"><div class="filters">' +
+    v.innerHTML = '<div class="card"><div class="seg" role="tablist"><button type="button" data-vue="synthese" aria-pressed="' + (H.vue === "synthese") + '">Synthèse</button><button type="button" data-vue="liste" aria-pressed="' + (H.vue === "liste") + '">Liste détaillée</button></div>' +
+      (H.vue === "liste" && H.retour ? '<p class="hint" style="margin:8px 0 0">Mouvements du lot <b>' + esc(H.lot) + '</b> – ' + esc(H.prestataire) + ' – ' + esc(libProduit(H.produit)) + '. <button type="button" class="btn-link" id="hRetour">← Revenir à la synthèse</button></p>' : '') +
+      '<div class="filters">' +
       '<label>Du<input type="date" id="hDu" value="' + esc(H.du) + '"></label><label>Au<input type="date" id="hAu" value="' + esc(H.au) + '"></label>' +
       '<label>Prestataire<select id="hPresta"><option value="">Tous</option>' + prestas.map(p => '<option' + (H.prestataire === p ? " selected" : "") + ' value="' + esc(p) + '">' + esc(p) + '</option>').join("") + '</select></label>' +
       '<label>Produit<select id="hProd"><option value="">Tous</option>' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (H.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label>' +
       '<label>Lot<input type="search" id="hLot" value="' + esc(H.lot) + '" placeholder="Rechercher"></label></div>' +
-      '<div class="actions"><button type="button" class="btn btn-sec" id="hXlsx">Exporter en Excel</button></div></div>' +
+      '<div class="actions"><button type="button" class="btn btn-sec" id="hXlsx">Exporter en Excel</button>' + (H.vue === "synthese" ? '<button type="button" class="btn btn-sec" id="hTout">Tout déplier</button>' : '') + '</div></div>' +
       '<div id="hEditBox"></div><div class="card"><div id="hSum" class="sum"></div><div class="scroll" id="hTab"></div></div>';
     const maj = () => drawHist();
     document.getElementById("hDu").addEventListener("change", e => { if (e.target.value){ H.du = e.target.value; if (H.au < H.du) H.au = H.du; ecouterHist(); renderHist(); } });
     document.getElementById("hAu").addEventListener("change", e => { if (e.target.value){ H.au = e.target.value; if (H.au < H.du) H.du = H.au; ecouterHist(); renderHist(); } });
     document.getElementById("hPresta").addEventListener("change", e => { H.prestataire = e.target.value; maj(); });
     document.getElementById("hProd").addEventListener("change", e => { H.produit = e.target.value; maj(); });
-    document.getElementById("hLot").addEventListener("input", e => { H.lot = e.target.value; maj(); });
+    document.getElementById("hLot").addEventListener("input", e => { H.lot = e.target.value; H.lotExact = false; maj(); });
+    v.querySelectorAll("[data-vue]").forEach(b => b.addEventListener("click", () => { if (b.dataset.vue === "synthese") revenirSynthese(); else { H.vue = "liste"; H.retour = null; renderHist(); } }));
+    const r = document.getElementById("hRetour"); if (r) r.addEventListener("click", revenirSynthese);
+    const tt = document.getElementById("hTout"); if (tt) tt.addEventListener("click", () => { const g = groupes(filtres()); const tous = g.every(p => p.produits.every(x => H.ouverts.has(x.cle))); H.ouverts = new Set(tous ? [] : [].concat.apply([], g.map(p => p.produits.map(x => x.cle)))); drawHist(); });
     document.getElementById("hXlsx").addEventListener("click", exporter);
     drawHist();
   }
@@ -348,15 +376,73 @@
     s.innerHTML = "<b>" + l.length + " mouvement" + (l.length > 1 ? "s" : "") + " – " + kg(l.reduce((a, m) => a + (m.quantite || 0), 0)) + " kg</b>" +
       (parProd.length ? " (" + parProd.map(x => x[0] + " : " + kg(x[1]) + " kg").join(" · ") + ")" : "") + " du " + frDate(H.du) + " au " + frDate(H.au) + ".";
     if (!l.length){ t.innerHTML = '<p class="empty">Aucun mouvement sur cette période.</p>'; return; }
+    if (H.vue === "synthese") return drawSynthese(t, l);
     t.innerHTML = '<table class="mv"><thead><tr><th>Date</th><th>Prestataire</th><th>Produit</th><th>Variété</th><th>Lot</th><th>Origine</th><th>Calibre</th><th>Quantité</th><th>Conditionnement</th><th>Responsable</th><th class="acts"></th></tr></thead><tbody>' +
       l.map(m => '<tr' + (m.import ? ' class="imp"' : "") + '><td data-l="Date">' + frDate(m.date) + (m.import ? '<span class="tag" title="Importé de la Google Sheet">Sheet</span>' : "") + (m.modifications && m.modifications.length ? '<span class="tag" title="Modifié">Modifié</span>' : "") + '</td>' +
         '<td data-l="Prestataire">' + esc(m.prestataire) + '</td><td data-l="Produit">' + esc(libProduit(m.produit)) + '</td><td data-l="Variété">' + esc(m.variete || "") + '</td><td data-l="Lot"><b>' + esc(m.lot) + '</b></td>' +
-        '<td data-l="Origine">' + esc(m.origine || "") + '</td><td data-l="Calibre">' + esc(m.calibre || "") + '</td>' +
+        '<td data-l="Origine">' + esc(m.origine || "") + '</td><td data-l="Calibre">' + esc(calibreNorm(m.calibre)) + '</td>' +
         '<td class="num" data-l="Quantité">' + kg(m.quantite) + ' kg' + (m.pesees && m.pesees.length > 1 ? "<small>" + m.pesees.map(kg).join(" + ") + "</small>" : "") + '</td>' +
         '<td data-l="Conditionnement">' + esc(m.conditionnement || "") + '</td><td data-l="Responsable">' + esc(m.responsable || "") + (m.commentaire ? '<br><small class="hint">' + esc(m.commentaire) + '</small>' : "") + '</td>' +
         '<td class="acts">' + (peutGerer(m) ? '<button type="button" class="mini" data-edit="' + esc(m._id) + '">Modifier</button> <button type="button" class="mini del" data-del="' + esc(m._id) + '">Supprimer</button>' : "") + '</td></tr>').join("") + '</tbody></table>';
     t.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => { H.edit = b.dataset.edit; drawEdit(); const e = document.getElementById("hEdit"); if (e) e.scrollIntoView({ block: "start", behavior: "smooth" }); }));
     t.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => supprimer(b.dataset.del)));
+  }
+  // ---------- Synthèse : prestataire > produit > lot ----------
+  function plage(a, b){ return a === b ? frDate(a) : frDate(a) + " → " + frDate(b); }
+  function groupes(l){
+    const pr = new Map();
+    l.forEach(m => {
+      const p = m.prestataire || "(sans prestataire)";
+      if (!pr.has(p)) pr.set(p, new Map());
+      const pd = pr.get(p); if (!pd.has(m.produit)) pd.set(m.produit, new Map());
+      const lots = pd.get(m.produit), k = m.lot || "(sans lot)";
+      if (!lots.has(k)) lots.set(k, { lot: k, n: 0, kg: 0, varietes: new Set(), calibres: new Set(), du: m.date, au: m.date });
+      const x = lots.get(k); x.n++; x.kg += m.quantite || 0;
+      if (m.variete) x.varietes.add(m.variete); if (m.calibre) x.calibres.add(calibreNorm(m.calibre));
+      if (m.date < x.du) x.du = m.date; if (m.date > x.au) x.au = m.date;
+    });
+    const ordre = PRODUITS.map(p => p[0]);
+    return Array.from(pr.entries()).map(([p, pd]) => {
+      const produits = Array.from(pd.entries()).sort((a, b) => ordre.indexOf(a[0]) - ordre.indexOf(b[0])).map(([prod, lots]) => {
+        const ls = Array.from(lots.values()).map(x => Object.assign(x, { kg: Math.round(x.kg * 1000) / 1000 })).sort((a, b) => b.kg - a.kg);
+        return { produit: prod, cle: p + "|" + prod, lots: ls, n: ls.reduce((a, x) => a + x.n, 0), kg: Math.round(ls.reduce((a, x) => a + x.kg, 0) * 1000) / 1000 };
+      });
+      return { prestataire: p, produits, n: produits.reduce((a, x) => a + x.n, 0), kg: Math.round(produits.reduce((a, x) => a + x.kg, 0) * 1000) / 1000 };
+    }).sort((a, b) => b.kg - a.kg);
+  }
+  function drawSynthese(t, l){
+    const g = groupes(l), tot = total(l.map(m => m.quantite || 0));
+    let h = '<table class="sy"><thead><tr><th>Prestataire / produit / lot</th><th class="num"><span class="lg">Mouvements</span><span class="sm">Mvts</span></th><th class="num c-lots">Lots</th><th class="num">Quantité</th></tr></thead><tbody>';
+    g.forEach(p => {
+      h += '<tr class="pr"><th>' + esc(p.prestataire) + '</th><th class="num">' + p.n + '</th><th class="num c-lots">' + p.produits.reduce((a, x) => a + x.lots.length, 0) + '</th><th class="num">' + kg(p.kg) + ' kg</th></tr>';
+      p.produits.forEach(x => {
+        const ouvert = H.ouverts.has(x.cle);
+        h += '<tr class="pd" tabindex="0" role="button" aria-expanded="' + ouvert + '" data-k="' + esc(x.cle) + '"><td><span class="chev" aria-hidden="true">' + (ouvert ? "▾" : "▸") + '</span>' + esc(libProduit(x.produit)) +
+          ' <small>' + Math.round(x.kg / (p.kg || 1) * 100) + ' %</small></td><td class="num">' + x.n + '</td><td class="num c-lots">' + x.lots.length + '</td><td class="num"><b>' + kg(x.kg) + ' kg</b></td></tr>';
+        if (ouvert) x.lots.forEach(o => {
+          h += '<tr class="lt' + (H.focusLot === p.prestataire + "|" + x.produit + "|" + o.lot ? " focus" : "") + '" tabindex="0" role="button" data-lp="' + esc(p.prestataire) + '" data-lprod="' + esc(x.produit) + '" data-lot="' + esc(o.lot) + '" title="Voir les mouvements de ce lot">' +
+            '<td><b>' + esc(o.lot) + '</b><small>' + esc([Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "), plage(o.du, o.au)].filter(Boolean).join(" · ")) + '</small></td>' +
+            '<td class="num">' + o.n + '</td><td class="num c-lots"></td><td class="num">' + kg(o.kg) + ' kg</td></tr>';
+        });
+      });
+    });
+    h += '</tbody><tfoot><tr><th>Total</th><th class="num">' + l.length + '</th><th class="num c-lots">' + g.reduce((a, p) => a + p.produits.reduce((b, x) => b + x.lots.length, 0), 0) + '</th><th class="num">' + kg(tot) + ' kg</th></tr></tfoot></table>' +
+      '<p class="hint" style="margin-top:8px">Touchez un produit pour voir le détail par lot, puis un lot pour voir ses mouvements.</p>';
+    t.innerHTML = h;
+    const act = (sel, f) => t.querySelectorAll(sel).forEach(e => { e.addEventListener("click", () => f(e)); e.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); f(e); } }); });
+    act("tr.pd", e => { const k = e.dataset.k; if (H.ouverts.has(k)) H.ouverts.delete(k); else H.ouverts.add(k); drawHist(); });
+    act("tr.lt", e => {
+      H.retour = { prestataire: H.prestataire, produit: H.produit, lot: H.lot, lotExact: H.lotExact, y: window.scrollY };
+      H.focusLot = e.dataset.lp + "|" + e.dataset.lprod + "|" + e.dataset.lot;
+      H.prestataire = e.dataset.lp; H.produit = e.dataset.lprod; H.lot = e.dataset.lot; H.lotExact = true; H.vue = "liste";
+      renderHist(); window.scrollTo(0, 0);
+    });
+  }
+  function revenirSynthese(){
+    const r = H.retour; H.vue = "synthese";
+    if (r){ H.prestataire = r.prestataire; H.produit = r.produit; H.lot = r.lot; H.lotExact = r.lotExact; }
+    H.retour = null; renderHist();
+    if (r) requestAnimationFrame(() => { const f = document.querySelector("tr.lt.focus"); if (f) f.scrollIntoView({ block: "center" }); else window.scrollTo(0, r.y); });
   }
   function drawEdit(){
     const box = document.getElementById("hEditBox"); if (!box) return;
@@ -406,14 +492,26 @@
     const lignes = [[{ v: "MOUVEMENTS ALLIUMS PRESTATION – E14.3", s: 4 }], ["Période : du " + frDate(H.du) + " au " + frDate(H.au) +
       (H.prestataire ? " – prestataire : " + H.prestataire : "") + (H.produit ? " – produit : " + libProduit(H.produit) : "") + (H.lot ? " – lot : " + H.lot : "")], [],
       ["Date de chargement", "Prestataire", "Produit", "Variété", "Lot", "Origine", "Calibre", "Quantité (kg)", "Détail des pesées", "Conditionnement prévu", "Responsable", "Remarques", "Saisi le", "Modifications"].map(h)];
-    l.forEach(m => lignes.push([{ v: window.XlsxReleves.dateExcel(m.date), s: 8 }, m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", m.calibre || "", { v: m.quantite, s: 2 },
+    l.forEach(m => lignes.push([{ v: window.XlsxReleves.dateExcel(m.date), s: 8 }, m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", calibreNorm(m.calibre), { v: m.quantite, s: 2 },
       (m.pesees || []).map(x => String(x).replace(".", ",")).join(" + "), m.conditionnement || "", m.responsable || "", m.commentaire || "",
       m.import && m.import.horodateur ? m.import.horodateur + " (Google Sheet)" : (m.creeLe && m.creeLe.toDate ? m.creeLe.toDate().toLocaleString("fr-FR") : ""),
       (m.modifications || []).map(x => new Date(x.le).toLocaleString("fr-FR") + " par " + (x.par || "?") + " : " + (x.raison || "")).join(" ; ")]));
     lignes.push([]);
     lignes.push([{ v: "TOTAL", s: 1 }, "", "", "", l.length + " mouvement" + (l.length > 1 ? "s" : ""), "", "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
     PRODUITS.forEach(p => { const q = l.filter(m => m.produit === p[0]); if (q.length) lignes.push(["", "", p[1], "", q.length + " mouvement" + (q.length > 1 ? "s" : ""), "", "", { v: total(q.map(m => m.quantite || 0)), s: 2 }]); });
-    const data = window.XlsxReleves.tableau([{ nom: "Mouvements", lignes, largeurs: [12, 24, 10, 28, 14, 12, 10, 13, 22, 18, 22, 30, 20, 40], gel: [0, 4] }], { titre: "Mouvements alliums prestation E14.3" });
+    const periode = lignes[1];
+    const g = groupes(l);
+    const syn = [[{ v: "SYNTHÈSE PAR PRESTATAIRE ET PRODUIT", s: 4 }], periode, [], ["Prestataire", "Produit", "Mouvements", "Lots", "Quantité (kg)"].map(h)];
+    g.forEach(p => { p.produits.forEach(x => syn.push([p.prestataire, libProduit(x.produit), { v: x.n, s: 6 }, { v: x.lots.length, s: 6 }, { v: x.kg, s: 2 }]));
+      syn.push([{ v: "Total " + p.prestataire, s: 1 }, "", { v: p.n, s: 6 }, { v: p.produits.reduce((a, x) => a + x.lots.length, 0), s: 6 }, { v: p.kg, s: 2 }]); syn.push([]); });
+    syn.push([{ v: "TOTAL", s: 1 }, "", { v: l.length, s: 6 }, "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
+    const parLot = [[{ v: "DÉTAIL PAR LOT", s: 4 }], periode, [], ["Prestataire", "Produit", "Lot", "Variété(s)", "Calibre(s)", "Mouvements", "Quantité (kg)", "Premier chargement", "Dernier chargement"].map(h)];
+    g.forEach(p => p.produits.forEach(x => x.lots.forEach(o => parLot.push([p.prestataire, libProduit(x.produit), o.lot, Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "),
+      { v: o.n, s: 6 }, { v: o.kg, s: 2 }, { v: window.XlsxReleves.dateExcel(o.du), s: 8 }, { v: window.XlsxReleves.dateExcel(o.au), s: 8 }]))));
+    const data = window.XlsxReleves.tableau([
+      { nom: "Synthèse", lignes: syn, largeurs: [30, 12, 13, 8, 15], gel: [0, 4] },
+      { nom: "Par lot", lignes: parLot, largeurs: [26, 11, 14, 28, 16, 12, 14, 14, 14], gel: [0, 4] },
+      { nom: "Mouvements", lignes, largeurs: [12, 24, 10, 28, 14, 12, 10, 13, 22, 18, 22, 30, 20, 40], gel: [0, 4] }], { titre: "Mouvements alliums prestation E14.3" });
     telecharger("E14.3_Mouvements_alliums_prestation_" + H.du + "_au_" + H.au + ".xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   }
 
