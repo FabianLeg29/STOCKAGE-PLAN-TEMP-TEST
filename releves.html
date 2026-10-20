@@ -942,7 +942,9 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       configLoaded=true; render();
     },e=>{ console.warn(e); config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[], motifs:MOTIFS_DEFAUT.slice() }; configLoaded=true; banner("Réglages des relevés illisibles : liste des chambres par défaut affichée. "+lectureMsg(e)); render(); });
     // Mois précédent (lecture unique) : dernière température connue des chambres en début de mois
-    { const n=new Date(); moisQuery(monthKey(new Date(n.getFullYear(),n.getMonth()-1,1))).get()
+    // (7 derniers jours du mois précédent seulement : assez pour chaque chambre, et 4 fois moins de lectures Firebase)
+    { const n=new Date(), debut=monthBounds(monthKey(n))[0], avant=new Date(n.getFullYear(),n.getMonth(),1-7).toISOString();
+      RELEVES.where("at",">=",avant).where("at","<",debut).orderBy("at","desc").limit(1000).get()
         .then(s=>{ moisPrecedentDocs=s.docs.map(d=>Object.assign({_id:d.id},d.data())).filter(d=>d.type==="frigo"); if(tab==="frigo"&&!F.lieu) renderFrigo(); })
         .catch(e=>console.warn("Mois précédent illisible",e)); }
     moisQuery(monthKey(new Date())).onSnapshot(s=>{
