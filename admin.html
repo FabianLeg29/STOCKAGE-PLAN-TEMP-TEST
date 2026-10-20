@@ -157,12 +157,12 @@
   .empty-state svg{ width:38px; height:38px; margin-bottom:8px; opacity:.6; }
 
   .config-cellule{ border:1px solid var(--line); border-radius:8px; padding:12px 14px; margin-bottom:12px; }
-  .config-cellule .cfg-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; }
-  .config-cellule .cfg-head input{ font-family:'Fraunces'; font-weight:600; font-size:14.5px; border:none; background:transparent; padding:2px 4px; border-radius:4px; min-width:0; flex:1; }
-  .config-cellule .cfg-head input:focus{ outline:1.5px solid var(--copper); background:#fff; }
+  .config-cellule .cfg-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px; flex-wrap:wrap; }
+  .config-cellule .cfg-head > input[type=text]{ font-family:'Fraunces'; font-weight:600; font-size:14.5px; border:none; background:transparent; padding:2px 4px; border-radius:4px; min-width:120px; flex:1; }
+  .config-cellule .cfg-head > input[type=text]:focus{ outline:1.5px solid var(--copper); background:#fff; }
   .ligne-row{ display:flex; align-items:center; gap:8px; padding:8px 0; font-size:12.5px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
   .ligne-row:last-of-type{ border-bottom:none; }
-  .ligne-row input[type=text]{ font-family:'Inter'; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:160px; }
+  .ligne-row input[type=text]{ font-family:'Inter'; font-size:13px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:30ch; max-width:100%; }
   .ligne-row input[type=number]{ font-family:'IBM Plex Mono'; font-size:12.5px; padding:6px 6px; border:1px solid var(--line); border-radius:6px; width:70px; }
   .del-btn{ background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px; text-decoration:underline; flex-shrink:0; }
   .del-btn:hover{ color: var(--warn); }
@@ -257,6 +257,8 @@ label.adm-sec{display:inline-flex;align-items:center}
   body{ background:#F4F2EC; }
   .adm-wrap .del-btn{ min-height:44px; padding:0 4px; }
   .adm-wrap .btn-sm{ min-height:44px; }
+  .adm-wrap .ligne-row select{ min-height:44px; font-size:16px; }
+  .adm-wrap .ligne-row label{ min-height:44px; }
   .adm-wrap .ligne-row input[type=text],.adm-wrap .ligne-row input[type=number]{ min-height:44px; font-size:16px; }
   .adm-wrap .config-cellule .cfg-head{ flex-wrap:wrap; }
   .adm-wrap .config-cellule .cfg-head input[type=text]{ min-height:44px; min-width:160px; }
@@ -358,6 +360,18 @@ label.adm-sec{display:inline-flex;align-items:center}
       '<div style="font-family:\'Fraunces\';font-size:15px;color:var(--ink);margin-bottom:4px;">'+title+'</div><div style="font-size:13px;">'+sub+'</div></div>';
   }
 
+  // Familles de produits et de calibres, reprises à l'identique du plan de stockage (plan.html).
+  const FAMILLES = ['Echalote','Oignon','Ail'];
+  function normalizeProduitKey(produit){
+    return (produit||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+  function familleForProduit(state, produit){
+    return (state.produitFamilles||{})[produit] || '';
+  }
+  function familleOptionsHtml(selected){
+    return '<option value="" '+(!selected?'selected':'')+'>—</option>'+
+      FAMILLES.map(f=>'<option value="'+f+'" '+(f===selected?'selected':'')+'>'+f+'</option>').join('');
+  }
   // Normalisation du plan, reprise À L'IDENTIQUE de migrate() du plan de stockage (plan.html).
   // Utilisée pour l'affichage, l'export et l'import de sauvegarde, comme dans l'ancien onglet Cellules.
   function migrate(state){
@@ -369,6 +383,23 @@ label.adm-sec{display:inline-flex;align-items:center}
     if(!Array.isArray(state.calibres)){
       state.calibres = ['20/40','40/60','60/80'];
     }
+    if(state.produitFamilles==null || typeof state.produitFamilles!=='object') state.produitFamilles = {};
+    state.produits.forEach(p=>{
+      if(state.produitFamilles[p]!=null) return;
+      const key = normalizeProduitKey(p);
+      if(key.includes('echalote') || key.includes('echalion')) state.produitFamilles[p] = 'Echalote';
+      else if(key.includes('oignon')) state.produitFamilles[p] = 'Oignon';
+      else if(key.includes('ail')) state.produitFamilles[p] = 'Ail';
+    });
+    if(state.calibreFamilles==null || typeof state.calibreFamilles!=='object') state.calibreFamilles = {};
+    const DEFAULT_CALIBRE_FAMILLES = {
+      '20/40':['Echalote'], '24/30':['Echalote'], '30/36':['Echalote'], '30/40':['Echalote'], '30/50':['Echalote'], '36/45':['Echalote'], '50/55':['Echalote'], '-24':['Echalote'],
+      '40/50':['Echalote','Oignon'],
+      '-50':['Oignon'], '40/60':['Oignon'], '50/60':['Oignon'], '50/65':['Oignon'], '50/70':['Oignon'], '60/65':['Oignon'], '60/70':['Oignon'], '60/80':['Oignon'], '65/70':['Oignon'], '65/80':['Oignon'], '70+':['Oignon'], '80+':['Oignon'], '55+':['Oignon']
+    };
+    state.calibres.forEach(c=>{
+      if(state.calibreFamilles[c]==null && DEFAULT_CALIBRE_FAMILLES[c]) state.calibreFamilles[c] = DEFAULT_CALIBRE_FAMILLES[c];
+    });
     state.cellules.forEach(c=>{
       if(c.nonAchetee==null) c.nonAchetee = !!c.frigo;
       delete c.frigo;
@@ -517,6 +548,7 @@ label.adm-sec{display:inline-flex;align-items:center}
         const w = normalise(actuel);
         mutation(w);
         actuel.cellules = w.cellules; actuel.produits = w.produits; actuel.calibres = w.calibres;
+        actuel.produitFamilles = w.produitFamilles; actuel.calibreFamilles = w.calibreFamilles;
         t.set(DOC_REF, { data: JSON.stringify(actuel), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
       });
       setSaveStatus('ok');
@@ -537,7 +569,7 @@ label.adm-sec{display:inline-flex;align-items:center}
         '<button class="btn btn-blue btn-sm" id="exportBackupBtn"' + (planDoc.exists ? '' : ' disabled') + '>Exporter une sauvegarde (.json)</button>'+
         '<label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer;">Importer une sauvegarde<input type="file" id="importBackupInput" accept="application/json" style="display:none;"></label>'+
       '</div></div>';
-    const statut = '<p class="adm-muted" style="margin:0 0 10px;">Enregistrement immédiat de chaque modification dans planStockage/main (cellules, produits, calibres uniquement ; les palox et l\'historique ne sont pas touchés). <span id="saveStatus" style="font-weight:600;"></span></p>';
+    const statut = '<p class="adm-muted" style="margin:0 0 10px;">Enregistrement immédiat de chaque modification dans planStockage/main (cellules, produits, calibres et leurs familles uniquement ; les palox et l\'historique ne sont pas touchés). <span id="saveStatus" style="font-weight:600;"></span></p>';
     if (!planDoc.loaded) return statut + '<div class="loading">Chargement du plan…</div>';
     if (!planDoc.exists) return statut + backupSection + '<div class="card">' + emptyState('Plan de stockage introuvable', NO_PLAN) + '</div>';
     const state = planDoc.vue;
@@ -553,8 +585,8 @@ label.adm-sec{display:inline-flex;align-items:center}
       }).join('');
       return '<div class="config-cellule" data-cellule-block="'+c.id+'">'+
         '<div class="cfg-head"><input type="text" value="'+escapeHtml(c.nom)+'" data-cellule-nom="'+c.id+'" aria-label="Nom de la cellule">'+
-        '<label style="display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;color:var(--ink-soft);"><input type="checkbox" data-cellule-non-achetee="'+c.id+'" '+(c.nonAchetee?'checked':'')+' style="width:auto;"> Marchandise extérieure non achetée</label>'+
-        '<button class="del-btn" data-del-cellule="'+c.id+'">supprimer</button></div>'+
+        '<label style="display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap;"><input type="checkbox" data-cellule-non-achetee="'+c.id+'" '+(c.nonAchetee?'checked':'')+' style="width:16px;height:16px;min-width:16px;flex:none;margin:0;"> Marchandise extérieure non achetée</label>'+
+        '<button class="btn btn-ghost btn-sm" data-del-cellule="'+c.id+'">supprimer</button></div>'+
         lignesHtml+
         '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-add-ligne="'+c.id+'">+ Ajouter une ligne</button>'+
       '</div>';
@@ -569,11 +601,12 @@ label.adm-sec{display:inline-flex;align-items:center}
     const rows = list.map(p=>{
       return '<div class="ligne-row">'+
           '<input type="text" value="'+escapeHtml(p)+'" data-produit-old="'+escapeHtml(p)+'" aria-label="Produit">'+
+          '<select data-produit-famille="'+escapeHtml(p)+'" aria-label="Famille de '+escapeHtml(p)+'">'+familleOptionsHtml(familleForProduit(state, p))+'</select>'+
           '<button class="del-btn" data-del-produit="'+escapeHtml(p)+'">supprimer</button>'+
       '</div>';
     }).join('');
     return '<div class="card"><h2>Produits</h2>'+
-      '<p class="sub">Liste des produits proposés lors d\'une entrée de stock (bouton « + Entrée »), pour que tout le monde saisisse toujours le même intitulé.</p>'+
+      '<p class="sub">Liste des produits proposés lors d\'une entrée de stock (bouton « + Entrée »), pour que tout le monde saisisse toujours le même intitulé. La famille détermine les calibres proposés pour ce produit.</p>'+
       (list.length ? rows : emptyState("Aucun produit", "Ajoute au moins un produit pour pouvoir enregistrer une entrée de stock."))+
       '<button class="btn btn-copper btn-sm" id="addProduit" style="margin-top:8px;">+ Nouveau produit</button>'+
     '</div>';
@@ -581,13 +614,20 @@ label.adm-sec{display:inline-flex;align-items:center}
   function viewCalibresAdmin(state){
     const list = (state.calibres||[]).slice().sort((a,b)=>a.localeCompare(b,'fr'));
     const rows = list.map(c=>{
+      const current = (state.calibreFamilles||{})[c] || [];
+      const famillesHtml = FAMILLES.map(f=>
+        '<label style="display:flex;align-items:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap;">'+
+          '<input type="checkbox" data-calibre-famille="'+escapeHtml(c)+'|'+f+'" '+(current.includes(f)?'checked':'')+' style="width:14px;height:14px;min-width:14px;flex:none;margin:0;"> '+f+
+        '</label>'
+      ).join('');
       return '<div class="ligne-row">'+
           '<input type="text" value="'+escapeHtml(c)+'" data-calibre-old="'+escapeHtml(c)+'" aria-label="Calibre">'+
+          famillesHtml+
           '<button class="del-btn" data-del-calibre="'+escapeHtml(c)+'">supprimer</button>'+
       '</div>';
     }).join('');
     return '<div class="card"><h2>Calibres</h2>'+
-      '<p class="sub">Liste des calibres proposés lors d\'une entrée ou d\'une modification de stock, pour que tout le monde saisisse toujours le même intitulé.</p>'+
+      '<p class="sub">Liste des calibres proposés lors d\'une entrée ou d\'une modification de stock, pour que tout le monde saisisse toujours le même intitulé. Coche une ou plusieurs familles pour limiter ce calibre aux produits concernés (laisse tout décoché pour le proposer à tous les produits).</p>'+
       (list.length ? rows : emptyState("Aucun calibre", "Ajoute au moins un calibre pour pouvoir le proposer à la saisie."))+
       '<button class="btn btn-copper btn-sm" id="addCalibre" style="margin-top:8px;">+ Nouveau calibre</button>'+
     '</div>';
@@ -697,6 +737,7 @@ label.adm-sec{display:inline-flex;align-items:center}
     });
     // Produits et calibres : mêmes contrôles et messages que l'ancien onglet Comptes
     function listeEditable(cle, attrOld, attrDel, idAdd, libelleNouveau, msgDoublon, msgSuppr){
+      const cleFam = cle === 'produits' ? 'produitFamilles' : 'calibreFamilles';
       q('[' + attrOld + ']').forEach(inp=>{
         inp.addEventListener('change', ()=>{
           const oldName = inp.getAttribute(attrOld);
@@ -709,6 +750,8 @@ label.adm-sec{display:inline-flex;align-items:center}
             if(newName!==oldName && (s[cle]||[]).some(p=>p.toLowerCase()===newName.toLowerCase())) throw ErrU(msgDoublon);
             const idx = s[cle].indexOf(oldName);
             if(idx>-1) s[cle][idx] = newName;
+            const fam = s[cleFam];
+            if(newName!==oldName && fam && oldName in fam){ fam[newName] = fam[oldName]; delete fam[oldName]; }
           });
         });
       });
@@ -716,7 +759,7 @@ label.adm-sec{display:inline-flex;align-items:center}
         btn.addEventListener('click', ()=>{
           const nom = btn.getAttribute(attrDel);
           if(!confirm('Supprimer « '+nom+' » de la liste ? ' + msgSuppr)) return;
-          majPlan(s=>{ s[cle] = s[cle].filter(p=>p!==nom); });
+          majPlan(s=>{ s[cle] = s[cle].filter(p=>p!==nom); if(s[cleFam]) delete s[cleFam][nom]; });
         });
       });
       const add = document.getElementById(idAdd);
@@ -731,6 +774,23 @@ label.adm-sec{display:inline-flex;align-items:center}
         });
       });
     }
+    q('[data-produit-famille]').forEach(sel=>{
+      sel.addEventListener('change', ()=>{
+        const produit = sel.dataset.produitFamille, val = sel.value;
+        majPlan(s=>{ if(!s.produitFamilles) s.produitFamilles = {}; if(val) s.produitFamilles[produit] = val; else delete s.produitFamilles[produit]; });
+      });
+    });
+    q('[data-calibre-famille]').forEach(cb=>{
+      cb.addEventListener('change', ()=>{
+        const [calibre, famille] = cb.dataset.calibreFamille.split('|'), coche = cb.checked;
+        majPlan(s=>{
+          if(!s.calibreFamilles) s.calibreFamilles = {};
+          const current = new Set(s.calibreFamilles[calibre] || []);
+          if(coche) current.add(famille); else current.delete(famille);
+          s.calibreFamilles[calibre] = Array.from(current);
+        });
+      });
+    });
     listeEditable('produits', 'data-produit-old', 'data-del-produit', 'addProduit', 'Nom du nouveau produit :', 'Ce produit existe déjà dans la liste.', 'Les entrées déjà enregistrées avec ce produit ne sont pas affectées.');
     listeEditable('calibres', 'data-calibre-old', 'data-del-calibre', 'addCalibre', 'Nom du nouveau calibre :', 'Ce calibre existe déjà dans la liste.', 'Les entrées déjà enregistrées avec ce calibre ne sont pas affectées.');
   }

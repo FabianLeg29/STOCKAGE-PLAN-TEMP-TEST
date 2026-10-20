@@ -47,7 +47,8 @@ Collection `users`, un document par compte (`id` = UID Firebase Auth), champs `e
 
 ```
 planStockage/main   { data: "<JSON du state>", updatedAt }   ← inchangé
-  state = { cellules:[{id,nom,nonAchetee,lignes:[{id,nom,capacite}]}], lots:[palox…], transactions:[…], produits:[…], calibres:[…] }
+  state = { cellules:[{id,nom,nonAchetee,lignes:[{id,nom,capacite}]}], lots:[palox…], transactions:[…], produits:[…], calibres:[…],
+            produitFamilles:{ produit: 'Echalote'|'Oignon'|'Ail' }, calibreFamilles:{ calibre: ['Echalote',…] } }
 users/{uid}         { email, nom (facultatif), role, roleReleves }
 releves/{id}        { type:'frigo'|'produit', lieu, etat:'service'|'vide'|'arret' ('' pour produit), produit, lot,
                       temp, temps:[…], hr, min, max, hrMin, hrMax, tempConforme, hrConforme (frigo), conforme,
@@ -63,6 +64,8 @@ parametres/conservation { relArchiveApresMois (13), relConservationAns (5), plan
 ```
 
 Points importants :
+- **Version de production de référence** : `plan.html` = `index.html` de Plan_stockage_allium au commit `021e29f` (20/10/2026) + nos 4 retouches. Avant toute bascule, vérifier qu'aucun commit de production n'est venu après (voir `BASCULE.md`).
+- **Familles** (reprises de la production) : `FAMILLES = ['Echalote','Oignon','Ail']`. Chaque produit a une famille, déduite du nom par `migrate()` si absente. Chaque calibre a zéro, une ou plusieurs familles ; sans famille, il est proposé à tous les produits. Le plan filtre les calibres selon la famille du produit. Réglage dans Administration › Plan de stockage. `majPlan` écrit `cellules`, `produits`, `calibres`, `produitFamilles` et `calibreFamilles`.
 - **Plan** : le state est stocké en texte JSON dans le champ `data`, et pas `state`. Un palox est une entrée de `lots`. `migrate()` normalise le state à chaque lecture (voir `plan.html`).
 - **Statut d'un relevé** :
   - `conforme` : la mesure est dans la cible.
@@ -87,7 +90,7 @@ Points importants :
 ## Administration (`admin.html`)
 
 - **a) Comptes et accès** (admin du plan) : par compte, nom (facultatif), rôle plan et rôle relevés en listes déroulantes, enregistrement immédiat. Pour son propre compte, seul le nom est modifiable.
-- **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes. Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits` et `calibres` sont remplacés.
+- **b) Plan de stockage** (admin du plan) : repris **à l'identique** des anciens onglets Cellules et Comptes, version de production `021e29f` (familles des produits et des calibres comprises). Mêmes textes, même tri alphabétique, mêmes contrôles et messages (doublons, stock présent, capacité inférieure au stock). Sauvegarde manuelle par export et import JSON. Chaque modification est enregistrée immédiatement par **transaction** : relecture de `planStockage/main`, contrôles refaits sur les données fraîches, puis seuls `cellules`, `produits`, `calibres`, `produitFamilles` et `calibreFamilles` sont remplacés.
 - **c) Relevés de température** (admin relevés ou admin du plan) : liste des motifs « hors cible – normal », chambres (famille Légumes ou Alliums, T° mini et maxi, case Hygro puis hygrométrie mini et maxi : ces deux champs ne sont saisissables que si Hygro est coché, et décocher les efface) et produits du contrôle à cœur (mini et maxi), avec un bouton Enregistrer. Bouton « Exporter tous les relevés (JSON) » : relevés en cours et archivés (champ `archive` = id de l'archive), réglages des relevés, en un seul fichier. Bouton « Importer un fichier JSON » : restauration des relevés manquants (voir plus haut).
 - **d) Archives et conservation** : durées réglables (les durées de l'historique du plan ne sont visibles que de l'admin du plan), boutons « Archiver maintenant », liste des archives, export Excel avec graphiques (relevés) ou CSV (mouvements), et JSON. Suppression seulement après l'échéance, avec confirmation.
 
@@ -111,7 +114,8 @@ Les règles du plan (`users`, `planStockage`) sont inchangées, à deux exceptio
 
 ## Style / thème
 
-- Plan, accueil et administration : palette du logo **la légumière** (`--copper: #963E88`, vague `--wave-1`/`--wave-2`, polices Fraunces et Inter, icône oignon et échalote).
+- Logo La Légumière (image JPEG en base64, reprise de la production) : écran de connexion de l'accueil (grand, centré) et du plan.
+- Plan, accueil et administration : palette du logo **la légumière** (`--copper: #963E88`, vague `--wave-1`/`--wave-2`, polices Fraunces et Inter).
 - Relevés : thème bleu-vert du module (police Barlow, `--brand: #1F5C63`), avec un mode sombre.
 - Téléphone (390 px) : aucun débordement horizontal, zones tactiles d'au moins 44 px.
 

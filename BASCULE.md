@@ -17,6 +17,19 @@ Ce qui rend l'option A sûre :
 - Le code du plan (`plan.html`) est l'ancien code, à quelques retouches près.
 - Tout le reste est un **ajout** : de nouvelles collections et un champ `roleReleves` dans `users`.
 
+## Version de production de référence
+
+Le `plan.html` du test est construit sur **la dernière version de production** : le commit `021e29f` du 20/10/2026 (« Replace the onion/shallot icon with the La Légumière logo »), sur la branche publiée `claude/stockage-echalotes-oignons-6m4x91`. Il reprend donc les 13 changements faits en production depuis septembre :
+- familles de produits et de calibres (Echalote, Oignon, Ail) : calibres proposés selon le produit ;
+- couleur verte pour l'Échalote BIO ;
+- filtre par dates dans l'Historique des mouvements ;
+- logo La Légumière ;
+- retouches d'affichage : onglet Cellules, case « Marchandise extérieure non achetée », bouton « supprimer », champs de nom plus larges, libellé « Sous-total » décalé.
+
+Les anciens onglets Cellules et Comptes du plan sont devenus la rubrique **Administration › Plan de stockage** (`admin.html`). Les changements de ces onglets y sont repris aussi : choix de la famille de chaque produit, cases de familles pour chaque calibre, retouches de l'affichage des cellules.
+
+**Si la production a encore changé après `021e29f`, la bascule ne doit pas se faire telle quelle.** Il faut d'abord reporter ces nouveaux changements dans le dépôt de test (`plan.html` et, s'ils touchent les onglets Cellules ou Comptes, `admin.html`), puis les tester. La consigne de l'étape 5 fait cette vérification et s'arrête si besoin.
+
 ## Points d'attention
 
 ### 1. Les utilisateurs (le point le plus sensible)
@@ -31,6 +44,7 @@ Les nouvelles règles refusent l'accès au plan à tout compte **sans fiche `use
 
 ### 2. Les données
 - **Aucune donnée du plan n'est copiée ni transformée** à la bascule.
+- **Familles de produits et de calibres** (`produitFamilles`, `calibreFamilles` dans `planStockage/main`) : elles sont lues, conservées et modifiées par le plan comme par l'Administration. Aucun réglage fait en production n'est perdu.
 - **Relevés saisis dans la base de test :** ils **ne sont pas repris**, car ce sont des données de test. S'il y en a de vrais à garder, prévoir un export Excel et JSON depuis le test **avant** la bascule (un import pourra être ajouté si besoin).
 - **Archivage de l'historique du plan :** il reste sur **« Jamais »** au moins un mois, pour garder le retour arrière simple.
 
@@ -62,14 +76,16 @@ Prévoir **1 h**, à un moment calme, en prévenant les utilisateurs de recharge
 À coller tel quel dans une **nouvelle** session ouverte sur le dépôt `Plan_stockage_allium` :
 
 > Bascule de l'application vers la version à trois modules, développée et validée dans le dépôt `FabianLeg29/STOCKAGE-PLAN-TEMP-TEST` (branche `main`, lecture seule : ne rien y modifier).
-> 1. Sur la branche publiée par GitHub Pages (`claude/stockage-echalotes-oignons-6m4x91`), pose l'étiquette Git `avant-bascule` sur le dernier commit, puis pousse-la.
+> 0. **Vérification préalable, avant toute modification.** Sur la branche publiée par GitHub Pages (`claude/stockage-echalotes-oignons-6m4x91`), lance `git log --oneline 021e29f..HEAD`. Si cette commande liste des commits, ARRÊTE-TOI sans rien modifier et montre-moi la liste : ces changements de production ne sont pas encore dans le dépôt de test et seraient perdus. Continue seulement si la liste est vide.
+> 1. Sur la branche publiée, pose l'étiquette Git `avant-bascule` sur le dernier commit, puis pousse-la.
 > 2. Copie l'actuel `index.html` en `ancien-plan.html`, sans le modifier.
-> 3. Récupère depuis le dépôt de test : `index.html`, `plan.html`, `releves.html`, `admin.html`, `xlsx-releves.js`, `firestore.rules`, `SETUP-FIREBASE.md`, `CLAUDE.md` et `BASCULE.md`. **Ne prends pas** `prototype-plan-stockage-releves.html`.
+> 3. Renomme l'actuel `CLAUDE.md` en `PLAN-DETAILS.md`, sans perdre son contenu : il décrit en détail le code du plan, qui est désormais dans `plan.html`. Ajoute en tête une ligne qui le précise. Puis récupère depuis le dépôt de test : `index.html`, `plan.html`, `releves.html`, `admin.html`, `xlsx-releves.js`, `firestore.rules`, `SETUP-FIREBASE.md`, `CLAUDE.md` et `BASCULE.md`. **Ne prends pas** `prototype-plan-stockage-releves.html`.
 > 4. Dans `index.html`, `plan.html`, `releves.html` et `admin.html`, remplace la configuration Firebase du projet de test par celle de production, reprise **à l'identique** de l'ancien `index.html` (projet `plan-de-stockage-alliums`). Ensuite, vérifie qu'il ne reste **aucune** trace de `stockage-plan-temp-test` dans le dépôt.
 > 5. Adapte `CLAUDE.md` et `SETUP-FIREBASE.md` à la production : projet `plan-de-stockage-alliums`, adresse `https://fabianleg29.github.io/Plan_stockage_allium/`, branche publiée. Dans `index.html`, mets une nouvelle valeur à `VERSION`.
 > 6. Vérifications avant l'envoi :
 >    - `node --check` sur chaque `<script>` en ligne et sur `xlsx-releves.js` ;
->    - comparaison de `plan.html` avec `ancien-plan.html` : elle ne doit montrer que le retrait des onglets Cellules et Comptes, la barre de module, le blocage du rôle `none` et, cette fois, aucune différence de configuration Firebase.
+>    - comparaison de `plan.html` avec `ancien-plan.html` : elle ne doit montrer que le retrait des onglets Cellules et Comptes, la barre de module, le blocage du rôle `none` et, cette fois, aucune différence de configuration Firebase. **Toute autre différence** (familles, filtre par dates, logo, couleur BIO, etc.) veut dire qu'un changement de production manque : arrête-toi et montre-la-moi ;
+>    - `CLAUDE.md` mentionne bien `PLAN-DETAILS.md`.
 > 7. Montre-moi la liste des fichiers et le résultat des vérifications, **puis** pousse sur la branche publiée. Ne publie pas les règles : je le fais moi-même dans la console.
 
 ## Retour arrière (si besoin, environ 15 min)
