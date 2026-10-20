@@ -18,7 +18,7 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 
 | Fichier | Rôle |
 |---|---|
-| `index.html` | Connexion, puis **accueil** « Que voulez-vous faire ? » avec 4 tuiles : Plan de stockage, Relevés des températures (grisée si `roleReleves` = none), Mouvements prestation (grisée si `roleMouvements` = none, sauf pour l'admin du plan), Administration (visible si `role`, `roleReleves` ou `roleMouvements` = admin). Badge « Archivage à faire » sur la tuile Administration. Bouton Déconnexion. |
+| `index.html` | Connexion, puis **accueil** « Que voulez-vous faire ? » avec 4 tuiles, dans cet ordre : Mouvements prestation (grisée si `roleMouvements` = none, sauf pour l'admin du plan), Plan de stockage, Relevés des températures (grisée si `roleReleves` = none), Administration (visible si `role`, `roleReleves` ou `roleMouvements` = admin). Badge « Archivage à faire » sur la tuile Administration. Bouton Déconnexion. |
 | `plan.html` | L'application historique (ancien `index.html`), code **inchangé** sauf : boutons d'onglet Cellules et Comptes retirés, barre de module ajoutée, configuration Firebase de test, et blocage du rôle « Aucun accès » (message « Accès non autorisé » au lieu du plan). Les fonctions de ces onglets restent dans le code, inutilisées : c'est voulu, pour garder un code identique à l'original. |
 | `releves.html` | Module relevés de température (onglets Frigos, Produits, Historique). |
 | `admin.html` | Administration, 5 rubriques (voir plus bas). |
