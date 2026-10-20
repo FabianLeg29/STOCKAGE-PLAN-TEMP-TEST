@@ -208,7 +208,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
 <div class="mod-bar"><span class="mod-t"><span class="mod-dot" style="background:#62B4BB"></span><span>Relevés<span class="mod-lg"> des températures</span><span class="mod-sm"> T°</span></span></span><a class="mod-home" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Accueil</a></div>
 <div class="wrap">
   <header>
-    <h1>Relevé de température chambres froides</h1>
+    <h1 id="titre">Relevé de température chambres froides</h1>
     <span class="site">Réf. STOC E12.1 – La Légumière</span>
   </header>
   <div id="banner" class="banner hidden" role="status"></div>
@@ -910,7 +910,8 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
 
   // ---------- navigation ----------
   function setTab(t){ tab=t; document.body.classList.toggle("hist",t==="hist"); document.querySelectorAll("nav.rtabs button").forEach(b=>b.setAttribute("aria-selected",String(b.dataset.tab===t))); render(); window.scrollTo(0,0); }
-  function render(){ if(tab==="frigo") renderFrigo(); else if(tab==="produit") renderProduit(); else renderHist(); }
+  const TITRES={ frigo:"Relevé de température chambres froides", produit:"Relevé de température produits", hist:"Historique des relevés de température" };
+  function render(){ const t=document.getElementById("titre"); if(t) t.textContent=TITRES[tab]||TITRES.frigo; if(tab==="frigo") renderFrigo(); else if(tab==="produit") renderProduit(); else renderHist(); }
   document.querySelectorAll("nav.rtabs button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
 
   function bloquer(titre, texte){
