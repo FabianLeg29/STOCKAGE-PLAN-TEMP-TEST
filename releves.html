@@ -582,7 +582,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
     for(const f of cellules) h+='<button type="button" class="pick" data-cel="'+esc(f.nom)+'" aria-pressed="'+(P.cellule===f.nom)+'"><b>'+esc(f.nom)+'</b></button>';
     h+='</div></div>';
     if(P.cellule){
-      h+='<div class="card"><h2>Produit contrôlé</h2>';
+      h+='<div class="card"><h2>Produit à contrôler</h2>';
       if(config.produits.length>8) h+='<input type="text" id="pfil" placeholder="Rechercher un produit" aria-label="Rechercher un produit" value="'+esc(P.filtre)+'" style="margin-bottom:10px">';
       h+='<div class="grid" id="pgrid"></div></div>';
     }
