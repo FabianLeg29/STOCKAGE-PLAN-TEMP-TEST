@@ -137,7 +137,7 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.creeLe == request.time;
       allow update: if canManageMouvement()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'prestataire', 'produit', 'variete', 'lot', 'origine', 'calibre', 'pesees', 'quantite', 'conditionnement', 'responsable', 'commentaire', 'modifications'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['recolte', 'date', 'prestataire', 'produit', 'variete', 'lot', 'origine', 'calibre', 'pesees', 'quantite', 'conditionnement', 'responsable', 'commentaire', 'modifications'])
         && request.resource.data.produit in ['Ail', 'Oignon', 'Echalote']
         && request.resource.data.quantite is number;
       allow delete: if canManageMouvement();

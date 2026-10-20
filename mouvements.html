@@ -58,7 +58,7 @@
   .banner{border-radius:10px;padding:12px 14px;margin-bottom:12px;background:var(--warn-bg);color:#6E1F17;font-weight:600}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2B2620;color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:calc(100% - 32px)}
   .toast.on{opacity:1}
-  .filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end}
+  .filters{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;align-items:end}
   .filters label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .sum{font-size:14px;margin:0 0 10px}
@@ -74,6 +74,8 @@
   table.mv tr.imp td:first-child{border-left:3px solid #B88A1B}
   .mini{min-height:40px;padding:0 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:600 13px 'Inter',sans-serif;cursor:pointer;color:var(--ink)}
   .mini.del{color:var(--warn)}
+  .tag.warn{background:#F8E0C8;color:#8A3B12}
+  select.attrib{width:auto;min-height:36px;padding:4px 8px;font-size:13px;margin-left:4px}
   .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:5px;background:#F4E9CF;color:#7A5A12;margin-left:4px}
   .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
   .seg button{min-height:44px;border:1.5px solid var(--line);background:#fff;border-radius:9px;font:600 14px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
@@ -194,10 +196,10 @@
   let calibresPlan = null;   // { calibres, calibreFamilles } si le plan est lisible
   let tab = "saisie";
   let cleResp = "";
-  const S = { date: aujourdhui(), prestataire: "", prestAutre: "", produit: "", variete: "", varAutre: "", lot: "", origine: "", origAutre: "",
+  const S = { date: aujourdhui(), recolte: null, recolteAuto: "", prestataire: "", prestAutre: "", produit: "", variete: "", varAutre: "", lot: "", origine: "", origAutre: "",
     calibre: "", pesees: [""], conditionnement: "", condAutre: "", responsable: "", respAutre: "", commentaire: "" };
   const H = { du: debutMois(), au: aujourdhui(), prestataire: "", produit: "", lot: "", lotExact: false, docs: null, err: "", unsub: null, edit: null,
-    vue: "synthese", ouverts: new Set(), retour: null, focusLot: null };
+    vue: "synthese", ouverts: new Set(), retour: null, focusLot: null, recolte: "" };
 
   // ---------- utilitaires ----------
   function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -216,6 +218,24 @@
   }
   // Calibre « 7080 » -> « 70/80 » (comme dans le plan) ; « +70 » inchangé
   function calibreNorm(s){ s = String(s || "").trim().replace(/\s*\/\s*/g, "/"); return /^\d{4}$/.test(s) ? s.slice(0, 2) + "/" + s.slice(2) : s; }
+  // Récolte : désignée par l'année où elle commence (juin). Les deux récoltes se chevauchent de juin à fin juillet :
+  // pendant cette période l'opérateur choisit la récolte ; le reste de l'année, elle se déduit de la date.
+  const MOIS_DEBUT_RECOLTE = 6, MOIS_FIN_CHEVAUCHEMENT = 7;
+  function recolteParDefaut(j){ const y = +String(j).slice(0, 4), m = +String(j).slice(5, 7); return m >= MOIS_DEBUT_RECOLTE ? y : y - 1; }
+  function enChevauchement(j){ const m = +String(j).slice(5, 7); return m >= MOIS_DEBUT_RECOLTE && m <= MOIS_FIN_CHEVAUCHEMENT; }
+  function recoltesPossibles(j){ const r = recolteParDefaut(j); return enChevauchement(j) ? [r - 1, r] : [r]; }
+  // Mouvement sans récolte enregistrée : hors chevauchement, la date suffit ; pendant le chevauchement, on reprend la
+  // récolte connue du même lot (autres chargements) ; sinon null = « à confirmer ».
+  let indexRecoltes = new Map();
+  function cleLot(m){ return (m.produit || "") + "|" + cle(m.lot); }
+  function indexer(docs){
+    const idx = new Map();
+    docs.forEach(m => { if (m.recolte) idx.set(cleLot(m), m.recolte); });
+    docs.forEach(m => { if (!m.recolte && !enChevauchement(m.date) && !idx.has(cleLot(m))) idx.set(cleLot(m), recolteParDefaut(m.date)); });
+    indexRecoltes = idx;
+  }
+  function recolteDe(m){ return m.recolte || (enChevauchement(m.date) ? indexRecoltes.get(cleLot(m)) || null : recolteParDefaut(m.date)); }
+  function libRecolte(r){ return r ? "Récolte " + r : "Récolte à confirmer"; }
   function total(v){ return Math.round(v.reduce((a, b) => a + b, 0) * 1000) / 1000; }
   function toast(m){ const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 3200); }
   function banner(m){ const b = document.getElementById("banner"); b.textContent = m; b.classList.toggle("hidden", !m); }
@@ -249,9 +269,16 @@
     const pes = S.pesees.map((p, i) => '<div class="pesee"><span class="n">Pesée ' + (i + 1) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-pesee="' + i + '" value="' + esc(p) + '" placeholder="kg" aria-label="Pesée ' + (i + 1) + ' en kg"><span class="kg">kg</span>' +
       (S.pesees.length > 1 ? '<button type="button" class="x" data-delpesee="' + i + '" aria-label="Retirer la pesée ' + (i + 1) + '">×</button>' : "") + "</div>").join("");
     const cal = calibresProposes();
+    const poss = recoltesPossibles(S.date || aujourdhui());
+    if (poss.length === 1) S.recolte = poss[0]; else if (poss.indexOf(S.recolte) < 0) S.recolte = null;
     v.innerHTML =
       '<div class="card"><div class="row2"><div><h2>Date de chargement <span class="req">*</span></h2><input type="date" id="sDate" value="' + esc(S.date) + '"></div>' +
-        '<div><h2>Responsable</h2><input type="text" id="sResp" list="lResp" value="' + esc(S.responsable) + '" autocomplete="off"><datalist id="lResp">' + config.responsables.map(r => '<option value="' + esc(r) + '">').join("") + '</datalist></div></div></div>' +
+        '<div><h2>Responsable</h2><input type="text" id="sResp" list="lResp" value="' + esc(S.responsable) + '" autocomplete="off"><datalist id="lResp">' + config.responsables.map(r => '<option value="' + esc(r) + '">').join("") + '</datalist></div></div>' +
+        (poss.length > 1
+          ? '<h2 style="margin-top:14px">Récolte <span class="req">*</span></h2><p class="hint">Période de chevauchement (juin – juillet) : indiquez de quelle récolte vient la marchandise.</p><div class="chips">' +
+            poss.map((r, i) => '<button type="button" class="chip" data-rec="' + r + '" aria-pressed="' + (S.recolte === r) + '">Récolte ' + r + (i ? ' (nouvelle)' : ' (ancienne)') + '</button>').join("") + '</div>' +
+            (S.recolteAuto ? '<p class="hint" style="margin-top:6px">' + esc(S.recolteAuto) + '</p>' : '')
+          : '<p class="hint" style="margin:10px 0 0">Récolte ' + poss[0] + ' (déduite de la date).</p>') + '</div>' +
       '<div class="card"><h2>Prestataire <span class="req">*</span></h2>' + choixHtml("presta", config.prestataires, S.prestataire, true) +
         (S.prestataire === "__autre" ? '<input class="autre" type="text" id="sPrestAutre" value="' + esc(S.prestAutre) + '" placeholder="Nom du prestataire">' : "") + '</div>' +
       '<div class="card"><h2>Produit <span class="req">*</span></h2>' + choixHtml("produit", PRODUITS.map(p => p[0]), S.produit, false).replace(/>Echalote</, ">Échalote<") +
@@ -269,7 +296,15 @@
       '<button type="button" class="btn btn-main" id="sSave">Enregistrer le mouvement</button><p class="err hidden" id="sErr"></p>';
     majTotal();
     const on = (sel, ev, f) => v.querySelectorAll(sel).forEach(e => e.addEventListener(ev, () => f(e)));
-    on("#sDate", "input", e => { S.date = e.value; });
+    // Nouvelle date : la récolte est recalculée (choix à refaire si la date tombe dans le chevauchement)
+    on("#sDate", "change", e => { S.date = e.value; S.recolte = null; S.recolteAuto = ""; renderSaisie(); });
+    on("[data-rec]", "click", e => { S.recolte = +e.dataset.rec; S.recolteAuto = ""; renderSaisie(); });
+    on("#sLot", "change", () => {
+      // Chevauchement : récolte reprise des chargements déjà enregistrés pour ce lot, s'il y en a
+      if (recoltesPossibles(S.date).length < 2 || !S.produit || !S.lot.trim()) return;
+      const r = indexRecoltes.get(S.produit + "|" + cle(S.lot));
+      if (r && recoltesPossibles(S.date).indexOf(r) >= 0 && S.recolte !== r){ S.recolte = r; S.recolteAuto = "Récolte " + r + " reprise des chargements précédents du lot " + S.lot.trim().toUpperCase() + "."; renderSaisie(); }
+    });
     on("#sResp", "input", e => { S.responsable = e.value; });
     on("#sPrestAutre", "input", e => { S.prestAutre = e.value; });
     on("#sVarAutre", "input", e => { S.varAutre = e.value; });
@@ -309,11 +344,12 @@
     if (!S.produit) return show("Choisissez le produit.");
     if (S.produit === "Ail" && !variete) return show("Choisissez la variété d'ail.");
     if (!S.lot.trim()) return show("Indiquez le numéro de lot.");
+    if (!S.recolte) return show("Choisissez la récolte (période de chevauchement juin – juillet).");
     if (!origine) return show("Choisissez l'origine.");
     if (!remplies.length) return show("Saisissez au moins une pesée (kg).");
     if (lues.some(x => !x)) return show("Une pesée est illisible : saisissez un nombre (ex. 1086 ou 1086,5).");
     const pesees = [].concat.apply([], lues);
-    const doc = { date: S.date, prestataire, produit: S.produit, variete, lot: S.lot.trim().toUpperCase(), origine, calibre: calibreNorm(S.calibre),
+    const doc = { date: S.date, recolte: S.recolte, prestataire, produit: S.produit, variete, lot: S.lot.trim().toUpperCase(), origine, calibre: calibreNorm(S.calibre),
       pesees, quantite: total(pesees), conditionnement, responsable: S.responsable.trim(), commentaire: S.commentaire.trim(),
       uid: me.uid, creeLe: firebase.firestore.FieldValue.serverTimestamp() };
     btn.disabled = true;
@@ -332,22 +368,25 @@
     if (H.unsub) H.unsub();
     H.docs = null; H.err = "";
     H.unsub = MVT.where("date", ">=", H.du).where("date", "<=", H.au).orderBy("date", "desc").limit(5000).onSnapshot(s => {
-      H.docs = s.docs.map(d => Object.assign({ _id: d.id }, d.data())); H.err = "";
+      H.docs = s.docs.map(d => Object.assign({ _id: d.id }, d.data())); H.err = ""; indexer(H.docs);
       if (tab === "hist" && !saisieHistEnCours()) drawHist();
     }, e => { console.warn(e); H.docs = []; H.err = e && e.code === "permission-denied" ? "Lecture refusée : votre compte n'a pas accès à l'historique des mouvements." : "Lecture impossible : " + ((e && e.message) || ""); if (tab === "hist") drawHist(); });
   }
   function saisieHistEnCours(){ const a = document.activeElement; return !!(a && a.closest && a.closest("#hEdit")); }
   function filtres(){
     const l = cle(H.lot);
-    return (H.docs || []).filter(m => (!H.prestataire || m.prestataire === H.prestataire) && (!H.produit || m.produit === H.produit) && (!l || (H.lotExact ? cle(m.lot) === l : cle(m.lot).indexOf(l) >= 0)))
+    return (H.docs || []).filter(m => (!H.recolte || (H.recolte === "?" ? !recolteDe(m) : recolteDe(m) === +H.recolte)) && (!H.prestataire || m.prestataire === H.prestataire) && (!H.produit || m.produit === H.produit) && (!l || (H.lotExact ? cle(m.lot) === l : cle(m.lot).indexOf(l) >= 0)))
       .sort((a, b) => a.date === b.date ? ((b.creeLe && b.creeLe.toMillis ? b.creeLe.toMillis() : 0) - (a.creeLe && a.creeLe.toMillis ? a.creeLe.toMillis() : 0)) : (a.date < b.date ? 1 : -1));
   }
+  function recoltesListe(){ const r = recolteParDefaut(aujourdhui()), l = []; for (let y = r; y >= Math.min(2025, r); y--) l.push(y); return l; }
   function renderHist(){
     const v = document.getElementById("view");
     const prestas = Array.from(new Set(config.prestataires.concat((H.docs || []).map(m => m.prestataire)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr"));
     v.innerHTML = '<div class="card"><div class="seg" role="tablist"><button type="button" data-vue="synthese" aria-pressed="' + (H.vue === "synthese") + '">Synthèse</button><button type="button" data-vue="liste" aria-pressed="' + (H.vue === "liste") + '">Liste détaillée</button></div>' +
       (H.vue === "liste" && H.retour ? '<p class="hint" style="margin:8px 0 0">Mouvements du lot <b>' + esc(H.lot) + '</b> – ' + esc(H.prestataire) + ' – ' + esc(libProduit(H.produit)) + '. <button type="button" class="btn-link" id="hRetour">← Revenir à la synthèse</button></p>' : '') +
       '<div class="filters">' +
+      '<label>Récolte<select id="hRec"><option value="">Toutes</option>' + recoltesListe().map(r => '<option value="' + r + '"' + (String(H.recolte) === String(r) ? " selected" : "") + '>Récolte ' + r + '</option>').join("") +
+        '<option value="?"' + (H.recolte === "?" ? " selected" : "") + '>À confirmer</option></select></label>' +
       '<label>Du<input type="date" id="hDu" value="' + esc(H.du) + '"></label><label>Au<input type="date" id="hAu" value="' + esc(H.au) + '"></label>' +
       '<label>Prestataire<select id="hPresta"><option value="">Tous</option>' + prestas.map(p => '<option' + (H.prestataire === p ? " selected" : "") + ' value="' + esc(p) + '">' + esc(p) + '</option>').join("") + '</select></label>' +
       '<label>Produit<select id="hProd"><option value="">Tous</option>' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (H.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label>' +
@@ -358,6 +397,12 @@
     document.getElementById("hDu").addEventListener("change", e => { if (e.target.value){ H.du = e.target.value; if (H.au < H.du) H.au = H.du; ecouterHist(); renderHist(); } });
     document.getElementById("hAu").addEventListener("change", e => { if (e.target.value){ H.au = e.target.value; if (H.au < H.du) H.du = H.au; ecouterHist(); renderHist(); } });
     document.getElementById("hPresta").addEventListener("change", e => { H.prestataire = e.target.value; maj(); });
+    // Choisir une récolte règle aussi la période : de son début (juin) à la fin du chevauchement suivant (fin juillet)
+    document.getElementById("hRec").addEventListener("change", e => {
+      H.recolte = e.target.value;
+      if (/^\d{4}$/.test(H.recolte)){ const r = +H.recolte, fin = (r + 1) + "-07-31"; H.du = r + "-06-01"; H.au = fin < aujourdhui() ? fin : aujourdhui(); ecouterHist(); }
+      renderHist();
+    });
     document.getElementById("hProd").addEventListener("change", e => { H.produit = e.target.value; maj(); });
     document.getElementById("hLot").addEventListener("input", e => { H.lot = e.target.value; H.lotExact = false; maj(); });
     v.querySelectorAll("[data-vue]").forEach(b => b.addEventListener("click", () => { if (b.dataset.vue === "synthese") revenirSynthese(); else { H.vue = "liste"; H.retour = null; renderHist(); } }));
@@ -374,11 +419,13 @@
     const l = filtres();
     const parProd = PRODUITS.map(p => [p[1], l.filter(m => m.produit === p[0]).reduce((a, m) => a + (m.quantite || 0), 0)]).filter(x => x[1] > 0);
     s.innerHTML = "<b>" + l.length + " mouvement" + (l.length > 1 ? "s" : "") + " – " + kg(l.reduce((a, m) => a + (m.quantite || 0), 0)) + " kg</b>" +
-      (parProd.length ? " (" + parProd.map(x => x[0] + " : " + kg(x[1]) + " kg").join(" · ") + ")" : "") + " du " + frDate(H.du) + " au " + frDate(H.au) + ".";
+      (parProd.length ? " (" + parProd.map(x => x[0] + " : " + kg(x[1]) + " kg").join(" · ") + ")" : "") + (H.recolte && H.recolte !== "?" ? " – récolte " + H.recolte : "") + " du " + frDate(H.du) + " au " + frDate(H.au) + "." +
+      (() => { const n = l.filter(m => !recolteDe(m)).length; return n && H.recolte !== "?" ? ' <span class="tag warn">' + n + ' à récolte à confirmer</span>' + (estAdmin() ? ' <span class="hint">(à attribuer lot par lot dans la synthèse)</span>' : "") : ""; })();
     if (!l.length){ t.innerHTML = '<p class="empty">Aucun mouvement sur cette période.</p>'; return; }
     if (H.vue === "synthese") return drawSynthese(t, l);
-    t.innerHTML = '<table class="mv"><thead><tr><th>Date</th><th>Prestataire</th><th>Produit</th><th>Variété</th><th>Lot</th><th>Origine</th><th>Calibre</th><th>Quantité</th><th>Conditionnement</th><th>Responsable</th><th class="acts"></th></tr></thead><tbody>' +
+    t.innerHTML = '<table class="mv"><thead><tr><th>Date</th><th>Récolte</th><th>Prestataire</th><th>Produit</th><th>Variété</th><th>Lot</th><th>Origine</th><th>Calibre</th><th>Quantité</th><th>Conditionnement</th><th>Responsable</th><th class="acts"></th></tr></thead><tbody>' +
       l.map(m => '<tr' + (m.import ? ' class="imp"' : "") + '><td data-l="Date">' + frDate(m.date) + (m.import ? '<span class="tag" title="Importé de la Google Sheet">Sheet</span>' : "") + (m.modifications && m.modifications.length ? '<span class="tag" title="Modifié">Modifié</span>' : "") + '</td>' +
+        '<td data-l="Récolte">' + (recolteDe(m) ? recolteDe(m) + (m.recolte ? "" : ' <small class="hint">(déduite)</small>') : '<span class="tag warn">à confirmer</span>') + '</td>' +
         '<td data-l="Prestataire">' + esc(m.prestataire) + '</td><td data-l="Produit">' + esc(libProduit(m.produit)) + '</td><td data-l="Variété">' + esc(m.variete || "") + '</td><td data-l="Lot"><b>' + esc(m.lot) + '</b></td>' +
         '<td data-l="Origine">' + esc(m.origine || "") + '</td><td data-l="Calibre">' + esc(calibreNorm(m.calibre)) + '</td>' +
         '<td class="num" data-l="Quantité">' + kg(m.quantite) + ' kg' + (m.pesees && m.pesees.length > 1 ? "<small>" + m.pesees.map(kg).join(" + ") + "</small>" : "") + '</td>' +
@@ -396,8 +443,8 @@
       if (!pr.has(p)) pr.set(p, new Map());
       const pd = pr.get(p); if (!pd.has(m.produit)) pd.set(m.produit, new Map());
       const lots = pd.get(m.produit), k = m.lot || "(sans lot)";
-      if (!lots.has(k)) lots.set(k, { lot: k, n: 0, kg: 0, varietes: new Set(), calibres: new Set(), du: m.date, au: m.date });
-      const x = lots.get(k); x.n++; x.kg += m.quantite || 0;
+      if (!lots.has(k)) lots.set(k, { lot: k, produit: m.produit, n: 0, kg: 0, varietes: new Set(), calibres: new Set(), recoltes: new Set(), du: m.date, au: m.date });
+      const x = lots.get(k); x.n++; x.kg += m.quantite || 0; x.recoltes.add(recolteDe(m) || "?");
       if (m.variete) x.varietes.add(m.variete); if (m.calibre) x.calibres.add(calibreNorm(m.calibre));
       if (m.date < x.du) x.du = m.date; if (m.date > x.au) x.au = m.date;
     });
@@ -421,7 +468,7 @@
           ' <small>' + Math.round(x.kg / (p.kg || 1) * 100) + ' %</small></td><td class="num">' + x.n + '</td><td class="num c-lots">' + x.lots.length + '</td><td class="num"><b>' + kg(x.kg) + ' kg</b></td></tr>';
         if (ouvert) x.lots.forEach(o => {
           h += '<tr class="lt' + (H.focusLot === p.prestataire + "|" + x.produit + "|" + o.lot ? " focus" : "") + '" tabindex="0" role="button" data-lp="' + esc(p.prestataire) + '" data-lprod="' + esc(x.produit) + '" data-lot="' + esc(o.lot) + '" title="Voir les mouvements de ce lot">' +
-            '<td><b>' + esc(o.lot) + '</b><small>' + esc([Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "), plage(o.du, o.au)].filter(Boolean).join(" · ")) + '</small></td>' +
+            '<td><b>' + esc(o.lot) + '</b>' + recolteLotHtml(o) + '<small>' + esc([Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "), plage(o.du, o.au)].filter(Boolean).join(" · ")) + '</small></td>' +
             '<td class="num">' + o.n + '</td><td class="num c-lots"></td><td class="num">' + kg(o.kg) + ' kg</td></tr>';
         });
       });
@@ -431,12 +478,39 @@
     t.innerHTML = h;
     const act = (sel, f) => t.querySelectorAll(sel).forEach(e => { e.addEventListener("click", () => f(e)); e.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); f(e); } }); });
     act("tr.pd", e => { const k = e.dataset.k; if (H.ouverts.has(k)) H.ouverts.delete(k); else H.ouverts.add(k); drawHist(); });
+    t.querySelectorAll("[data-attrib]").forEach(sel => { sel.addEventListener("click", ev => ev.stopPropagation()); sel.addEventListener("keydown", ev => ev.stopPropagation()); sel.addEventListener("change", () => attribuerRecolte(sel.dataset.attrib, sel.dataset.aprod, +sel.value)); });
     act("tr.lt", e => {
       H.retour = { prestataire: H.prestataire, produit: H.produit, lot: H.lot, lotExact: H.lotExact, y: window.scrollY };
       H.focusLot = e.dataset.lp + "|" + e.dataset.lprod + "|" + e.dataset.lot;
       H.prestataire = e.dataset.lp; H.produit = e.dataset.lprod; H.lot = e.dataset.lot; H.lotExact = true; H.vue = "liste";
       renderHist(); window.scrollTo(0, 0);
     });
+  }
+  function recolteLotHtml(o){
+    const r = Array.from(o.recoltes), conf = r.indexOf("?") >= 0, txt = r.filter(x => x !== "?").sort().map(x => "Récolte " + x).join(", ");
+    let h = ' <span class="tag' + (conf ? ' warn' : '') + '">' + (txt ? txt + (conf ? " + à confirmer" : "") : "Récolte à confirmer") + '</span>';
+    // Admin : attribuer la récolte à tout le lot (un lot appartient à une seule récolte)
+    if (estAdmin() && (conf || r.length > 1 || enChevauchement(o.du) || enChevauchement(o.au))){
+      const poss = Array.from(new Set(recoltesPossibles(o.du).concat(recoltesPossibles(o.au)))).sort();
+      h += ' <select class="attrib" data-attrib="' + esc(o.lot) + '" data-aprod="' + esc(o.produit) + '" aria-label="Attribuer une récolte au lot ' + esc(o.lot) + '"><option value="">Attribuer…</option>' +
+        poss.map(x => '<option value="' + x + '">Récolte ' + x + '</option>').join("") + '</select>';
+    }
+    return h;
+  }
+  async function attribuerRecolte(lot, produit, r){
+    if (!r) return;
+    const cibles = (H.docs || []).filter(m => m.produit === produit && cle(m.lot) === cle(lot) && m.recolte !== r);
+    if (!cibles.length){ toast("Rien à changer."); return; }
+    if (!confirm("Attribuer la récolte " + r + " aux " + cibles.length + " mouvement" + (cibles.length > 1 ? "s" : "") + " du lot " + lot + " (" + libProduit(produit) + ") sur la période affichée ?")){ drawHist(); return; }
+    const le = new Date().toISOString();
+    try{
+      for (let i = 0; i < cibles.length; i += 400){
+        const b = db.batch();
+        cibles.slice(i, i + 400).forEach(m => b.update(MVT.doc(m._id), { recolte: r, modifications: firebase.firestore.FieldValue.arrayUnion({ le, par: me.email, raison: "Récolte attribuée au lot " + lot, avant: { recolte: m.recolte || "" } }) }));
+        await b.commit();
+      }
+      toast("Récolte " + r + " attribuée au lot " + lot + ".");
+    }catch(e){ alert(errMsg(e)); drawHist(); }
   }
   function revenirSynthese(){
     const r = H.retour; H.vue = "synthese";
@@ -451,6 +525,7 @@
     if (document.getElementById("hEdit") && document.getElementById("hEdit").dataset.id === m._id) return;
     const dl = (id, l) => '<datalist id="' + id + '">' + l.map(x => '<option value="' + esc(x) + '">').join("") + "</datalist>";
     box.innerHTML = '<div class="card edit" id="hEdit" data-id="' + esc(m._id) + '"><h2>Modifier le mouvement du ' + frDate(m.date) + ' – lot ' + esc(m.lot) + '</h2>' +
+      '<div class="row2"><label>Récolte<select id="eRec"><option value="">À confirmer</option>' + Array.from(new Set(recoltesPossibles(m.date).concat(m.recolte ? [m.recolte] : []))).sort().map(r => '<option value="' + r + '"' + (recolteDe(m) === r ? " selected" : "") + '>Récolte ' + r + '</option>').join("") + '</select></label><span></span></div>' +
       '<div class="row2"><label>Date de chargement<input type="date" id="eDate" value="' + esc(m.date) + '"></label><label>Prestataire<input type="text" id="ePresta" list="eLP" value="' + esc(m.prestataire) + '">' + dl("eLP", config.prestataires) + '</label></div>' +
       '<div class="row2"><label>Produit<select id="eProd">' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (m.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label><label>Variété<input type="text" id="eVar" list="eLV" value="' + esc(m.variete || "") + '">' + dl("eLV", [].concat(config.varietes.Ail, config.varietes.Oignon, config.varietes.Echalote)) + '</label></div>' +
       '<div class="row2"><label>Lot<input type="text" id="eLot" value="' + esc(m.lot) + '"></label><label>Origine<input type="text" id="eOrig" list="eLO" value="' + esc(m.origine || "") + '">' + dl("eLO", config.origines) + '</label></div>' +
@@ -462,12 +537,12 @@
     document.getElementById("eNon").addEventListener("click", () => { H.edit = null; drawEdit(); });
     document.getElementById("eSave").addEventListener("click", () => modifier(m));
   }
-  const CHAMPS = ["date", "prestataire", "produit", "variete", "lot", "origine", "calibre", "pesees", "quantite", "conditionnement", "responsable", "commentaire"];
+  const CHAMPS = ["recolte", "date", "prestataire", "produit", "variete", "lot", "origine", "calibre", "pesees", "quantite", "conditionnement", "responsable", "commentaire"];
   async function modifier(m){
     const err = document.getElementById("eErr"), show = x => { err.textContent = x; err.classList.remove("hidden"); };
     const g = id => document.getElementById(id).value.trim();
     const pes = lirePesees(g("ePes"));
-    const n = { date: g("eDate"), prestataire: g("ePresta"), produit: g("eProd"), variete: g("eVar"), lot: g("eLot").toUpperCase(), origine: g("eOrig"), calibre: calibreNorm(g("eCal")),
+    const n = { recolte: +g("eRec") || null, date: g("eDate"), prestataire: g("ePresta"), produit: g("eProd"), variete: g("eVar"), lot: g("eLot").toUpperCase(), origine: g("eOrig"), calibre: calibreNorm(g("eCal")),
       pesees: pes, quantite: pes ? total(pes) : null, conditionnement: g("eCond"), responsable: g("eResp"), commentaire: g("eCom") };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(n.date)) return show("Date de chargement invalide.");
     if (!n.prestataire || !n.lot || !n.origine) return show("Prestataire, lot et origine sont obligatoires.");
@@ -489,29 +564,29 @@
     const l = filtres().slice().reverse();
     if (!window.XlsxReleves || !window.XlsxReleves.tableau){ toast("Export Excel indisponible"); return; }
     const h = s => ({ v: s, s: 5 });
-    const lignes = [[{ v: "MOUVEMENTS ALLIUMS PRESTATION – E14.3", s: 4 }], ["Période : du " + frDate(H.du) + " au " + frDate(H.au) +
+    const lignes = [[{ v: "MOUVEMENTS ALLIUMS PRESTATION – E14.3", s: 4 }], [(H.recolte && H.recolte !== "?" ? "Récolte " + H.recolte + " – " : H.recolte === "?" ? "Récolte à confirmer – " : "") + "Période : du " + frDate(H.du) + " au " + frDate(H.au) +
       (H.prestataire ? " – prestataire : " + H.prestataire : "") + (H.produit ? " – produit : " + libProduit(H.produit) : "") + (H.lot ? " – lot : " + H.lot : "")], [],
-      ["Date de chargement", "Prestataire", "Produit", "Variété", "Lot", "Origine", "Calibre", "Quantité (kg)", "Détail des pesées", "Conditionnement prévu", "Responsable", "Remarques", "Saisi le", "Modifications"].map(h)];
-    l.forEach(m => lignes.push([{ v: window.XlsxReleves.dateExcel(m.date), s: 8 }, m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", calibreNorm(m.calibre), { v: m.quantite, s: 2 },
+      ["Date de chargement", "Récolte", "Prestataire", "Produit", "Variété", "Lot", "Origine", "Calibre", "Quantité (kg)", "Détail des pesées", "Conditionnement prévu", "Responsable", "Remarques", "Saisi le", "Modifications"].map(h)];
+    l.forEach(m => lignes.push([{ v: window.XlsxReleves.dateExcel(m.date), s: 8 }, recolteDe(m) ? { v: recolteDe(m), s: 0 } : "à confirmer", m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", calibreNorm(m.calibre), { v: m.quantite, s: 2 },
       (m.pesees || []).map(x => String(x).replace(".", ",")).join(" + "), m.conditionnement || "", m.responsable || "", m.commentaire || "",
       m.import && m.import.horodateur ? m.import.horodateur + " (Google Sheet)" : (m.creeLe && m.creeLe.toDate ? m.creeLe.toDate().toLocaleString("fr-FR") : ""),
       (m.modifications || []).map(x => new Date(x.le).toLocaleString("fr-FR") + " par " + (x.par || "?") + " : " + (x.raison || "")).join(" ; ")]));
     lignes.push([]);
-    lignes.push([{ v: "TOTAL", s: 1 }, "", "", "", l.length + " mouvement" + (l.length > 1 ? "s" : ""), "", "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
-    PRODUITS.forEach(p => { const q = l.filter(m => m.produit === p[0]); if (q.length) lignes.push(["", "", p[1], "", q.length + " mouvement" + (q.length > 1 ? "s" : ""), "", "", { v: total(q.map(m => m.quantite || 0)), s: 2 }]); });
+    lignes.push([{ v: "TOTAL", s: 1 }, "", "", "", "", l.length + " mouvement" + (l.length > 1 ? "s" : ""), "", "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
+    PRODUITS.forEach(p => { const q = l.filter(m => m.produit === p[0]); if (q.length) lignes.push(["", "", "", p[1], "", q.length + " mouvement" + (q.length > 1 ? "s" : ""), "", "", { v: total(q.map(m => m.quantite || 0)), s: 2 }]); });
     const periode = lignes[1];
     const g = groupes(l);
     const syn = [[{ v: "SYNTHÈSE PAR PRESTATAIRE ET PRODUIT", s: 4 }], periode, [], ["Prestataire", "Produit", "Mouvements", "Lots", "Quantité (kg)"].map(h)];
     g.forEach(p => { p.produits.forEach(x => syn.push([p.prestataire, libProduit(x.produit), { v: x.n, s: 6 }, { v: x.lots.length, s: 6 }, { v: x.kg, s: 2 }]));
       syn.push([{ v: "Total " + p.prestataire, s: 1 }, "", { v: p.n, s: 6 }, { v: p.produits.reduce((a, x) => a + x.lots.length, 0), s: 6 }, { v: p.kg, s: 2 }]); syn.push([]); });
     syn.push([{ v: "TOTAL", s: 1 }, "", { v: l.length, s: 6 }, "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
-    const parLot = [[{ v: "DÉTAIL PAR LOT", s: 4 }], periode, [], ["Prestataire", "Produit", "Lot", "Variété(s)", "Calibre(s)", "Mouvements", "Quantité (kg)", "Premier chargement", "Dernier chargement"].map(h)];
-    g.forEach(p => p.produits.forEach(x => x.lots.forEach(o => parLot.push([p.prestataire, libProduit(x.produit), o.lot, Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "),
+    const parLot = [[{ v: "DÉTAIL PAR LOT", s: 4 }], periode, [], ["Prestataire", "Produit", "Lot", "Récolte", "Variété(s)", "Calibre(s)", "Mouvements", "Quantité (kg)", "Premier chargement", "Dernier chargement"].map(h)];
+    g.forEach(p => p.produits.forEach(x => x.lots.forEach(o => parLot.push([p.prestataire, libProduit(x.produit), o.lot, Array.from(o.recoltes).sort().map(r => r === "?" ? "à confirmer" : r).join(", "), Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "),
       { v: o.n, s: 6 }, { v: o.kg, s: 2 }, { v: window.XlsxReleves.dateExcel(o.du), s: 8 }, { v: window.XlsxReleves.dateExcel(o.au), s: 8 }]))));
     const data = window.XlsxReleves.tableau([
       { nom: "Synthèse", lignes: syn, largeurs: [30, 12, 13, 8, 15], gel: [0, 4] },
-      { nom: "Par lot", lignes: parLot, largeurs: [26, 11, 14, 28, 16, 12, 14, 14, 14], gel: [0, 4] },
-      { nom: "Mouvements", lignes, largeurs: [12, 24, 10, 28, 14, 12, 10, 13, 22, 18, 22, 30, 20, 40], gel: [0, 4] }], { titre: "Mouvements alliums prestation E14.3" });
+      { nom: "Par lot", lignes: parLot, largeurs: [26, 11, 14, 14, 28, 16, 12, 14, 14, 14], gel: [0, 4] },
+      { nom: "Mouvements", lignes, largeurs: [12, 10, 24, 10, 28, 14, 12, 10, 13, 22, 18, 22, 30, 20, 40], gel: [0, 4] }], { titre: "Mouvements alliums prestation E14.3" });
     telecharger("E14.3_Mouvements_alliums_prestation_" + H.du + "_au_" + H.au + ".xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   }
 
