@@ -130,6 +130,9 @@ table.liste td.acts .mini{display:block;width:100%;margin:0 0 6px;white-space:no
 .pick span.cm,.cmtxt{color:var(--nm);font-weight:700}
 .pick span.cm.late{color:var(--ko)}
 .pick span.nmtxt{color:var(--nm)}
+.pick span.der{color:var(--ink)}
+.pick span.der.nm{color:var(--nm)}
+.pick span.der.ko{color:var(--ko)}
 .cmcard{border:2px solid var(--nm);background:var(--nm-bg)}
 .cmcard .pick{margin-top:8px;width:100%}
 tr.nm td{background:var(--nm-bg)}
@@ -279,7 +282,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   let roleReleves = "none", rolePlan = "viewer";
   let config = { frigos: [], produits: [], motifs: [] };
   let configLoaded = false;
-  let currentMonthDocs = [];
+  let currentMonthDocs = [], moisPrecedentDocs = [];
   let histDocs = null, histUnsub = null, histErr = false, curErr = false;
   const archInfo = {}; // mois -> archive trouvée | false (aucune / lecture non autorisée)
   let tab = "frigo";
@@ -378,7 +381,7 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
   function noConfig(what){
     return '<div class="card"><h2>Aucun '+what+' paramétré</h2><p class="hint">Un admin doit compléter la liste depuis l\'accueil, rubrique Administration.</p></div>';
   }
-  function lastFrigo(lieu){ let l=null; for(const d of currentMonthDocs){ if(d.type==="frigo"&&d.lieu===lieu&&(!l||d.at>l.at)) l=d; } return l; }
+  function lastFrigo(lieu){ let l=null; for(const d of currentMonthDocs.concat(moisPrecedentDocs)){ if(d.type==="frigo"&&d.lieu===lieu&&(!l||d.at>l.at)) l=d; } return l; }
   function doneToday(nom){ if(savedToday.has(nom)) return true; const l=lastFrigo(nom); return !!(l&&isToday(l.at)); }
 
   // ---------- Gestion des relevés (modification / suppression) ----------
@@ -441,7 +444,11 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       let sub;
       if(l&&isToday(l.at)) sub='<span class="done">Fait à '+hm(l.at)+(l.etat==="arret"?" (arrêt)":l.temp!=null?" : "+fmtT(l.temp)+" °C":"")+'</span>';
       else if(savedToday.has(f.nom)) sub='<span class="done">Fait</span>';
-      else sub='<span>À relever – cible '+esc(rangeShort(fnum(f.min),fnum(f.max)))+'</span>';
+      else sub='<span>À relever</span>';
+      sub+='<span>Cible '+esc(rangeShort(fnum(f.min),fnum(f.max)))+'</span>';
+      // Dernière température relevée (jour précédent ou mois précédent) quand la chambre n'est pas encore faite aujourd'hui
+      if(l&&!isToday(l.at)&&!savedToday.has(f.nom)){ const st=statutDe(l);
+        sub+='<span class="der'+(st==="ecart"?" ko":st==="normal"?" nm":"")+'">Dernière : '+(l.etat==="arret"?"arrêt":l.temp!=null?fmtT(l.temp)+" °C":"–")+' le '+esc(fmtDate(l.at).replace(" "," à "))+'</span>'; }
       if(l&&isToday(l.at)&&statutDe(l)==="normal") sub+='<span class="nmtxt">Hors cible – normal</span>';
       const cmf=cmPour("frigo",f.nom); if(cmf) sub+=cmTexte();
       // Cadre coloré une fois la chambre relevée aujourd'hui : vert, orange (hors cible – normal), rouge (contre-mesure à faire)
@@ -932,6 +939,10 @@ nav.rtabs.lecture button[data-tab="frigo"],nav.rtabs.lecture button[data-tab="pr
       }
       configLoaded=true; render();
     },e=>{ console.warn(e); config={ frigos:normaliserFrigos(CHAMBRES_STOC), produits:[], motifs:MOTIFS_DEFAUT.slice() }; configLoaded=true; banner("Réglages des relevés illisibles : liste des chambres par défaut affichée. "+lectureMsg(e)); render(); });
+    // Mois précédent (lecture unique) : dernière température connue des chambres en début de mois
+    { const n=new Date(); moisQuery(monthKey(new Date(n.getFullYear(),n.getMonth()-1,1))).get()
+        .then(s=>{ moisPrecedentDocs=s.docs.map(d=>Object.assign({_id:d.id},d.data())).filter(d=>d.type==="frigo"); if(tab==="frigo"&&!F.lieu) renderFrigo(); })
+        .catch(e=>console.warn("Mois précédent illisible",e)); }
     moisQuery(monthKey(new Date())).onSnapshot(s=>{
       curErr=false;
       currentMonthDocs=s.docs.map(d=>Object.assign({_id:d.id},d.data()));
