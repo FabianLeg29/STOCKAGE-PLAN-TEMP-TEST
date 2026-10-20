@@ -76,6 +76,7 @@ Prévoir **1 h**, à un moment calme, en prévenant les utilisateurs de recharge
 À coller tel quel dans une **nouvelle** session ouverte sur le dépôt `Plan_stockage_allium` :
 
 > Bascule de l'application vers la version à trois modules, développée et validée dans le dépôt `FabianLeg29/STOCKAGE-PLAN-TEMP-TEST` (branche `main`, lecture seule : ne rien y modifier).
+>
 > 0. **Vérification préalable, avant toute modification.** Sur la branche publiée par GitHub Pages (`claude/stockage-echalotes-oignons-6m4x91`), lance `git log --oneline 021e29f..HEAD`. Si cette commande liste des commits, ARRÊTE-TOI sans rien modifier et montre-moi la liste : ces changements de production ne sont pas encore dans le dépôt de test et seraient perdus. Continue seulement si la liste est vide.
 > 1. Sur la branche publiée, pose l'étiquette Git `avant-bascule` sur le dernier commit, puis pousse-la.
 > 2. Copie l'actuel `index.html` en `ancien-plan.html`, sans le modifier.
