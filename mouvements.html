@@ -184,13 +184,15 @@
   function kg(n){ return n == null || !isFinite(n) ? "–" : (Math.round(n * 100) / 100).toLocaleString("fr-FR"); }
   function cle(s){ return String(s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
   function libProduit(p){ const x = PRODUITS.find(q => q[0] === p); return x ? x[1] : (p || ""); }
-  // Pesées : « 1086 + 1097 », « 1 086,5 » … -> [1086, 1097] (null si illisible)
+  // Pesées : « 1086 + 1097 », « 1086/1097 », « 1 086,5 » … -> [1086, 1097] (null si illisible)
   function lirePesees(txt){
-    const parts = String(txt == null ? "" : txt).split(/[+;\n]/).map(x => x.replace(/\s|kg/gi, "").replace(",", ".")).filter(x => x !== "");
+    const parts = String(txt == null ? "" : txt).split(/[+;\/\n]/).map(x => x.replace(/\s|kg/gi, "").replace(",", ".")).filter(x => x !== "");
     if (!parts.length) return null;
     const v = parts.map(Number);
     return v.every(n => isFinite(n) && n > 0) ? v : null;
   }
+  // Calibre « 7080 » -> « 70/80 » (comme dans le plan) ; « +70 » inchangé
+  function calibreNorm(s){ s = String(s || "").trim().replace(/\s*\/\s*/g, "/"); return /^\d{4}$/.test(s) ? s.slice(0, 2) + "/" + s.slice(2) : s; }
   function total(v){ return Math.round(v.reduce((a, b) => a + b, 0) * 1000) / 1000; }
   function toast(m){ const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 3200); }
   function banner(m){ const b = document.getElementById("banner"); b.textContent = m; b.classList.toggle("hidden", !m); }
@@ -288,7 +290,7 @@
     if (!remplies.length) return show("Saisissez au moins une pesée (kg).");
     if (lues.some(x => !x)) return show("Une pesée est illisible : saisissez un nombre (ex. 1086 ou 1086,5).");
     const pesees = [].concat.apply([], lues);
-    const doc = { date: S.date, prestataire, produit: S.produit, variete, lot: S.lot.trim().toUpperCase(), origine, calibre: S.calibre.trim(),
+    const doc = { date: S.date, prestataire, produit: S.produit, variete, lot: S.lot.trim().toUpperCase(), origine, calibre: calibreNorm(S.calibre),
       pesees, quantite: total(pesees), conditionnement, responsable: S.responsable.trim(), commentaire: S.commentaire.trim(),
       uid: me.uid, creeLe: firebase.firestore.FieldValue.serverTimestamp() };
     btn.disabled = true;
@@ -366,7 +368,7 @@
       '<div class="row2"><label>Date de chargement<input type="date" id="eDate" value="' + esc(m.date) + '"></label><label>Prestataire<input type="text" id="ePresta" list="eLP" value="' + esc(m.prestataire) + '">' + dl("eLP", config.prestataires) + '</label></div>' +
       '<div class="row2"><label>Produit<select id="eProd">' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (m.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label><label>Variété<input type="text" id="eVar" list="eLV" value="' + esc(m.variete || "") + '">' + dl("eLV", [].concat(config.varietes.Ail, config.varietes.Oignon, config.varietes.Echalote)) + '</label></div>' +
       '<div class="row2"><label>Lot<input type="text" id="eLot" value="' + esc(m.lot) + '"></label><label>Origine<input type="text" id="eOrig" list="eLO" value="' + esc(m.origine || "") + '">' + dl("eLO", config.origines) + '</label></div>' +
-      '<div class="row2"><label>Calibre<input type="text" id="eCal" value="' + esc(m.calibre || "") + '"></label><label>Pesées (kg, séparées par +)<input type="text" id="ePes" inputmode="decimal" value="' + esc((m.pesees || [m.quantite]).map(x => String(x).replace(".", ",")).join(" + ")) + '"></label></div>' +
+      '<div class="row2"><label>Calibre<input type="text" id="eCal" value="' + esc(m.calibre || "") + '"></label><label>Pesées (kg, séparées par + ou /)<input type="text" id="ePes" inputmode="decimal" value="' + esc((m.pesees || [m.quantite]).map(x => String(x).replace(".", ",")).join(" + ")) + '"></label></div>' +
       '<div class="row2"><label>Conditionnement<input type="text" id="eCond" list="eLC" value="' + esc(m.conditionnement || "") + '">' + dl("eLC", config.conditionnements) + '</label><label>Responsable<input type="text" id="eResp" list="eLR" value="' + esc(m.responsable || "") + '">' + dl("eLR", config.responsables) + '</label></div>' +
       '<label>Remarques<textarea id="eCom">' + esc(m.commentaire || "") + '</textarea></label>' +
       '<label style="margin-top:10px">Raison de la modification (obligatoire)<input type="text" id="eRaison"></label>' +
@@ -379,7 +381,7 @@
     const err = document.getElementById("eErr"), show = x => { err.textContent = x; err.classList.remove("hidden"); };
     const g = id => document.getElementById(id).value.trim();
     const pes = lirePesees(g("ePes"));
-    const n = { date: g("eDate"), prestataire: g("ePresta"), produit: g("eProd"), variete: g("eVar"), lot: g("eLot").toUpperCase(), origine: g("eOrig"), calibre: g("eCal"),
+    const n = { date: g("eDate"), prestataire: g("ePresta"), produit: g("eProd"), variete: g("eVar"), lot: g("eLot").toUpperCase(), origine: g("eOrig"), calibre: calibreNorm(g("eCal")),
       pesees: pes, quantite: pes ? total(pes) : null, conditionnement: g("eCond"), responsable: g("eResp"), commentaire: g("eCom") };
     if (!/^\d{4}-\d{2}-\d{2}$/.test(n.date)) return show("Date de chargement invalide.");
     if (!n.prestataire || !n.lot || !n.origine) return show("Prestataire, lot et origine sont obligatoires.");
@@ -404,7 +406,7 @@
     const lignes = [[{ v: "MOUVEMENTS ALLIUMS PRESTATION – E14.3", s: 4 }], ["Période : du " + frDate(H.du) + " au " + frDate(H.au) +
       (H.prestataire ? " – prestataire : " + H.prestataire : "") + (H.produit ? " – produit : " + libProduit(H.produit) : "") + (H.lot ? " – lot : " + H.lot : "")], [],
       ["Date de chargement", "Prestataire", "Produit", "Variété", "Lot", "Origine", "Calibre", "Quantité (kg)", "Détail des pesées", "Conditionnement prévu", "Responsable", "Remarques", "Saisi le", "Modifications"].map(h)];
-    l.forEach(m => lignes.push([frDate(m.date), m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", m.calibre || "", { v: m.quantite, s: 2 },
+    l.forEach(m => lignes.push([{ v: window.XlsxReleves.dateExcel(m.date), s: 8 }, m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", m.calibre || "", { v: m.quantite, s: 2 },
       (m.pesees || []).map(x => String(x).replace(".", ",")).join(" + "), m.conditionnement || "", m.responsable || "", m.commentaire || "",
       m.import && m.import.horodateur ? m.import.horodateur + " (Google Sheet)" : (m.creeLe && m.creeLe.toDate ? m.creeLe.toDate().toLocaleString("fr-FR") : ""),
       (m.modifications || []).map(x => new Date(x.le).toLocaleString("fr-FR") + " par " + (x.par || "?") + " : " + (x.raison || "")).join(" ; ")]));

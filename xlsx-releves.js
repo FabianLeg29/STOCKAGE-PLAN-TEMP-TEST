@@ -42,13 +42,14 @@
       (opts.landscape ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') + freeze + cols + '<sheetData>' + data + '</sheetData>' + (opts.merges && opts.merges.length ? '<mergeCells count="' + opts.merges.length + '">' + opts.merges.map(function(m){ return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '') +
       '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>' + (opts.landscape ? '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>' : '') + (opts.drawing ? '<drawing r:id="rId1"/>' : '') + '</worksheet>';
   }
-  // styles : 0 normal, 1 gras, 2 nombre 0,0, 3 nombre 0,0 sur fond rouge (écart), 4 titre, 5 en-tête (gras, fond gris), 6 nombre entier, 7 texte rouge gras
+  // styles : 0 normal, 1 gras, 2 nombre 0,0, 3 nombre 0,0 sur fond rouge (écart), 4 titre, 5 en-tête (gras, fond gris), 6 nombre entier, 7 texte rouge gras,
+  // 8 date (valeur = numéro de série Excel, voir dateExcel)
   var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
     '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>' +
     '<fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFB0302A"/><name val="Arial"/></font></fonts>' +
     '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8DFDB"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE4EDEE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
     '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC7D5D7"/></left><right style="thin"><color rgb="FFC7D5D7"/></right><top style="thin"><color rgb="FFC7D5D7"/></top><bottom style="thin"><color rgb="FFC7D5D7"/></bottom><diagonal/></border></borders>' +
-    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8">' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9">' +
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
     '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>' +
@@ -57,6 +58,7 @@
     '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' +
     '<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>' +
     '<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' +
+    '<xf numFmtId="14" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>' +
     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
   var COULEURS = ['1F5C63', '963E88', 'C0464A', '3E5C76', 'B88A1B', '4E6647', '6F8FB0', '8A5A44', '2B2620', 'D9772B', '5B2A66', '1F7444', '7E7468', 'A13B2F', '2E86AB'];
   function fmtNum(v){ return v == null ? '' : String(v); }
@@ -220,5 +222,7 @@
     sheets.forEach(function(s, i){ files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: s.xml }); });
     return zip(files);
   }
-  root.XlsxReleves = { construire: construire, tableau: tableau };
+  // 'AAAA-MM-JJ' -> numéro de série Excel (affiché en date avec le style 8)
+  function dateExcel(j){ var p = String(j || '').split('-'); if (p.length !== 3) return null; return Math.round((Date.UTC(+p[0], +p[1] - 1, +p[2]) - Date.UTC(1899, 11, 30)) / 86400000); }
+  root.XlsxReleves = { construire: construire, tableau: tableau, dateExcel: dateExcel };
 })(typeof window !== 'undefined' ? window : globalThis);

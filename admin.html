@@ -839,7 +839,7 @@ label.adm-sec{display:inline-flex;align-items:center}
       '<div class="adm-mvt-listes">' + MVT_LISTES.map(function(k){ return '<label class="adm-mvt-l"><span>' + k[1] + '</span><textarea data-ml="' + k[0] + '" rows="5">' + esc(mvtListe(c, k[0]).join('\n')) + '</textarea></label>'; }).join('') + '</div>' +
       '<div class="adm-actions"><button type="button" class="adm-save" id="admMvtSave">Enregistrer les listes</button></div></section>';
     h += '<section class="adm-card"><h2>Import de la Google Sheet (historique)</h2>' +
-      '<p class="adm-muted">Dans la Google Sheet des réponses au formulaire E14.3 : Fichier › Télécharger › Valeurs séparées par des virgules (.csv). Les colonnes sont reconnues par leur titre (Horodateur, Date de chargement, Prestataire, Produit, Variété…, Lot, Origine, Calibre, Quantité, Conditionnement, Responsable), quel que soit leur ordre. « 1086 + 1097 » donne deux pesées. Un aperçu est affiché avant toute écriture ; une ligne déjà importée ne l\'est jamais une seconde fois.</p>' +
+      '<p class="adm-muted">Dans la Google Sheet des réponses au formulaire E14.3 : Fichier › Télécharger › Valeurs séparées par des virgules (.csv). Les colonnes sont reconnues par leur titre (Horodateur, Date de chargement, Prestataire, Produit, Variété…, Lot, Origine, Calibre, Quantité, Conditionnement, Responsable), quel que soit leur ordre. « 1086 + 1097 » ou « 1086/1097 » donnent deux pesées ; un calibre « 7080 » devient « 70/80 ». Un aperçu est affiché avant toute écriture ; une ligne déjà importée ne l\'est jamais une seconde fois.</p>' +
       (roleMouvements === 'admin'
         ? '<div class="adm-actions"><label class="adm-sec" style="cursor:pointer">Importer le fichier CSV<input type="file" id="admMvtImp" accept=".csv,text/csv" style="display:none"></label></div>'
         : '<p class="adm-muted">L\'import demande le rôle mouvements « Admin » (les règles n\'autorisent la création de mouvements qu\'aux rôles mouvements Gestion et Admin).</p>');
@@ -898,10 +898,12 @@ label.adm-sec{display:inline-flex;align-items:center}
   }
   function produitDe(s){ var k = cleTxt(s); if (k.indexOf('echal') >= 0) return 'Echalote'; if (k.indexOf('oignon') >= 0) return 'Oignon'; if (/(^|[^a-z])ail([^a-z]|$)/.test(k)) return 'Ail'; return ''; }
   function peseesDe(s){
-    var parts = String(s == null ? '' : s).split(/[+;\n]/).map(function(x){ return x.replace(/\s|kg/gi, '').replace(',', '.'); }).filter(function(x){ return x !== ''; });
+    var parts = String(s == null ? '' : s).split(/[+;\/\n]/).map(function(x){ return x.replace(/\s|kg/gi, '').replace(',', '.'); }).filter(function(x){ return x !== ''; });
     if (!parts.length) return null; var v = parts.map(Number);
     return v.every(function(n){ return isFinite(n) && n > 0; }) ? v : null;
   }
+  // Calibre « 7080 » -> « 70/80 » ; « 50/56 » ; « +70 » ou « Tv » inchangés
+  function calibreNorm(s){ s = String(s || '').trim().replace(/\s*\/\s*/g, '/'); return /^\d{4}$/.test(s) ? s.slice(0, 2) + '/' + s.slice(2) : s; }
   // Identifiant stable d'une ligne de la feuille : réimporter le même fichier ne crée jamais de doublon
   function empreinte(s){ var h1 = 0x811c9dc5, h2 = 0x01000193; for (var i = 0; i < s.length; i++){ var c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 ^ c, 2246822519) >>> 0; } return ('0000000' + h1.toString(16)).slice(-8) + ('0000000' + h2.toString(16)).slice(-8); }
   function preparerImportMvt(file){
@@ -947,7 +949,7 @@ label.adm-sec{display:inline-flex;align-items:center}
           var variete = col.varietes.map(function(i){ return g(r, i); }).filter(Boolean)[0] || '';
           var q = Math.round(pes.reduce(function(a, b){ return a + b; }, 0) * 1000) / 1000;
           ri.lignes.push({ id: id, ligne: ligne, horodateur: horo, d: { date: date, prestataire: prest, produit: produit, variete: variete, lot: lot, origine: g(r, col.origine),
-            calibre: g(r, col.calibre), pesees: pes, quantite: q, conditionnement: g(r, col.conditionnement), responsable: g(r, col.responsable), commentaire: g(r, col.commentaire) } });
+            calibre: calibreNorm(g(r, col.calibre)), pesees: pes, quantite: q, conditionnement: g(r, col.conditionnement), responsable: g(r, col.responsable), commentaire: g(r, col.commentaire) } });
           ri.kg += q;
           if (!ri.du || date < ri.du) ri.du = date;
           if (!ri.au || date > ri.au) ri.au = date;
