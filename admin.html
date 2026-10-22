@@ -247,9 +247,6 @@ label.adm-sec{display:inline-flex;align-items:center}
 .adm-imp{margin-top:14px;padding:12px 14px;border:1px solid #D2C9B4;border-radius:10px;background:#FBF8F2}
 .adm-imp h3{margin:0 0 6px;font:600 15px 'Inter',sans-serif;overflow-wrap:anywhere}
 .adm-imp ul{margin:0 0 10px;padding-left:20px}
-.adm-mvt-listes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.adm-mvt-l{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#5C554A}
-.adm-mvt-l textarea{font:500 15px 'Inter',sans-serif;border:1px solid #D2C9B4;border-radius:8px;padding:8px;min-height:120px;resize:vertical;width:100%}
 .adm-jauge{border-radius:10px;padding:12px 14px;margin:0 0 12px;border:1px solid #D2C9B4;background:#fff}
 .adm-jauge-t{margin-bottom:6px}
 .adm-jauge-b{height:12px;border-radius:6px;background:#ECE8DE;overflow:hidden;margin-bottom:6px}
@@ -830,8 +827,14 @@ label.adm-sec{display:inline-flex;align-items:center}
     conditionnements: ['TRESSE', 'TUBE', 'NETTOYE MAINS', 'LITE'],
     responsables: ['MAXIME KERANGUEVEN', 'ROMAIN GUILLERM', 'NICOLAS GUEGUEN']
   };
-  var MVT_LISTES = [['prestataires', 'Prestataires'], ['varietes.Ail', 'Variétés d\'ail'], ['varietes.Oignon', 'Variétés d\'oignon'], ['varietes.Echalote', 'Variétés d\'échalote'],
-    ['origines', 'Origines'], ['conditionnements', 'Conditionnements prévus'], ['responsables', 'Responsables']];
+  // Onglets des listes : [clé, titre de l'onglet, singulier pour « + Nouveau … », texte d'aide]
+  var MVT_ONGLETS = [['prestataires', 'Prestataires', 'prestataire', 'Prestataires proposés à la saisie d\'un mouvement.'],
+    ['varietes', 'Variétés', 'variété', 'Variétés proposées selon le produit choisi (ail, oignon ou échalote). Changer le produit d\'une variété la déplace dans la liste de ce produit.'],
+    ['origines', 'Origines', 'origine', 'Origines proposées à la saisie.'],
+    ['conditionnements', 'Conditionnements', 'conditionnement', 'Conditionnements prévus proposés à la saisie.'],
+    ['responsables', 'Responsables', 'responsable', 'Responsables proposés à la saisie (en plus du nom du compte connecté).']];
+  var MVT_PRODUITS = ['Ail', 'Oignon', 'Echalote'];
+  let mvtOnglet = 'prestataires';
   function mvtNorm(d){
     d = d || {}; var v = d.varietes || {};
     var l = function(a, def){ return Array.isArray(a) ? a.filter(function(x){ return String(x || '').trim(); }) : def.slice(); };
@@ -839,14 +842,45 @@ label.adm-sec{display:inline-flex;align-items:center}
       varietes: { Ail: l(v.Ail, MVT_DEFAUT.varietes.Ail), Oignon: l(v.Oignon, MVT_DEFAUT.varietes.Oignon), Echalote: l(v.Echalote, MVT_DEFAUT.varietes.Echalote) },
       origines: l(d.origines, MVT_DEFAUT.origines), conditionnements: l(d.conditionnements, MVT_DEFAUT.conditionnements), responsables: l(d.responsables, MVT_DEFAUT.responsables) };
   }
-  function mvtListe(c, k){ return k.indexOf('varietes.') === 0 ? c.varietes[k.slice(9)] : c[k]; }
+  // Variétés à plat : [{ nom, produit }]
+  function mvtVarietes(c){ var l = []; MVT_PRODUITS.forEach(function(p){ c.varietes[p].forEach(function(v){ l.push({ nom: v, produit: p }); }); }); return l; }
+  function trier(a){ return a.slice().sort(function(x, y){ return String(x.nom || x).localeCompare(String(y.nom || y), 'fr'); }); }
+  // Chaque changement est enregistré tout de suite, sur les listes relues dans Firebase (comme les produits du plan).
+  async function majMvtConfig(mutation, msgOk){
+    try{
+      await db.runTransaction(async function(t){
+        var snap = await t.get(MVT_CONFIG_REF), c = mvtNorm(snap.exists ? snap.data() : null);
+        mutation(c);
+        t.set(MVT_CONFIG_REF, c);
+      });
+      A.err = ''; A.msg = msgOk || '';
+    }catch(e){ A.msg = ''; A.err = e.userMsg || ('Listes non enregistrées : ' + errTxt(e)); }
+    draw();
+  }
+  function existeDeja(c, k, nom, sauf){
+    var n = nom.toLowerCase(), l = k === 'varietes' ? mvtVarietes(c).map(function(v){ return v.nom; }) : c[k];
+    return l.some(function(x){ return x.toLowerCase() === n && x !== sauf; });
+  }
   function frDate(j){ var p = String(j || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(j || ''); }
   function viewMvt(){
     var c = mvtConfig, h = '';
     if (!c) return '<section class="adm-card"><p class="adm-muted">Chargement des listes…</p></section>';
-    h += '<section class="adm-card"><h2>Listes proposées à la saisie</h2><p class="adm-muted">Une valeur par ligne. L\'opérateur peut toujours choisir « Autre » et saisir une valeur libre. Les mouvements déjà enregistrés ne sont pas modifiés.</p>' +
-      '<div class="adm-mvt-listes">' + MVT_LISTES.map(function(k){ return '<label class="adm-mvt-l"><span>' + k[1] + '</span><textarea data-ml="' + k[0] + '" rows="5">' + esc(mvtListe(c, k[0]).join('\n')) + '</textarea></label>'; }).join('') + '</div>' +
-      '<div class="adm-actions"><button type="button" class="adm-save" id="admMvtSave">Enregistrer les listes</button></div></section>';
+    var o = MVT_ONGLETS.filter(function(x){ return x[0] === mvtOnglet; })[0] || MVT_ONGLETS[0], k = o[0];
+    var lignes = k === 'varietes' ? trier(mvtVarietes(c)) : trier(c[k]);
+    h += '<div class="card"><h2>Listes proposées à la saisie</h2>' +
+      '<div class="cellule-tabs" role="tablist" style="margin:4px 0 12px">' + MVT_ONGLETS.map(function(x){
+        var n = x[0] === 'varietes' ? mvtVarietes(c).length : c[x[0]].length;
+        return '<button type="button" role="tab" data-mo="' + x[0] + '" class="' + (x[0] === k ? 'active' : '') + '" aria-selected="' + (x[0] === k) + '">' + x[1] + ' <span class="n">(' + n + ')</span></button>'; }).join('') + '</div>' +
+      '<p class="sub">' + o[3] + ' L\'opérateur peut toujours choisir « Autre » et saisir une valeur libre. Les mouvements déjà enregistrés ne sont pas modifiés.</p>' +
+      (lignes.length ? lignes.map(function(x){
+        var nom = k === 'varietes' ? x.nom : x;
+        return '<div class="ligne-row"><input type="text" value="' + esc(nom) + '" data-mv-old="' + esc(nom) + '" aria-label="' + esc(o[2]) + '">' +
+          (k === 'varietes' ? '<select data-mv-prod="' + esc(nom) + '" aria-label="Produit de ' + esc(nom) + '">' + MVT_PRODUITS.map(function(p){ return '<option value="' + p + '"' + (p === x.produit ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' : '') +
+          '<button class="del-btn" data-mv-del="' + esc(nom) + '">supprimer</button></div>'; }).join('')
+        : emptyState('Liste vide', 'Ajoutez une première valeur ci-dessous.')) +
+      '<div class="btn-row" style="margin-top:8px;align-items:center">' +
+        (k === 'varietes' ? '<select id="admMvtNvProd" aria-label="Produit de la nouvelle variété" style="min-height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">' + MVT_PRODUITS.map(function(p){ return '<option value="' + p + '">' + p + '</option>'; }).join('') + '</select>' : '') +
+        '<button class="btn btn-copper btn-sm" id="admMvtAdd">+ ' + (o[2] === 'variété' || o[2] === 'origine' ? 'Nouvelle ' : 'Nouveau ') + o[2] + '</button></div></div>';
     h += '<section class="adm-card"><h2>Import de la Google Sheet (historique)</h2>' +
       '<p class="adm-muted">Dans la Google Sheet des réponses au formulaire E14.3 : Fichier › Télécharger › Valeurs séparées par des virgules (.csv). Les colonnes sont reconnues par leur titre (Horodateur, Date de chargement, Prestataire, Produit, Variété…, Lot, Origine, Calibre, Quantité, Conditionnement, Responsable), quel que soit leur ordre. « 1086 + 1097 » ou « 1086/1097 » donnent deux pesées ; un calibre « 7080 » devient « 70/80 ». Un aperçu est affiché avant toute écriture ; une ligne déjà importée ne l\'est jamais une seconde fois.</p>' +
       (roleMouvements === 'admin'
@@ -865,18 +899,45 @@ label.adm-sec{display:inline-flex;align-items:center}
   }
   function bindMvt(o){
     var on = function(sel, ev, f){ o.querySelectorAll(sel).forEach(function(e){ e.addEventListener(ev, function(){ f(e); }); }); };
-    on('#admMvtSave', 'click', async function(btn){
-      var out = { varietes: {} };
-      o.querySelectorAll('[data-ml]').forEach(function(t){
-        var vals = [], vus = {};
-        t.value.split('\n').forEach(function(x){ x = x.trim(); var k = x.toLowerCase(); if (x && !vus[k]){ vus[k] = 1; vals.push(x); } });
-        var k = t.dataset.ml; if (k.indexOf('varietes.') === 0) out.varietes[k.slice(9)] = vals; else out[k] = vals;
-      });
-      if (!out.prestataires.length){ A.err = 'Gardez au moins un prestataire.'; A.msg = ''; return draw(); }
-      btn.disabled = true;
-      try{ await MVT_CONFIG_REF.set(out); mvtConfig = mvtNorm(out); A.err = ''; A.msg = 'Listes des mouvements enregistrées.'; }
-      catch(e){ A.msg = ''; A.err = 'Listes non enregistrées : ' + errTxt(e); }
-      draw();
+    var k = mvtOnglet, sing = (MVT_ONGLETS.filter(function(x){ return x[0] === k; })[0] || MVT_ONGLETS[0])[2];
+    var msgDoublon = 'Cette valeur existe déjà dans la liste.';
+    on('[data-mo]', 'click', function(b){ mvtOnglet = b.dataset.mo; A.msg = ''; A.err = ''; draw(); });
+    on('[data-mv-old]', 'change', function(inp){
+      var ancien = inp.dataset.mvOld, nv = inp.value.trim();
+      if (!nv || nv === ancien){ inp.value = ancien; return; }
+      if (existeDeja(mvtConfig, k, nv, ancien)){ alert(msgDoublon); inp.value = ancien; return; }
+      majMvtConfig(function(c){
+        if (existeDeja(c, k, nv, ancien)) throw ErrU(msgDoublon);
+        var l = k === 'varietes' ? MVT_PRODUITS.map(function(p){ return c.varietes[p]; }) : [c[k]];
+        l.forEach(function(a){ var i = a.indexOf(ancien); if (i > -1) a[i] = nv; });
+      }, '« ' + ancien + ' » renommé en « ' + nv + ' ».');
+    });
+    on('[data-mv-prod]', 'change', function(sel){
+      var nom = sel.dataset.mvProd, p = sel.value;
+      majMvtConfig(function(c){
+        MVT_PRODUITS.forEach(function(x){ c.varietes[x] = c.varietes[x].filter(function(v){ return v !== nom; }); });
+        c.varietes[p].push(nom);
+      }, '« ' + nom + ' » est maintenant une variété de ' + p + '.');
+    });
+    on('[data-mv-del]', 'click', function(b){
+      var nom = b.dataset.mvDel;
+      if (k === 'prestataires' && mvtConfig.prestataires.length <= 1){ alert('Gardez au moins un prestataire.'); return; }
+      if (!confirm('Supprimer « ' + nom + ' » de la liste ? Les mouvements déjà enregistrés avec cette valeur ne sont pas affectés.')) return;
+      majMvtConfig(function(c){
+        if (k === 'varietes') MVT_PRODUITS.forEach(function(x){ c.varietes[x] = c.varietes[x].filter(function(v){ return v !== nom; }); });
+        else { if (k === 'prestataires' && c.prestataires.length <= 1) throw ErrU('Gardez au moins un prestataire.'); c[k] = c[k].filter(function(v){ return v !== nom; }); }
+      }, '« ' + nom + ' » supprimé de la liste.');
+    });
+    on('#admMvtAdd', 'click', function(){
+      var p = k === 'varietes' ? o.querySelector('#admMvtNvProd').value : '';
+      var nom = prompt('Nom ' + (sing === 'variété' || sing === 'origine' ? 'de la nouvelle ' : 'du nouveau ') + sing + (p ? ' (' + p + ')' : '') + ' :', '');
+      if (!nom || !nom.trim()) return;
+      nom = nom.trim();
+      if (existeDeja(mvtConfig, k, nom)){ alert(msgDoublon); return; }
+      majMvtConfig(function(c){
+        if (existeDeja(c, k, nom)) throw ErrU(msgDoublon);
+        if (k === 'varietes') c.varietes[p].push(nom); else c[k].push(nom);
+      }, '« ' + nom + ' » ajouté.');
     });
     on('#admMvtImp', 'change', function(e){ var f = e.files && e.files[0]; e.value = ''; if (f) preparerImportMvt(f); });
     on('#admMvtNon', 'click', function(){ mvtImport = null; A.msg = ''; A.err = ''; draw(); });
