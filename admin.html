@@ -323,6 +323,7 @@ label.adm-sec{display:inline-flex;align-items:center}
     return ref.get();
   }
   const DOC_REF = db.collection('planStockage').doc('main');
+  const HIST = db.collection('planHistorique');   // historique du plan : un document par ligne
   const CONFIG_REF = db.collection('temperatures').doc('config');
   const CONS_REF = db.collection('parametres').doc('conservation');
   const RELEVES = db.collection('releves');
@@ -583,7 +584,7 @@ label.adm-sec{display:inline-flex;align-items:center}
 
   function viewPlan(){
     const backupSection = '<div class="card"><h2>Sauvegarde manuelle</h2>'+
-      '<p class="sub">En cas de souci avec la sauvegarde automatique, exporte un fichier de secours régulièrement, et importe-le pour restaurer tes données.</p>'+
+      '<p class="sub">En cas de souci avec la sauvegarde automatique, exporte un fichier de secours régulièrement, et importe-le pour restaurer tes données. Une fois l\'historique transféré, il n\'est plus dans ce fichier : exporte-le en Excel depuis l\'onglet Historique du plan.</p>'+
       '<div class="btn-row" style="margin-top:0;">'+
         '<button class="btn btn-blue btn-sm" id="exportBackupBtn"' + (planDoc.exists ? '' : ' disabled') + '>Exporter une sauvegarde (.json)</button>'+
         '<label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer;">Importer une sauvegarde<input type="file" id="importBackupInput" accept="application/json" style="display:none;"></label>'+
@@ -611,7 +612,7 @@ label.adm-sec{display:inline-flex;align-items:center}
         '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-add-ligne="'+c.id+'">+ Ajouter une ligne</button>'+
       '</div>';
     }).join('');
-    return statut + jauge + backupSection+'<div class="card"><h2>Structure des cellules</h2><p class="sub">Configure les cellules, leurs lignes et la capacité de chaque ligne (en nombre de palox). Une cellule ou ligne contenant encore du stock ne peut pas être supprimée.</p>'+
+    return statut + jauge + carteHisto() + backupSection+'<div class="card"><h2>Structure des cellules</h2><p class="sub">Configure les cellules, leurs lignes et la capacité de chaque ligne (en nombre de palox). Une cellule ou ligne contenant encore du stock ne peut pas être supprimée.</p>'+
       blocks+
       '<button class="btn btn-copper" id="addCellule" style="margin-top:6px;">+ Nouvelle cellule</button></div>' +
       viewProduitsAdmin(state) + viewCalibresAdmin(state);
@@ -686,6 +687,7 @@ label.adm-sec{display:inline-flex;align-items:center}
     const imp = document.getElementById('importBackupInput');
     if (imp) imp.addEventListener('change', (ev)=>{ if(ev.target.files && ev.target.files[0]) importBackup(ev.target.files[0]); ev.target.value = ''; });
     const exp = document.getElementById('exportBackupBtn'); if (exp) exp.addEventListener('click', exportBackup);
+    const th = document.getElementById('admTransHisto'); if (th) th.addEventListener('click', transfererHistorique);
     if (!planDoc.exists) return;
     q('[data-cellule-nom]').forEach(inp=>{
       inp.addEventListener('change', ()=>{
@@ -1108,11 +1110,6 @@ label.adm-sec{display:inline-flex;align-items:center}
   function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
   function expire(a){ return !!(a.expireLe && a.expireLe.toDate && a.expireLe.toDate() < new Date()); }
   function limiteReleves(){ return cons.relArchiveApresMois ? ajoutMois(new Date(), -cons.relArchiveApresMois).toISOString() : null; }
-  function aArchiverMouvements(){
-    if (!cons.planArchiveApresMois || !planDoc.exists) return [];
-    var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
-    return ((planDoc.raw && planDoc.raw.transactions) || []).filter(function(t){ return String(t.date || '') < lim; });
-  }
   async function chargerArchivage(){
     relAnciens = null; archives = null; archErr = '';
     var lim = limiteReleves();
@@ -1128,39 +1125,96 @@ label.adm-sec{display:inline-flex;align-items:center}
     if (A.tab === 'arch') draw();
   }
   // Remplissage du document planStockage/main : Firestore limite un document à 1 Mio (1 048 576 octets).
-  // Au-delà, plus aucune modification du plan ne peut être enregistrée : il faut archiver l'historique avant.
+  // Depuis le transfert, l'historique est dans planHistorique : le plan ne contient plus que la structure et les palox.
   var LIMITE_DOC = 1048576;
   function jaugePlan(){
     if (!planDoc.loaded || !planDoc.exists || !planDoc.raw) return '';
     var r = planDoc.raw, pct = Math.round(planDoc.octets / LIMITE_DOC * 100), tx = r.transactions || [], lots = r.lots || [];
-    var plusAncien = tx.reduce(function(a, t){ return t.date && (!a || t.date < a) ? t.date : a; }, '');
     var niv = pct >= 80 ? 'ko' : pct >= 60 ? 'nm' : 'ok';
-    var parTx = tx.length ? Math.round(JSON.stringify(tx).length / tx.length) : 234;
-    var reste = Math.max(0, Math.floor((LIMITE_DOC * 0.95 - planDoc.octets) / parTx));
+    var parPalox = lots.length ? Math.round(JSON.stringify(lots).length / lots.length) : 280;
+    var reste = Math.max(0, Math.floor((LIMITE_DOC * 0.95 - planDoc.octets) / parPalox));
     return '<div class="adm-jauge ' + niv + '" id="jaugePlan"><div class="adm-jauge-t"><b>Remplissage du plan : ' + pct + ' %</b> (' + Math.round(planDoc.octets / 1024).toLocaleString('fr-FR') + ' Ko sur 1 024 Ko autorisés par Firebase)</div>' +
       '<div class="adm-jauge-b" aria-hidden="true"><span style="width:' + Math.min(100, pct) + '%"></span></div>' +
-      '<div class="adm-muted">' + lots.length.toLocaleString('fr-FR') + ' palox en stock · ' + tx.length.toLocaleString('fr-FR') + ' lignes d\'historique' + (plusAncien ? ' (la plus ancienne : ' + plusAncien.split('-').reverse().join('/') + ')' : '') +
-      ' · encore environ ' + reste.toLocaleString('fr-FR') + ' mouvements avant la limite.' +
-      (niv === 'ok' ? '' : ' <b>' + (niv === 'ko' ? 'Archivez l\'historique du plan dès maintenant' : 'Prévoyez d\'archiver l\'historique du plan') + '</b> (Archives et conservation) : au-delà de 100 %, plus aucune modification du plan ne pourrait être enregistrée.') + '</div></div>';
+      '<div class="adm-muted">' + lots.length.toLocaleString('fr-FR') + ' palox en stock · place pour environ ' + reste.toLocaleString('fr-FR') + ' palox de plus. ' +
+      (tx.length ? '<b>' + tx.length.toLocaleString('fr-FR') + ' lignes d\'historique sont encore dans le plan</b> : transférez-les (rubrique Plan de stockage).' : 'L\'historique est enregistré à part : il ne remplit plus le plan.') +
+      (niv === 'ok' ? '' : ' <b>Le plan approche de la limite de Firebase' + (tx.length ? ' : transférez l\'historique dès maintenant.' : '.') + '</b>') + '</div></div>';
+  }
+  // ---------- Transfert de l'historique du plan vers planHistorique (un document par ligne) ----------
+  // Même identifiant et même contenu que dans plan.html : un transfert relancé ne crée pas de doublon.
+  function hashTxt(txt){ var h = 2166136261; for (var i = 0; i < txt.length; i++){ h ^= txt.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
+  function idHisto(t){ return t.id ? String(t.id).replace(/\//g, '_') : 'x' + hashTxt(JSON.stringify(t)); }
+  function docHisto(t){
+    var d = {}; Object.keys(t).forEach(function(k){ if (k !== 'id' && t[k] !== undefined) d[k] = t[k]; });
+    d.uid = me.uid; d.creeLe = firebase.firestore.FieldValue.serverTimestamp(); return d;
+  }
+  function idsHisto(tx){
+    var vus = {};
+    return tx.map(function(t){ var id = idHisto(t); if (vus[id]) id = id + '-' + hashTxt(JSON.stringify(t)); vus[id] = true; return id; });
+  }
+  function carteHisto(){
+    // Après le transfert, la carte disparaît ; elle revient seulement si des lignes reviennent dans le plan (ancienne sauvegarde réimportée).
+    var n = ((planDoc.raw && planDoc.raw.transactions) || []).length;
+    if (!n) return '';
+    return '<div class="card"><h2>Historique des mouvements</h2>' +
+      '<p class="sub"><b>' + n.toLocaleString('fr-FR') + ' ligne' + (n > 1 ? 's' : '') + ' d\'historique</b> ' + (n > 1 ? 'sont' : 'est') + ' encore dans le document du plan. Transférez-les : chaque ligne devient un document à part, et le plan ne grossit plus avec le temps. ' +
+      'Avant, exportez une sauvegarde du plan (bouton ci-dessous) et gardez-la sur ce poste. Les lignes sont copiées, vérifiées une à une, puis retirées du plan seulement si la copie est complète. Les palox en stock ne changent pas, et le transfert peut être relancé sans créer de doublon.</p>' +
+      '<button class="btn btn-copper btn-sm" id="admTransHisto">Transférer l\'historique</button></div>';
+  }
+  async function transfererHistorique(){
+    if (!isPlanAdmin()) return;
+    if (!confirm('Transférer l\'historique du plan ?\n\nAvez-vous exporté une sauvegarde du plan ? Si non, annulez et exportez-la d\'abord.\n\nLes lignes sont copiées, vérifiées, puis retirées du plan seulement si la copie est complète. Les palox en stock ne changent pas.')) return;
+    var b = document.getElementById('admTransHisto'); if (b){ b.disabled = true; b.textContent = 'Transfert en cours…'; }
+    try{
+      var snap = await DOC_REF.get(); if (!snap.exists) throw ErrU(NO_PLAN);
+      var tx = JSON.parse(snap.data().data || '{}').transactions || [];
+      if (!tx.length){ A.err = ''; A.msg = 'Aucune ligne d\'historique à transférer.'; return draw(); }
+      var ids = idsHisto(tx);
+      // 1. Copie, par lots de 400
+      for (var i = 0; i < tx.length; i += 400){
+        var lot = db.batch();
+        tx.slice(i, i + 400).forEach(function(t, j){ lot.set(HIST.doc(ids[i + j]), docHisto(t)); });
+        await lot.commit();
+        if (b) b.textContent = 'Copie : ' + Math.min(i + 400, tx.length) + ' / ' + tx.length + '…';
+      }
+      // 2. Vérification, ligne par ligne, sur le serveur
+      var ok = new Set();
+      for (var k = 0; k < tx.length; k += 100){
+        var lus = await Promise.all(ids.slice(k, k + 100).map(function(id){ return HIST.doc(id).get({ source: 'server' }); }));
+        lus.forEach(function(d, j){ var t = tx[k + j]; if (d.exists && d.data().type === t.type && d.data().date === t.date) ok.add(ids[k + j]); });
+        if (b) b.textContent = 'Vérification : ' + Math.min(k + 100, tx.length) + ' / ' + tx.length + '…';
+      }
+      if (ok.size !== tx.length) throw ErrU('Copie incomplète : ' + ok.size + ' lignes vérifiées sur ' + tx.length + '. Rien n\'a été retiré du plan ; relancez le transfert.');
+      // 3. Retrait des lignes vérifiées, sur les données fraîches du plan (les palox ne changent pas)
+      var retirees = 0;
+      await db.runTransaction(async function(t){
+        var s2 = await t.get(DOC_REF); if (!s2.exists) throw ErrU(NO_PLAN);
+        var cur = JSON.parse(s2.data().data || '{}'), tous = cur.transactions || [], ids2 = idsHisto(tous);
+        cur.transactions = tous.filter(function(x, j){ return !ok.has(ids2[j]); });
+        retirees = tous.length - cur.transactions.length;
+        cur.histoSepare = true;
+        t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      });
+      A.err = ''; A.msg = retirees + ' lignes d\'historique transférées et vérifiées. Les palox en stock n\'ont pas changé.';
+    }catch(e){
+      A.msg = ''; A.err = e.userMsg || ('Transfert interrompu : ' + errTxt(e) + '. Rien n\'est perdu : relancez le transfert.');
+    }
+    draw();
   }
   function optMois(sel, liste, zero){ return (zero ? '<option value="0"' + (sel === 0 ? ' selected' : '') + '>' + zero + '</option>' : '') + liste.map(function(n){ return '<option value="' + n + '"' + (sel === n ? ' selected' : '') + '>' + n + ' mois</option>'; }).join(''); }
   function optAns(sel, liste, zero){ return (zero ? '<option value="0"' + (sel === 0 ? ' selected' : '') + '>' + zero + '</option>' : '') + liste.map(function(n){ return '<option value="' + n + '"' + (sel === n ? ' selected' : '') + '>' + n + ' an' + (n > 1 ? 's' : '') + '</option>'; }).join(''); }
   function viewArch(){
     var c = cons, planAdmin = isPlanAdmin(), h = '';
-    var nr = relAnciens ? relAnciens.length : null, nm = planAdmin ? aArchiverMouvements().length : 0;
+    var nr = relAnciens ? relAnciens.length : null;
     if (archErr) h += '<div class="adm-err" role="alert">' + esc(archErr) + '</div>';
     h += '<section class="adm-card"><h2>Durées de conservation</h2><p class="adm-muted">Après le délai d\'archivage, les données quittent les écrans du module et passent dans les archives, où elles restent consultables et exportables. À la fin de la durée de conservation, l\'archive peut être supprimée définitivement. Vérifiez les durées exigées par votre démarche qualité et vos clients avant de les fixer.</p>' +
       '<h3 class="adm-h3">Relevés de température</h3><div class="adm-pair">' +
       '<label>Archiver les relevés après<select id="cRelA">' + optMois(c.relArchiveApresMois, [6, 12, 13, 18, 24, 36], 'Jamais') + '</select></label>' +
       '<label>Durée de conservation totale<select id="cRelC">' + optAns(c.relConservationAns, [1, 2, 3, 5, 10], 'Illimitée') + '</select></label></div>';
-    if (planAdmin) h += '<h3 class="adm-h3">Historique des mouvements du plan de stockage</h3><p class="adm-muted">Par défaut « Jamais » : l\'historique du plan reste tel quel. C\'est le seul réglage qui peut modifier les données du plan ; il ne s\'applique qu\'à l\'historique des mouvements, jamais aux palox en stock.</p><div class="adm-pair">' +
-      '<label>Archiver les mouvements après<select id="cPlanA">' + optMois(c.planArchiveApresMois, [6, 9, 12, 18, 24, 36], 'Jamais (par défaut)') + '</select></label>' +
-      '<label>Durée de conservation totale<select id="cPlanC">' + optAns(c.planConservationAns, [3, 5, 10], 'Illimitée') + '</select></label></div>';
+    if (planAdmin) h += '<h3 class="adm-h3">Historique des mouvements du plan de stockage</h3><p class="adm-muted">Plus d\'archivage nécessaire : chaque ligne est enregistrée à part et ne remplit plus le plan. Consultation et export Excel dans l\'onglet Historique du plan.</p>';
     h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveCons">Enregistrer les durées</button></div></section>';
     if (planAdmin && planDoc.loaded && planDoc.exists) h += '<section class="adm-card"><h2>Taille du plan de stockage</h2>' + jaugePlan() + '</section>';
     h += '<section class="adm-card"><h2>À archiver</h2>' +
       '<div class="adm-row"><span style="flex:1 1 220px">Relevés de température plus anciens que ' + (c.relArchiveApresMois ? c.relArchiveApresMois + ' mois' : '— (jamais)') + ' : <b>' + (nr == null ? '…' : nr) + '</b></span><button type="button" class="adm-sec" id="admArchRel"' + (nr ? '' : ' disabled') + '>Archiver maintenant</button></div>' +
-      (planAdmin ? '<div class="adm-row"><span style="flex:1 1 220px">Mouvements du plan plus anciens que ' + (c.planArchiveApresMois ? c.planArchiveApresMois + ' mois' : '— (jamais)') + ' : <b>' + nm + '</b></span><button type="button" class="adm-sec" id="admArchPlan"' + (nm ? '' : ' disabled') + '>Archiver maintenant</button></div>' : '') +
       '<p class="adm-muted">Firebase gratuit ne permet pas de tâche automatique : l\'archivage se lance ici. Quand il y a des données à archiver, un rappel apparaît sur la tuile Administration de l\'accueil.</p></section>';
     var liste = archives;
     h += '<section class="adm-card"><h2>Archives</h2>' + (liste === null ? '<p class="adm-muted">Chargement des archives…</p>' : liste.length ? '<div class="adm-scroll"><table class="adm-arch"><thead><tr><th>Contenu</th><th>Période</th><th>Créée le</th><th>Conserver jusqu\'au</th><th></th></tr></thead><tbody>' +
@@ -1198,42 +1252,6 @@ label.adm-sec{display:inline-flex;align-items:center}
       A.err = ''; A.msg = fait + ' relevés archivés (' + nbArch + ' archive' + (nbArch > 1 ? 's' : '') + ').';
     }catch(e){
       A.msg = ''; A.err = 'Archivage interrompu : ' + errTxt(e) + (fait ? ' (' + fait + ' relevés déjà archivés correctement ; relancez pour le reste).' : ' Aucun relevé n\'a été retiré.');
-    }
-    chargerArchivage(); draw();
-  }
-  // Historique du plan : même principe, une archive par mois (plusieurs si le mois dépasse MAX_ARCHIVE mouvements).
-  // Chaque archive est une transaction sur planStockage/main : création de l'archive et retrait de ses mouvements
-  // ensemble (tout ou rien). Seul le champ transactions change, les palox restent identiques.
-  async function archiverMouvements(){
-    if (!confirm('Archiver les anciens mouvements de l\'historique du plan ?\n\nIls quittent l\'onglet Historique du plan et restent consultables dans les archives. Les palox en stock ne changent pas.')) return;
-    var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
-    var fait = 0, nbArch = 0, fini = false;
-    try{
-      while (!fini){
-        var nb = 0;
-        await db.runTransaction(async function(t){
-          nb = 0;
-          var snap = await t.get(DOC_REF); if (!snap.exists) throw ErrU(NO_PLAN);
-          var cur = JSON.parse(snap.data().data || '{}');
-          var tous = cur.transactions || [];
-          var vieux = tous.filter(function(x){ return String(x.date || '') < lim; }).sort(function(a, b){ return String(a.date) < String(b.date) ? -1 : 1; });
-          if (!vieux.length) return;
-          var mk = String(vieux[0].date).slice(0, 7);
-          var tranche = vieux.filter(function(x){ return String(x.date).slice(0, 7) === mk; }).slice(0, MAX_ARCHIVE);
-          var d = tranche.map(function(x){ return String(x.date); });
-          t.set(ARCHIVES.doc(), { type: 'mouvements', mois: [mk], du: d[0], au: d[d.length - 1], nb: tranche.length, creeLe: new Date().toISOString(), par: me.email || me.uid,
-            expireLe: expireLe(d[d.length - 1], cons.planConservationAns), donnees: JSON.stringify(tranche) });
-          var retires = new Set(tranche);
-          cur.transactions = tous.filter(function(x){ return !retires.has(x); });
-          t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-          nb = tranche.length;
-        });
-        if (!nb) fini = true; else { fait += nb; nbArch++; }
-      }
-      if (fait){ A.err = ''; A.msg = fait + ' mouvements archivés (' + nbArch + ' archive' + (nbArch > 1 ? 's' : '') + '). Les palox en stock ne changent pas.'; }
-      else { A.err = 'Aucun mouvement à archiver.'; A.msg = ''; }
-    }catch(e){
-      A.msg = ''; A.err = (e.userMsg || ('Archivage interrompu : ' + errTxt(e))) + (fait ? ' (' + fait + ' mouvements déjà archivés correctement ; relancez pour le reste).' : '');
     }
     chargerArchivage(); draw();
   }
@@ -1315,7 +1333,7 @@ label.adm-sec{display:inline-flex;align-items:center}
       telecharger(nomArchive(a) + '.xlsx', window.XlsxReleves.construire(data, cf, { titre: 'ARCHIVE – RELEVÉS DE TEMPÉRATURE CHAMBRES FROIDES – STOC E12.1', periode: 'du ' + fd(a.du) + ' au ' + fd(a.au) }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       return;
     }
-    var cols = ['date', 'type', 'produit', 'lot', 'quantite', 'poids', 'label', 'fromLabel', 'toLabel', 'commentaire', 'responsable'];
+    var cols = ['date', 'type', 'produit', 'lot', 'lot2', 'quantite', 'poids', 'label', 'fromLabel', 'toLabel', 'commentaire', 'responsable'];
     var q = function(v){ v = v == null ? '' : (typeof v === 'number' ? String(v).replace('.', ',') : String(v)); return '"' + v.replace(/"/g, '""') + '"'; };
     telecharger(nomArchive(a) + '.csv', '﻿' + cols.join(';') + '\r\n' + data.map(function(r){ return cols.map(function(k){ return q(r[k]); }).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
   }
@@ -1331,7 +1349,6 @@ label.adm-sec{display:inline-flex;align-items:center}
       draw();
     };
     if (g('admArchRel')) g('admArchRel').onclick = function(){ this.disabled = true; archiverReleves(); };
-    if (g('admArchPlan')) g('admArchPlan').onclick = function(){ archiverMouvements(); };
     var trouve = function(id){ return (archives || []).filter(function(x){ return x.id === id; })[0]; };
     o.querySelectorAll('[data-axp]').forEach(function(b){ b.onclick = function(){ var a = trouve(b.dataset.axp); if (a) exporterArchive(a); }; });
     o.querySelectorAll('[data-axj]').forEach(function(b){ b.onclick = function(){ var a = trouve(b.dataset.axj); if (a) telecharger(nomArchive(a) + '.json', JSON.stringify({ type: a.type, du: a.du, au: a.au, nb: a.nb, creeLe: a.creeLe, par: a.par, expireLe: a.expireLe ? a.expireLe.toDate().toISOString() : null, donnees: donneesArchive(a) }, null, 2), 'application/json'); }; });

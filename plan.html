@@ -258,6 +258,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="xlsx-releves.js"></script>
 <script>
 (function(){
   // Remplace ces valeurs par la config de ton projet Firebase
@@ -276,6 +277,8 @@
   const auth = firebase.auth();
   const db = firebase.firestore();
   const DOC_REF = db.collection('planStockage').doc('main');
+  // Historique du plan : un document par ligne dans planHistorique (plus dans planStockage/main, limité à 1 Mio).
+  const HIST = db.collection('planHistorique');
   let currentRole = 'viewer';
   function canManageStock(){ return currentRole==='editor' || currentRole==='admin'; }
   function isAdmin(){ return currentRole==='admin'; }
@@ -299,6 +302,7 @@
 
   function applyIncomingState(raw){
     if(raw){ try{ state = JSON.parse(raw); }catch(e){ state = { cellules:[], lots:[], transactions:[], produits:[], calibres:[] }; } }
+    if(!Array.isArray(state.transactions)) state.transactions = [];
     migrate();
     if(!currentCelluleId || !getCellule(currentCelluleId)) currentCelluleId = state.cellules[0] ? state.cellules[0].id : null;
   }
@@ -343,12 +347,37 @@
     saveChain = saveChain.then(()=>doSaveWithRetry(4));
     return saveChain;
   }
+  // Le plan et ses nouvelles lignes d'historique sont écrits dans le même lot (tout ou rien).
+  // Une fois l'historique transféré (state.histoSepare), les lignes restées dans le plan (écrites par une
+  // ancienne version de la page) sont déplacées vers planHistorique au passage, 400 au plus par enregistrement.
   async function doSaveWithRetry(retriesLeft, delay){
     delay = delay || 1000;
     setSaveStatus('saving');
     try{
-      await DOC_REF.set({ data: JSON.stringify(state), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      const nouvelles = txAttente.slice(0, 400);
+      const anciennes = state.histoSepare ? state.transactions.slice(0, 400 - nouvelles.length) : [];
+      const deplacees = new Set(anciennes.map(t=>t.id));
+      const aEcrire = deplacees.size ? Object.assign({}, state, { transactions: state.transactions.filter(t=>!deplacees.has(t.id)) }) : state;
+      const lot = db.batch();
+      lot.set(DOC_REF, { data: JSON.stringify(aEcrire), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      nouvelles.concat(anciennes).forEach(t=> lot.set(HIST.doc(idHisto(t)), docHisto(t)));
+      try{ await lot.commit(); }
+      catch(e){
+        // Règles de planHistorique pas encore publiées : l'historique reste dans le plan, comme avant.
+        if(e && e.code==='permission-denied' && (nouvelles.length || anciennes.length)){
+          console.warn("Historique séparé refusé, enregistrement à l'ancienne", e);
+          state.transactions = nouvelles.slice().reverse().concat(state.transactions);
+          txAttente = txAttente.filter(t=>!nouvelles.includes(t));
+          await DOC_REF.set({ data: JSON.stringify(state), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          setSaveStatus('ok');
+          return;
+        }
+        throw e;
+      }
+      txAttente = txAttente.filter(t=>!nouvelles.includes(t));
+      if(deplacees.size) state.transactions = state.transactions.filter(t=>!deplacees.has(t.id));
       setSaveStatus('ok');
+      if(txAttente.length || (state.histoSepare && state.transactions.length)) saveState();
     }catch(e){
       console.error("Erreur de sauvegarde", e);
       if(retriesLeft>0){
@@ -488,9 +517,25 @@
     const c = getCellule(celluleId), l = getLigne(celluleId, ligneId);
     return (c?c.nom:'?') + " — " + (l?l.nom:'?');
   }
+  // Les nouvelles lignes d'historique attendent le prochain enregistrement du plan (voir doSaveWithRetry).
+  let txAttente = [];
   function addTx(type, data){
     const responsable = (auth.currentUser && auth.currentUser.email) || '?';
-    state.transactions.unshift(Object.assign({ id: uid(), type, date: data.date || today(), responsable }, data));
+    txAttente.push(Object.assign({ id: HIST.doc().id, type, date: data.date || today(), responsable }, data));
+  }
+  // Ligne sans identifiant (très ancienne) : identifiant tiré de son contenu, pour qu'un transfert relancé ne la double pas.
+  function idHisto(t){
+    if(t.id) return String(t.id).replace(/\//g, '_');
+    const txt = JSON.stringify(t); let h = 2166136261;
+    for(let i=0;i<txt.length;i++){ h ^= txt.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return 'x' + h.toString(36);
+  }
+  function docHisto(t){
+    const d = {};
+    Object.keys(t).forEach(k=>{ if(k!=='id' && t[k]!==undefined) d[k] = t[k]; });
+    d.uid = auth.currentUser ? auth.currentUser.uid : '';
+    d.creeLe = firebase.firestore.FieldValue.serverTimestamp();
+    return d;
   }
   function totalPalox(){ return state.lots.length; }
   const FAMILLES = ['Echalote','Oignon','Ail'];
@@ -566,6 +611,7 @@
     if(tab==='cellules' && !isAdmin()) tab = 'stockage';
     if(tab==='comptes' && !isAdmin()) tab = 'stockage';
     currentTab = tab;
+    if(tab!=='historique') arreterHisto();
     document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
     const app = document.getElementById('app');
     if(tab==='stockage') app.innerHTML = viewStockage();
@@ -1360,41 +1406,75 @@
   }
 
   // ---------- HISTORIQUE ----------
+  // Lignes lues dans planHistorique sur la période affichée (30 derniers jours par défaut),
+  // plus celles qui seraient encore dans le document du plan (avant le transfert, ou écrites par une ancienne version).
+  const histo = { du: '', au: '', cle: '', docs: null, err: '', unsub: null };
+  function histoDefaut(){ const d = new Date(); d.setDate(d.getDate()-30); histo.du = d.toISOString().slice(0,10); histo.au = ''; }
+  function arreterHisto(){ if(histo.unsub){ histo.unsub(); histo.unsub = null; } histo.cle = ''; }
+  function ecouterHisto(){
+    const cle = histo.du+'|'+histo.au;
+    if(histo.unsub && histo.cle===cle) return;
+    arreterHisto(); histo.cle = cle; histo.docs = null; histo.err = '';
+    let q = HIST;
+    if(histo.du) q = q.where('date', '>=', histo.du);
+    if(histo.au) q = q.where('date', '<=', histo.au);
+    histo.unsub = q.orderBy('date', 'desc').onSnapshot(snap=>{
+      histo.docs = snap.docs.map(d=>{ const x = d.data(); x.id = d.id; x._ms = x.creeLe && x.creeLe.toMillis ? x.creeLe.toMillis() : Date.now(); return x; });
+      histo.err = '';
+      if(currentTab==='historique') refreshHistorique();
+    }, err=>{
+      console.error(err);
+      histo.docs = []; histo.err = err && err.code==='permission-denied' ? "Lecture de l'historique refusée : les règles Firestore de planHistorique ne sont peut-être pas encore publiées." : "Historique illisible pour le moment : "+(err && err.message || err);
+      if(currentTab==='historique') refreshHistorique();
+    });
+  }
   function viewHistorique(){
-    return '<div class="card"><h2>Historique des mouvements</h2><p class="sub">Toutes les entrées, sorties et déplacements enregistrés.</p>'+
+    if(!histo.du && !histo.au && !histo.cle) histoDefaut();
+    return '<div class="card"><h2>Historique des mouvements</h2><p class="sub">Toutes les entrées, sorties et déplacements enregistrés. Par défaut, les 30 derniers jours : changez les dates pour remonter plus loin.</p>'+
       '<div class="grid-form" style="margin-bottom:14px;max-width:420px;">'+
-        '<label class="field">Du<input type="date" id="historiqueFrom"></label>'+
-        '<label class="field">Au<input type="date" id="historiqueTo"></label>'+
+        '<label class="field">Du<input type="date" id="historiqueFrom" value="'+escapeHtml(histo.du)+'"></label>'+
+        '<label class="field">Au<input type="date" id="historiqueTo" value="'+escapeHtml(histo.au)+'"></label>'+
       '</div>'+
-      '<div id="txTableWrap">'+txTable(state.transactions)+'</div></div>';
+      '<div class="btn-row" style="margin:0 0 14px;"><button class="btn btn-ghost btn-sm" id="exportHistoBtn">Exporter en Excel</button></div>'+
+      '<div id="txTableWrap">'+txTableWrap()+'</div></div>';
   }
   function filteredTransactions(){
-    const from = (document.getElementById('historiqueFrom')||{}).value || '';
-    const to = (document.getElementById('historiqueTo')||{}).value || '';
-    let txs = state.transactions;
-    if(from) txs = txs.filter(t=>t.date>=from);
-    if(to) txs = txs.filter(t=>t.date<=to);
-    return txs;
+    const from = histo.du, to = histo.au;
+    let anciennes = state.transactions || [];
+    if(from) anciennes = anciennes.filter(t=>t.date>=from);
+    if(to) anciennes = anciennes.filter(t=>t.date<=to);
+    const vus = new Set((histo.docs||[]).map(t=>t.id));
+    const toutes = (histo.docs||[]).concat(anciennes.filter(t=>!vus.has(idHisto(t))).map((t,i)=>Object.assign({ _ms: -i }, t)));
+    // Plus récent en premier : par date, puis par heure d'enregistrement
+    return toutes.sort((a,b)=> a.date<b.date ? 1 : a.date>b.date ? -1 : (b._ms||0)-(a._ms||0));
+  }
+  function txTableWrap(){
+    if(histo.docs===null) return '<div class="loading">Chargement de l\'historique…</div>';
+    return (histo.err ? '<p class="msg err" role="alert">'+escapeHtml(histo.err)+'</p>' : '')+txTable(filteredTransactions());
   }
   function refreshHistorique(){
-    document.getElementById('txTableWrap').innerHTML = txTable(filteredTransactions());
+    const w = document.getElementById('txTableWrap'); if(!w) return;
+    w.innerHTML = txTableWrap();
     bindHistoriqueDeleteEvents();
   }
   function bindHistoriqueDeleteEvents(){
     document.querySelectorAll('[data-del-tx]').forEach(btn=>{
       btn.addEventListener('click', async ()=>{
         if(!confirm('Supprimer cette ligne d\'historique ? Cette action ne peut pas être annulée. Le stock associé n\'est pas modifié.')) return;
-        state.transactions = state.transactions.filter(t=>t.id!==btn.dataset.delTx);
-        await saveState();
+        const id = btn.dataset.delTx;
+        try{
+          if((histo.docs||[]).some(t=>t.id===id)) await HIST.doc(id).delete();
+          if(state.transactions.some(t=>t.id===id)){ state.transactions = state.transactions.filter(t=>t.id!==id); await saveState(); }
+        }catch(e){ alert('Suppression impossible : '+(e && e.message || e)); }
         refreshHistorique();
       });
     });
   }
+  const TYPE_LABELS = { entree:'Entrée', sortie:'Sortie', deplacement:'Déplacement', modification:'Modification' };
   function txTable(txs){
-    if(txs.length===0) return emptyState("Aucun mouvement enregistré", "L'historique se remplit à chaque entrée, sortie ou déplacement.");
-    const typeLabels = { entree:'Entrée', sortie:'Sortie', deplacement:'Déplacement', modification:'Modification' };
+    if(txs.length===0) return emptyState("Aucun mouvement sur cette période", "L'historique se remplit à chaque entrée, sortie ou déplacement. Changez les dates pour remonter plus loin.");
     const rows = txs.map(t=>{
-      const typeLabel = typeLabels[t.type] || t.type;
+      const typeLabel = TYPE_LABELS[t.type] || t.type;
       const posHtml = t.type==='deplacement' ? ('<span class="mono">'+escapeHtml(t.fromLabel)+'</span> → <span class="mono">'+escapeHtml(t.toLabel)+'</span>') : ('<span class="mono">'+escapeHtml(t.label)+'</span>');
       return '<tr><td>'+fmtDate(t.date)+'</td><td><span class="tag '+t.type+'">'+typeLabel+'</span></td>'+
         '<td>'+escapeHtml(t.produit||'—')+(t.lot? ' ('+escapeHtml(t.lot)+(t.lot2?' + '+escapeHtml(t.lot2):'')+')':'')+'</td>'+
@@ -1402,10 +1482,30 @@
         '<td class="mono">'+(t.poids!=null? fmt(t.poids)+' kg':'—')+'</td>'+
         '<td>'+escapeHtml(t.commentaire||'—')+'</td>'+
         '<td>'+escapeHtml(t.responsable||'—')+'</td>'+
-        (isAdmin() ? '<td><button class="del-btn" data-del-tx="'+t.id+'">supprimer</button></td>' : '')+
+        (isAdmin() ? '<td><button class="del-btn" data-del-tx="'+escapeHtml(t.id)+'">supprimer</button></td>' : '')+
       '</tr>';
     }).join('');
     return '<div class="table-scroll"><table class="data"><thead><tr><th>Date</th><th>Type</th><th>Produit</th><th>Emplacement</th><th>Palox</th><th>Poids</th><th>Commentaire</th><th>Responsable</th>'+(isAdmin()?'<th></th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+  function exportHistoXlsx(){
+    if(!window.XlsxReleves || !window.XlsxReleves.tableau){ alert('Export Excel indisponible'); return; }
+    if(histo.docs===null){ alert('Historique en cours de chargement, réessayez dans un instant.'); return; }
+    const txs = filteredTransactions().slice().reverse();
+    const X = window.XlsxReleves, h = v=>({ v, s: 5 }), fr = d=> d ? d.split('-').reverse().join('/') : '';
+    const periode = 'Période : ' + (histo.du ? 'du '+fr(histo.du) : 'depuis le début') + (histo.au ? ' au '+fr(histo.au) : " à aujourd'hui");
+    const lignes = [[{ v: 'HISTORIQUE DES MOUVEMENTS DU PLAN DE STOCKAGE', s: 4 }], [periode], [],
+      ['Date', 'Type', 'Produit', 'Lot', 'Lot 2', 'Emplacement', 'Vers', 'Palox', 'Poids (kg)', 'Commentaire', 'Responsable'].map(h)];
+    txs.forEach(t=> lignes.push([{ v: X.dateExcel(t.date), s: 8 }, TYPE_LABELS[t.type] || t.type || '', t.produit || '', t.lot || '', t.lot2 || '',
+      (t.type==='deplacement' ? t.fromLabel : t.label) || '', t.type==='deplacement' ? (t.toLabel || '') : '',
+      { v: Number(t.quantite) || 0, s: 6 }, t.poids!=null ? { v: Number(t.poids), s: 2 } : '', t.commentaire || '', t.responsable || '']));
+    lignes.push([]);
+    lignes.push([{ v: 'TOTAL', s: 1 }, txs.length + ' ligne' + (txs.length>1?'s':'')]);
+    const data = X.tableau([{ nom: 'Historique', lignes, largeurs: [12, 14, 22, 14, 14, 26, 26, 8, 11, 30, 28], gel: [0, 4] }], { titre: 'Historique du plan de stockage' });
+    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = 'historique-plan-stockage_' + (histo.du || 'debut') + '_au_' + (histo.au || today()) + '.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
   }
 
   // ---------- CELLULES (config) ----------
@@ -1565,8 +1665,11 @@
       bindHistoriqueDeleteEvents();
       const fromInp = document.getElementById('historiqueFrom');
       const toInp = document.getElementById('historiqueTo');
-      if(fromInp) fromInp.addEventListener('change', refreshHistorique);
-      if(toInp) toInp.addEventListener('change', refreshHistorique);
+      const changer = ()=>{ histo.du = fromInp.value || ''; histo.au = toInp.value || ''; ecouterHisto(); refreshHistorique(); };
+      if(fromInp) fromInp.addEventListener('change', changer);
+      if(toInp) toInp.addEventListener('change', changer);
+      document.getElementById('exportHistoBtn').addEventListener('click', exportHistoXlsx);
+      ecouterHisto();
     }
     if(tab==='global'){
       document.querySelectorAll('[data-global-mode]').forEach(btn=>{
@@ -1758,6 +1861,7 @@
 
   auth.onAuthStateChanged(async (user)=>{
     if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
+    arreterHisto(); histo.du = ''; histo.au = ''; histo.docs = null; txAttente = [];
     if(user){
       try{
         const roleDoc = await db.collection('users').doc(user.uid).get();

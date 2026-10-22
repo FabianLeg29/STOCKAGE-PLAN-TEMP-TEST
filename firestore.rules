@@ -37,6 +37,25 @@ service cloud.firestore {
       allow write: if canManageStock();
     }
 
+    // Historique du plan : un document par ligne (entrée, sortie, déplacement, modification),
+    // écrit dans le même lot que planStockage/main. Lecture : comme le plan. Création : Gestion ou Admin du plan,
+    // avec uid = auteur et creeLe = heure serveur. Une ligne n'est jamais modifiée : seule une réécriture
+    // identique est acceptée (transfert relancé, enregistrement répété), qui ne change que uid et creeLe.
+    // Suppression : admin du plan seulement.
+    function ligneHistoValide() {
+      return request.resource.data.type in ['entree', 'sortie', 'deplacement', 'modification']
+        && request.resource.data.date is string && request.resource.data.date.size() == 10
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.creeLe == request.time;
+    }
+    match /planHistorique/{ligneId} {
+      allow read: if estConnu() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'viewer') != 'none';
+      allow create: if canManageStock() && ligneHistoValide();
+      allow update: if canManageStock() && ligneHistoValide()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'creeLe']);
+      allow delete: if isAdmin();
+    }
+
     // ===================================================================
     // Module relevés de température (ajouté ; les règles ci-dessus sont inchangées).
     // Rôle relevés : champ roleReleves de users/{uid} — none / viewer / editor / admin.
