@@ -1,0 +1,1070 @@
+diff --git a/admin.html b/admin.html
+index 8dcc502..2fe2c4e 100644
+--- a/admin.html
++++ b/admin.html
+@@ -305,7 +305,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+   async function lireFiche(ref){
+     let c = null; try{ c = await ref.get({ source: 'cache' }); }catch(e){}
+     if (c && c.exists){
+-      const cle = x => [x.role || '', x.roleReleves || ''].join('|');
++      const cle = x => [x.role || '', x.roleReleves || '', x.roleMouvements || ''].join('|');
+       ref.get({ source: 'server' }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
+       return c;
+     }
+@@ -334,7 +334,8 @@ label.adm-sec{display:inline-flex;align-items:center}
+     ['Cellule 6',-0.5,1.5],['Cellule 7',0,1.5],['Cellule 8',0,1.5],['Cellule ail',-5,0],['Cellule carotte',0,1.5]]
+     .map(function(c){ return { nom: c[0], famille: familleParDefaut(c[0]), hygro: hygroParDefaut(c[0]), min: c[1], max: c[2], hrMin: null, hrMax: null }; });
+ 
+-  let me = null, role = 'viewer', roleReleves = 'none';
++  let me = null, role = 'viewer', roleReleves = 'none', roleMouvements = 'none';
++  let mvtConfig = null, mvtImport = null;
+   const A = { tab: null, msg: '', err: '' };
+   let planDoc = { loaded: false, exists: false, raw: null, vue: null };   // vue = copie migrée, pour l'affichage seulement
+   let relConfig = null, relDraft = null, relDirty = false, relImport = null;
+@@ -353,7 +354,8 @@ label.adm-sec{display:inline-flex;align-items:center}
+   function val(n){ return n == null ? '' : String(n).replace('.', ','); }
+   function isPlanAdmin(){ return role === 'admin'; }
+   function isRelAdmin(){ return role === 'admin' || roleReleves === 'admin'; }
+-  function rubriques(){ var t = []; if (isPlanAdmin()) t.push(['comptes', 'Comptes et accès'], ['plan', 'Plan de stockage']); if (isRelAdmin()) t.push(['rel', 'Relevés de température'], ['arch', 'Archives et conservation']); return t; }
++  function isMvtAdmin(){ return role === 'admin' || roleMouvements === 'admin'; }
++  function rubriques(){ var t = []; if (isPlanAdmin()) t.push(['comptes', 'Comptes et accès'], ['plan', 'Plan de stockage']); if (isRelAdmin()) t.push(['rel', 'Relevés de température'], ['arch', 'Archives et conservation']); if (isMvtAdmin()) t.push(['mvt', 'Mouvements prestation']); return t; }
+   function errTxt(e){ return e && e.code === 'permission-denied' ? 'action refusée par les règles Firebase (droits insuffisants)' : (e && e.message) || 'erreur inconnue'; }
+   function telecharger(nom, data, type){ var b = new Blob([data], { type: type }), l = document.createElement('a'); l.href = URL.createObjectURL(b); l.download = nom; document.body.appendChild(l); l.click(); setTimeout(function(){ URL.revokeObjectURL(l.href); l.remove(); }, 1000); }
+   function emptyState(title, sub){
+@@ -452,16 +454,18 @@ label.adm-sec{display:inline-flex;align-items:center}
+     if (A.tab === 'plan') h += viewPlan();
+     if (A.tab === 'rel') h += viewRel();
+     if (A.tab === 'arch') h += viewArch();
++    if (A.tab === 'mvt') h += viewMvt();
+     v.innerHTML = h;
+     v.querySelectorAll('[data-t]').forEach(function(b){ b.onclick = function(){ ouvrirRubrique(b.dataset.t); }; });
+     if (A.tab === 'comptes') bindComptes(v);
+     if (A.tab === 'plan') bindPlan(v);
+     if (A.tab === 'rel') bindRel(v);
+     if (A.tab === 'arch') bindArch(v);
++    if (A.tab === 'mvt') bindMvt(v);
+   }
+   function saisieEnCours(){ var a = document.activeElement; return !!(a && a.closest && a.closest('#admView') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && a.type !== 'checkbox' && a.type !== 'file'); }
+   function ouvrirRubrique(t){
+-    A.tab = t; A.msg = ''; A.err = ''; relImport = null;
++    A.tab = t; A.msg = ''; A.err = ''; relImport = null; mvtImport = null;
+     if (t === 'comptes') chargerComptes();
+     if (t === 'rel' && !relDirty) relDraft = relConfig ? clone(relConfig) : null;
+     if (t === 'plan' || t === 'arch') ecouterPlan();
+@@ -474,7 +478,8 @@ label.adm-sec{display:inline-flex;align-items:center}
+     const rows = [];
+     snap.forEach(function(doc){ const d = doc.data() || {};
+       rows.push({ uid: doc.id, nom: d.nom || '', email: d.email || '(email non renseigné — uid : '+doc.id+')', role: ['none','viewer','editor','admin'].indexOf(d.role) >= 0 ? d.role : 'viewer',
+-        roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none' }); });
++        roleReleves: ['viewer','editor','admin'].indexOf(d.roleReleves) >= 0 ? d.roleReleves : 'none',
++        roleMouvements: ['viewer','editor','admin'].indexOf(d.roleMouvements) >= 0 ? d.roleMouvements : 'none' }); });
+     rows.sort(function(a, b){ return a.email.localeCompare(b.email, 'fr'); });
+     return rows;
+   }
+@@ -497,15 +502,17 @@ label.adm-sec{display:inline-flex;align-items:center}
+         '<td><label class="sr" for="r-' + esc(u.uid) + '">Rôle plan de ' + esc(u.email) + '</label><select id="r-' + esc(u.uid) + '" data-role="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
+         [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.role === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td>' +
+         '<td><label class="sr" for="rr-' + esc(u.uid) + '">Rôle relevés de ' + esc(u.email) + '</label><select id="rr-' + esc(u.uid) + '" data-rrole="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
+-        [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.roleReleves === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td></tr>';
++        [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.roleReleves === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td>' +
++        '<td><label class="sr" for="rm-' + esc(u.uid) + '">Rôle mouvements de ' + esc(u.email) + '</label><select id="rm-' + esc(u.uid) + '" data-mrole="' + esc(u.uid) + '"' + (self ? ' disabled' : '') + '>' +
++        [['none', 'Aucun accès'], ['viewer', 'Consultation'], ['editor', 'Gestion'], ['admin', 'Admin']].map(function(r){ return '<option value="' + r[0] + '"' + (u.roleMouvements === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select></td></tr>';
+     }).join('');
+-    return h + '<div class="adm-scroll"><table class="adm-comptes"><thead><tr><th>E-mail</th><th>Plan de stockage : rôle</th><th>Relevés de température : rôle</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
++    return h + '<div class="adm-scroll"><table class="adm-comptes"><thead><tr><th>E-mail</th><th>Plan de stockage : rôle</th><th>Relevés de température : rôle</th><th>Mouvements prestation : rôle</th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+       '<p class="adm-muted">Un rôle par module : Consultation = lecture seule, Gestion = saisie, Admin = saisie et réglages du module dans Administration. « Aucun accès » grise le module sur l\'accueil (plan de stockage ou relevés). Le rôle du plan fonctionne comme aujourd\'hui. Les changements sont enregistrés immédiatement.</p></section>';
+   }
+   function bindComptes(v){
+     function maj(sel, champ, libelle){
+       sel.addEventListener('change', async function(){
+-        var id = sel.dataset[champ === 'role' ? 'role' : 'rrole'], u = comptes.filter(function(x){ return x.uid === id; })[0];
++        var id = sel.dataset[{ role: 'role', roleReleves: 'rrole', roleMouvements: 'mrole' }[champ]], u = comptes.filter(function(x){ return x.uid === id; })[0];
+         var data = {}; data[champ] = sel.value;
+         try{
+           await db.collection('users').doc(id).set(data, { merge: true });
+@@ -526,6 +533,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+       });
+     });
+     v.querySelectorAll('[data-rrole]').forEach(function(s){ maj(s, 'roleReleves', 'Rôle relevés'); });
++    v.querySelectorAll('[data-mrole]').forEach(function(s){ maj(s, 'roleMouvements', 'Rôle mouvements'); });
+   }
+ 
+   // ---------- b) Plan de stockage : repris des onglets Cellules et Comptes du plan ----------
+@@ -797,6 +805,242 @@ label.adm-sec{display:inline-flex;align-items:center}
+     listeEditable('calibres', 'data-calibre-old', 'data-del-calibre', 'addCalibre', 'Nom du nouveau calibre :', 'Ce calibre existe déjà dans la liste.', 'Les entrées déjà enregistrées avec ce calibre ne sont pas affectées.');
+   }
+ 
++  // ---------- e) Mouvements alliums prestation (E14.3) ----------
++  // Listes proposées à la saisie (prestation/config) et import de l'historique de la Google Sheet (CSV).
++  const MVT = db.collection('mouvements');
++  const MVT_CONFIG_REF = db.collection('prestation').doc('config');
++  var MVT_DEFAUT = {
++    prestataires: ['SAS CONGAR', 'EARL FERME DE KERIDER'],
++    varietes: { Ail: ['AIL BLANC', 'AIL VIOLET', 'AIL ROSE'],
++      Oignon: ['Oignon de Roscoff AOP', 'Oignon Rosé de Bretagne', 'Oignon Rosé', 'Oignon Rouge', 'Oignon Jaune', 'Oignon Doux'],
++      Echalote: ['Echalote traditionnelle longue', 'Echalote traditionnelle 1/2 longue'] },
++    origines: ['FRANCE', 'ESPAGNE', 'ARGENTINE'],
++    conditionnements: ['TRESSE', 'TUBE', 'NETTOYE MAINS', 'LITE'],
++    responsables: ['MAXIME KERANGUEVEN', 'ROMAIN GUILLERM', 'NICOLAS GUEGUEN']
++  };
++  // Onglets des listes : [clé, titre de l'onglet, singulier pour « + Nouveau … », texte d'aide]
++  var MVT_ONGLETS = [['prestataires', 'Prestataires', 'prestataire', 'Prestataires proposés à la saisie d\'un mouvement.'],
++    ['varietes', 'Variétés', 'variété', 'Variétés proposées selon le produit choisi (ail, oignon ou échalote). Changer le produit d\'une variété la déplace dans la liste de ce produit.'],
++    ['origines', 'Origines', 'origine', 'Origines proposées à la saisie.'],
++    ['conditionnements', 'Conditionnements', 'conditionnement', 'Conditionnements prévus proposés à la saisie.'],
++    ['responsables', 'Responsables', 'responsable', 'Responsables proposés à la saisie (en plus du nom du compte connecté).']];
++  var MVT_PRODUITS = ['Ail', 'Oignon', 'Echalote'];
++  let mvtOnglet = 'prestataires';
++  function mvtNorm(d){
++    d = d || {}; var v = d.varietes || {};
++    var l = function(a, def){ return Array.isArray(a) ? a.filter(function(x){ return String(x || '').trim(); }) : def.slice(); };
++    return { prestataires: l(d.prestataires, MVT_DEFAUT.prestataires),
++      varietes: { Ail: l(v.Ail, MVT_DEFAUT.varietes.Ail), Oignon: l(v.Oignon, MVT_DEFAUT.varietes.Oignon), Echalote: l(v.Echalote, MVT_DEFAUT.varietes.Echalote) },
++      origines: l(d.origines, MVT_DEFAUT.origines), conditionnements: l(d.conditionnements, MVT_DEFAUT.conditionnements), responsables: l(d.responsables, MVT_DEFAUT.responsables) };
++  }
++  // Variétés à plat : [{ nom, produit }]
++  function mvtVarietes(c){ var l = []; MVT_PRODUITS.forEach(function(p){ c.varietes[p].forEach(function(v){ l.push({ nom: v, produit: p }); }); }); return l; }
++  function trier(a){ return a.slice().sort(function(x, y){ return String(x.nom || x).localeCompare(String(y.nom || y), 'fr'); }); }
++  // Chaque changement est enregistré tout de suite, sur les listes relues dans Firebase (comme les produits du plan).
++  async function majMvtConfig(mutation, msgOk){
++    try{
++      await db.runTransaction(async function(t){
++        var snap = await t.get(MVT_CONFIG_REF), c = mvtNorm(snap.exists ? snap.data() : null);
++        mutation(c);
++        t.set(MVT_CONFIG_REF, c);
++      });
++      A.err = ''; A.msg = msgOk || '';
++    }catch(e){ A.msg = ''; A.err = e.userMsg || ('Listes non enregistrées : ' + errTxt(e)); }
++    draw();
++  }
++  function existeDeja(c, k, nom, sauf){
++    var n = nom.toLowerCase(), l = k === 'varietes' ? mvtVarietes(c).map(function(v){ return v.nom; }) : c[k];
++    return l.some(function(x){ return x.toLowerCase() === n && x !== sauf; });
++  }
++  function frDate(j){ var p = String(j || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : String(j || ''); }
++  function viewMvt(){
++    var c = mvtConfig, h = '';
++    if (!c) return '<section class="adm-card"><p class="adm-muted">Chargement des listes…</p></section>';
++    var o = MVT_ONGLETS.filter(function(x){ return x[0] === mvtOnglet; })[0] || MVT_ONGLETS[0], k = o[0];
++    var lignes = k === 'varietes' ? trier(mvtVarietes(c)) : trier(c[k]);
++    h += '<div class="card"><h2>Listes proposées à la saisie</h2>' +
++      '<div class="cellule-tabs" role="tablist" style="margin:4px 0 12px">' + MVT_ONGLETS.map(function(x){
++        var n = x[0] === 'varietes' ? mvtVarietes(c).length : c[x[0]].length;
++        return '<button type="button" role="tab" data-mo="' + x[0] + '" class="' + (x[0] === k ? 'active' : '') + '" aria-selected="' + (x[0] === k) + '">' + x[1] + ' <span class="n">(' + n + ')</span></button>'; }).join('') + '</div>' +
++      '<p class="sub">' + o[3] + ' L\'opérateur peut toujours choisir « Autre » et saisir une valeur libre. Les mouvements déjà enregistrés ne sont pas modifiés.</p>' +
++      (lignes.length ? lignes.map(function(x){
++        var nom = k === 'varietes' ? x.nom : x;
++        return '<div class="ligne-row"><input type="text" value="' + esc(nom) + '" data-mv-old="' + esc(nom) + '" aria-label="' + esc(o[2]) + '">' +
++          (k === 'varietes' ? '<select data-mv-prod="' + esc(nom) + '" aria-label="Produit de ' + esc(nom) + '">' + MVT_PRODUITS.map(function(p){ return '<option value="' + p + '"' + (p === x.produit ? ' selected' : '') + '>' + p + '</option>'; }).join('') + '</select>' : '') +
++          '<button class="del-btn" data-mv-del="' + esc(nom) + '">supprimer</button></div>'; }).join('')
++        : emptyState('Liste vide', 'Ajoutez une première valeur ci-dessous.')) +
++      '<div class="btn-row" style="margin-top:8px;align-items:center">' +
++        (k === 'varietes' ? '<select id="admMvtNvProd" aria-label="Produit de la nouvelle variété" style="min-height:36px;padding:6px 8px;border:1px solid var(--line);border-radius:6px">' + MVT_PRODUITS.map(function(p){ return '<option value="' + p + '">' + p + '</option>'; }).join('') + '</select>' : '') +
++        '<button class="btn btn-copper btn-sm" id="admMvtAdd">+ ' + (o[2] === 'variété' || o[2] === 'origine' ? 'Nouvelle ' : 'Nouveau ') + o[2] + '</button></div></div>';
++    h += '<section class="adm-card"><h2>Import de la Google Sheet (historique)</h2>' +
++      '<p class="adm-muted">Dans la Google Sheet des réponses au formulaire E14.3 : Fichier › Télécharger › Valeurs séparées par des virgules (.csv). Les colonnes sont reconnues par leur titre (Horodateur, Date de chargement, Prestataire, Produit, Variété…, Lot, Origine, Calibre, Quantité, Conditionnement, Responsable), quel que soit leur ordre. « 1086 + 1097 » ou « 1086/1097 » donnent deux pesées ; un calibre « 7080 » devient « 70/80 ». Un aperçu est affiché avant toute écriture ; une ligne déjà importée ne l\'est jamais une seconde fois.</p>' +
++      (roleMouvements === 'admin'
++        ? '<div class="adm-actions"><label class="adm-sec" style="cursor:pointer">Importer le fichier CSV<input type="file" id="admMvtImp" accept=".csv,text/csv" style="display:none"></label></div>'
++        : '<p class="adm-muted">L\'import demande le rôle mouvements « Admin » (les règles n\'autorisent la création de mouvements qu\'aux rôles mouvements Gestion et Admin).</p>');
++    if (mvtImport){ var ri = mvtImport, pl = function(n, s){ return n > 1 ? s + 's' : s; };
++      h += '<div class="adm-imp" id="admMvtApercu"><h3>Aperçu de l\'import : ' + esc(ri.nom) + '</h3><ul>' +
++        '<li>' + ri.total + ' ' + pl(ri.total, 'ligne') + ' ' + pl(ri.total, 'lue') + '</li>' +
++        '<li>' + ri.deja + ' ' + pl(ri.deja, 'déjà importée') + ' (' + pl(ri.deja, 'ignorée') + ')</li>' +
++        (ri.invalides.length ? '<li>' + ri.invalides.length + ' ' + pl(ri.invalides.length, 'ligne') + ' ' + pl(ri.invalides.length, 'illisible') + ' (' + pl(ri.invalides.length, 'ignorée') + ') : ' +
++          esc(ri.invalides.slice(0, 5).map(function(x){ return 'ligne ' + x[0] + ' (' + x[1] + ')'; }).join(' ; ')) + (ri.invalides.length > 5 ? '…' : '') + '</li>' : '') +
++        '<li><b>' + ri.lignes.length + ' ' + pl(ri.lignes.length, 'mouvement') + ' à importer</b>' + (ri.lignes.length ? ' (du ' + esc(frDate(ri.du)) + ' au ' + esc(frDate(ri.au)) + ', ' + Math.round(ri.kg).toLocaleString('fr-FR') + ' kg)' : '') + '</li></ul>' +
++        '<div class="adm-actions">' + (ri.lignes.length ? '<button type="button" class="adm-save" id="admMvtGo">Importer ' + ri.lignes.length + ' ' + pl(ri.lignes.length, 'mouvement') + '</button>' : '') +
++        '<button type="button" class="adm-sec" id="admMvtNon">Annuler</button></div></div>'; }
++    return h + '</section>';
++  }
++  function bindMvt(o){
++    var on = function(sel, ev, f){ o.querySelectorAll(sel).forEach(function(e){ e.addEventListener(ev, function(){ f(e); }); }); };
++    var k = mvtOnglet, sing = (MVT_ONGLETS.filter(function(x){ return x[0] === k; })[0] || MVT_ONGLETS[0])[2];
++    var msgDoublon = 'Cette valeur existe déjà dans la liste.';
++    on('[data-mo]', 'click', function(b){ mvtOnglet = b.dataset.mo; A.msg = ''; A.err = ''; draw(); });
++    on('[data-mv-old]', 'change', function(inp){
++      var ancien = inp.dataset.mvOld, nv = inp.value.trim();
++      if (!nv || nv === ancien){ inp.value = ancien; return; }
++      if (existeDeja(mvtConfig, k, nv, ancien)){ alert(msgDoublon); inp.value = ancien; return; }
++      majMvtConfig(function(c){
++        if (existeDeja(c, k, nv, ancien)) throw ErrU(msgDoublon);
++        var l = k === 'varietes' ? MVT_PRODUITS.map(function(p){ return c.varietes[p]; }) : [c[k]];
++        l.forEach(function(a){ var i = a.indexOf(ancien); if (i > -1) a[i] = nv; });
++      }, '« ' + ancien + ' » renommé en « ' + nv + ' ».');
++    });
++    on('[data-mv-prod]', 'change', function(sel){
++      var nom = sel.dataset.mvProd, p = sel.value;
++      majMvtConfig(function(c){
++        MVT_PRODUITS.forEach(function(x){ c.varietes[x] = c.varietes[x].filter(function(v){ return v !== nom; }); });
++        c.varietes[p].push(nom);
++      }, '« ' + nom + ' » est maintenant une variété de ' + p + '.');
++    });
++    on('[data-mv-del]', 'click', function(b){
++      var nom = b.dataset.mvDel;
++      if (k === 'prestataires' && mvtConfig.prestataires.length <= 1){ alert('Gardez au moins un prestataire.'); return; }
++      if (!confirm('Supprimer « ' + nom + ' » de la liste ? Les mouvements déjà enregistrés avec cette valeur ne sont pas affectés.')) return;
++      majMvtConfig(function(c){
++        if (k === 'varietes') MVT_PRODUITS.forEach(function(x){ c.varietes[x] = c.varietes[x].filter(function(v){ return v !== nom; }); });
++        else { if (k === 'prestataires' && c.prestataires.length <= 1) throw ErrU('Gardez au moins un prestataire.'); c[k] = c[k].filter(function(v){ return v !== nom; }); }
++      }, '« ' + nom + ' » supprimé de la liste.');
++    });
++    on('#admMvtAdd', 'click', function(){
++      var p = k === 'varietes' ? o.querySelector('#admMvtNvProd').value : '';
++      var nom = prompt('Nom ' + (sing === 'variété' || sing === 'origine' ? 'de la nouvelle ' : 'du nouveau ') + sing + (p ? ' (' + p + ')' : '') + ' :', '');
++      if (!nom || !nom.trim()) return;
++      nom = nom.trim();
++      if (existeDeja(mvtConfig, k, nom)){ alert(msgDoublon); return; }
++      majMvtConfig(function(c){
++        if (existeDeja(c, k, nom)) throw ErrU(msgDoublon);
++        if (k === 'varietes') c.varietes[p].push(nom); else c[k].push(nom);
++      }, '« ' + nom + ' » ajouté.');
++    });
++    on('#admMvtImp', 'change', function(e){ var f = e.files && e.files[0]; e.value = ''; if (f) preparerImportMvt(f); });
++    on('#admMvtNon', 'click', function(){ mvtImport = null; A.msg = ''; A.err = ''; draw(); });
++    on('#admMvtGo', 'click', function(btn){ btn.disabled = true; importerMvt(); });
++  }
++  // CSV (virgule ou point-virgule, guillemets doublés), tel que l'exportent Google Sheets ou Excel
++  function lireCsv(txt){
++    txt = String(txt).replace(/^﻿/, '');
++    var l1 = txt.split(/\r?\n/)[0] || '', sep = (l1.match(/;/g) || []).length > (l1.match(/,/g) || []).length ? ';' : ',';
++    var rows = [], row = [], f = '', q = false;
++    for (var i = 0; i < txt.length; i++){
++      var ch = txt[i];
++      if (q){ if (ch === '"'){ if (txt[i + 1] === '"'){ f += '"'; i++; } else q = false; } else f += ch; }
++      else if (ch === '"') q = true;
++      else if (ch === sep){ row.push(f); f = ''; }
++      else if (ch === '\n' || ch === '\r'){ if (ch === '\r' && txt[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
++      else f += ch;
++    }
++    if (f !== '' || row.length){ row.push(f); rows.push(row); }
++    return rows.filter(function(r){ return r.some(function(c){ return String(c).trim() !== ''; }); });
++  }
++  function cleTxt(s){ return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
++  function dateIso(s){
++    s = String(s || '').trim(); var m;
++    if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
++    if ((m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/))){ var y = m[3].length === 2 ? '20' + m[3] : m[3]; return y + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); }
++    return '';
++  }
++  function produitDe(s){ var k = cleTxt(s); if (k.indexOf('echal') >= 0) return 'Echalote'; if (k.indexOf('oignon') >= 0) return 'Oignon'; if (/(^|[^a-z])ail([^a-z]|$)/.test(k)) return 'Ail'; return ''; }
++  function peseesDe(s){
++    var parts = String(s == null ? '' : s).split(/[+;\/\n]/).map(function(x){ return x.replace(/\s|kg/gi, '').replace(',', '.'); }).filter(function(x){ return x !== ''; });
++    if (!parts.length) return null; var v = parts.map(Number);
++    return v.every(function(n){ return isFinite(n) && n > 0; }) ? v : null;
++  }
++  // Calibre « 7080 » -> « 70/80 » ; « 50/56 » ; « +70 » ou « Tv » inchangés
++  function calibreNorm(s){ s = String(s || '').trim().replace(/\s*\/\s*/g, '/'); return /^\d{4}$/.test(s) ? s.slice(0, 2) + '/' + s.slice(2) : s; }
++  // Identifiant stable d'une ligne de la feuille : réimporter le même fichier ne crée jamais de doublon
++  function empreinte(s){ var h1 = 0x811c9dc5, h2 = 0x01000193; for (var i = 0; i < s.length; i++){ var c = s.charCodeAt(i); h1 = Math.imul(h1 ^ c, 16777619) >>> 0; h2 = Math.imul(h2 ^ c, 2246822519) >>> 0; } return ('0000000' + h1.toString(16)).slice(-8) + ('0000000' + h2.toString(16)).slice(-8); }
++  function preparerImportMvt(file){
++    var rd = new FileReader();
++    rd.onload = async function(ev){
++      A.msg = ''; A.err = ''; mvtImport = null;
++      try{
++        var rows = lireCsv(ev.target.result);
++        if (rows.length < 2){ A.err = 'Fichier vide ou illisible.'; return draw(); }
++        var tete = rows[0].map(cleTxt), col = { varietes: [] };
++        tete.forEach(function(k, i){
++          if (k.indexOf('horodat') >= 0 || k === 'timestamp') col.horodateur = i;
++          else if (k.indexOf('variete') >= 0) col.varietes.push(i);
++          else if (k.indexOf('date') >= 0 && col.date == null) col.date = i;
++          else if (k.indexOf('prestataire') >= 0 && col.prestataire == null) col.prestataire = i;
++          else if (k.indexOf('produit') >= 0 && col.produit == null) col.produit = i;
++          else if (/^lot\b/.test(k) && col.lot == null) col.lot = i;
++          else if (k.indexOf('origine') >= 0 && col.origine == null) col.origine = i;
++          else if (k.indexOf('calibre') >= 0 && col.calibre == null) col.calibre = i;
++          else if (k.indexOf('quantite') >= 0 && col.quantite == null) col.quantite = i;
++          else if (k.indexOf('conditionnement') >= 0 && col.conditionnement == null) col.conditionnement = i;
++          else if (k.indexOf('ponsable') >= 0 && col.responsable == null) col.responsable = i;
++          else if ((k.indexOf('remarque') >= 0 || k.indexOf('commentaire') >= 0) && col.commentaire == null) col.commentaire = i;
++        });
++        var manque = [['produit', 'Produit'], ['lot', 'Lot'], ['quantite', 'Quantité']].filter(function(x){ return col[x[0]] == null; }).map(function(x){ return x[1]; });
++        if (col.date == null && col.horodateur == null) manque.unshift('Date de chargement');
++        if (manque.length){ A.err = 'Colonnes introuvables : ' + manque.join(', ') + '. Colonnes lues : ' + rows[0].join(' | ') + '.'; return draw(); }
++        A.msg = 'Lecture du fichier et comparaison avec les mouvements déjà enregistrés…'; draw();
++        var ids = new Set((await MVT.get()).docs.map(function(d){ return d.id; }));
++        var g = function(r, i){ return i == null ? '' : String(r[i] == null ? '' : r[i]).trim(); };
++        var ri = { nom: file.name, total: rows.length - 1, deja: 0, invalides: [], lignes: [], du: '', au: '', kg: 0 }, vus = new Set();
++        rows.slice(1).forEach(function(r, n){
++          var ligne = n + 2, horo = g(r, col.horodateur), date = dateIso(g(r, col.date)) || dateIso(horo);
++          var produit = produitDe(g(r, col.produit)), lot = g(r, col.lot).toUpperCase(), qte = g(r, col.quantite), pes = peseesDe(qte);
++          if (!date) return ri.invalides.push([ligne, 'date illisible']);
++          if (!produit) return ri.invalides.push([ligne, 'produit inconnu « ' + g(r, col.produit) + ' »']);
++          if (!lot) return ri.invalides.push([ligne, 'lot manquant']);
++          if (!pes) return ri.invalides.push([ligne, 'quantité illisible « ' + qte + ' »']);
++          var prest = g(r, col.prestataire);
++          var id = 'gs-' + empreinte([horo, date, prest, produit, lot, qte].join('|'));
++          if (ids.has(id) || vus.has(id)){ ri.deja++; return; }
++          vus.add(id);
++          var variete = col.varietes.map(function(i){ return g(r, i); }).filter(Boolean)[0] || '';
++          var q = Math.round(pes.reduce(function(a, b){ return a + b; }, 0) * 1000) / 1000;
++          ri.lignes.push({ id: id, ligne: ligne, horodateur: horo, d: { date: date, prestataire: prest, produit: produit, variete: variete, lot: lot, origine: g(r, col.origine),
++            calibre: calibreNorm(g(r, col.calibre)), pesees: pes, quantite: q, conditionnement: g(r, col.conditionnement), responsable: g(r, col.responsable), commentaire: g(r, col.commentaire) } });
++          ri.kg += q;
++          if (!ri.du || date < ri.du) ri.du = date;
++          if (!ri.au || date > ri.au) ri.au = date;
++        });
++        mvtImport = ri; A.msg = '';
++      }catch(e){ console.error(e); A.err = 'Impossible de lire ce fichier : ' + (e && e.message || e); }
++      draw();
++    };
++    rd.readAsText(file, 'utf-8');
++  }
++  async function importerMvt(){
++    var ri = mvtImport; if (!ri) return;
++    var ts = firebase.firestore.FieldValue.serverTimestamp(), le = new Date().toISOString(), fait = 0;
++    try{
++      for (var i = 0; i < ri.lignes.length; i += 400){
++        var batch = db.batch();
++        ri.lignes.slice(i, i + 400).forEach(function(x){
++          batch.set(MVT.doc(x.id), Object.assign({}, x.d, { uid: me.uid, creeLe: ts,
++            import: { source: 'google-sheet', fichier: ri.nom, ligne: x.ligne, horodateur: x.horodateur, le: le, par: me.email } }));
++        });
++        await batch.commit(); fait = Math.min(i + 400, ri.lignes.length);
++      }
++      mvtImport = null; A.err = ''; A.msg = 'Import terminé : ' + fait + ' mouvement' + (fait > 1 ? 's' : '') + ' importé' + (fait > 1 ? 's' : '') + '.';
++    }catch(e){
++      console.error(e); mvtImport = null;
++      A.err = 'Import interrompu après ' + fait + ' mouvement' + (fait > 1 ? 's' : '') + ' : ' + errTxt(e) + '. Relancez l\'import avec le même fichier : les lignes déjà importées seront ignorées.';
++    }
++    draw();
++  }
++
+   // ---------- c) Relevés de température ----------
+   function viewRel(){
+     var r = relDraft, h = '';
+@@ -1171,6 +1415,12 @@ label.adm-sec{display:inline-flex;align-items:center}
+     }
+   }
+   function ecouter(){
++    if (isMvtAdmin()){
++      MVT_CONFIG_REF.onSnapshot(function(snap){
++        mvtConfig = mvtNorm(snap.exists ? snap.data() : null);
++        if (A.tab === 'mvt' && !saisieEnCours()) draw();
++      }, function(e){ mvtConfig = mvtNorm(null); A.err = 'Lecture des listes des mouvements impossible : ' + errTxt(e); if (A.tab === 'mvt') draw(); });
++    }
+     if (isRelAdmin()){
+       CONFIG_REF.onSnapshot(function(snap){
+         if (!snap.exists){
+@@ -1202,9 +1452,10 @@ label.adm-sec{display:inline-flex;align-items:center}
+       var u = d.data();
+       role = ['none', 'viewer', 'editor', 'admin'].indexOf(u.role) >= 0 ? u.role : 'viewer';
+       roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
++      roleMouvements = ['viewer', 'editor', 'admin'].indexOf(u.roleMouvements) >= 0 ? u.roleMouvements : 'none';
+     }catch(e){ console.warn(e); }
+     var t = rubriques();
+-    if (!t.length){ bloquer('Accès réservé aux administrateurs', 'Votre compte n\'a pas de rôle Admin (plan de stockage ou relevés). Demandez l\'accès à un admin.'); return; }
++    if (!t.length){ bloquer('Accès réservé aux administrateurs', 'Votre compte n\'a pas de rôle Admin (plan de stockage, relevés ou mouvements). Demandez l\'accès à un admin.'); return; }
+     ecouter();
+     ouvrirRubrique(t[0][0]);
+   });
+diff --git a/firestore.rules b/firestore.rules
+index 137de24..faba48c 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -123,6 +123,50 @@ service cloud.firestore {
+         && resource.data.expireLe < request.time;
+     }
+ 
++    // ===================================================================
++    // Module mouvements alliums prestation (E14.3).
++    // Rôle : champ roleMouvements de users/{uid} — none / viewer / editor / admin (absent = none).
++    // L'admin du plan peut consulter et administrer, comme pour les relevés.
++    // ===================================================================
++    function roleMouvements() {
++      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('roleMouvements', 'none');
++    }
++    function canReadMouvements() {
++      return isSignedIn() && (roleMouvements() in ['viewer', 'editor', 'admin'] || userRole() == 'admin');
++    }
++    function canWriteMouvements() {
++      return isSignedIn() && roleMouvements() in ['editor', 'admin'];
++    }
++    function isMouvementsAdmin() {
++      return isSignedIn() && (roleMouvements() == 'admin' || userRole() == 'admin');
++    }
++    function canManageMouvement() {
++      return isMouvementsAdmin() || (canWriteMouvements() && auteurRecent());
++    }
++    // Un document par mouvement (chargement vers un prestataire). Auteur (uid) et date de création serveur (creeLe)
++    // imposés ; modification ou suppression par l'auteur pendant 24 h, ou par un admin à tout moment.
++    match /mouvements/{mouvementId} {
++      allow read: if canReadMouvements();
++      allow create: if canWriteMouvements()
++        && request.resource.data.date is string
++        && request.resource.data.prestataire is string
++        && request.resource.data.produit in ['Ail', 'Oignon', 'Echalote']
++        && request.resource.data.lot is string
++        && request.resource.data.quantite is number
++        && request.resource.data.uid == request.auth.uid
++        && request.resource.data.creeLe == request.time;
++      allow update: if canManageMouvement()
++        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['date', 'prestataire', 'produit', 'variete', 'lot', 'origine', 'calibre', 'pesees', 'quantite', 'conditionnement', 'responsable', 'commentaire', 'modifications'])
++        && request.resource.data.produit in ['Ail', 'Oignon', 'Echalote']
++        && request.resource.data.quantite is number;
++      allow delete: if canManageMouvement();
++    }
++    // Listes proposées à la saisie (prestation/config).
++    match /prestation/{docId} {
++      allow read: if canReadMouvements();
++      allow write: if isMouvementsAdmin();
++    }
++
+     // Durées de conservation (parametres/conservation).
+     // Un admin relevés qui n'est pas admin du plan ne peut pas changer les durées de l'historique du plan.
+     match /parametres/{docId} {
+diff --git a/index.html b/index.html
+index baf536b..323dceb 100644
+--- a/index.html
++++ b/index.html
+@@ -43,6 +43,7 @@
+   .home h1{ font-family:'Fraunces', Georgia, serif; font-size:30px; font-weight:600; margin:0; text-align:center; }
+   .home p.who{ margin:4px 0 0; color:var(--ink-soft); font-size:14px; text-align:center; overflow-wrap:anywhere; }
+   .tiles{ display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:18px; width:100%; max-width:1100px; }
++  @media (min-width:1000px){ .tiles{ grid-template-columns:repeat(4, minmax(0, 1fr)); max-width:1320px; } }
+   .tile{ text-align:left; border-radius:18px; padding:26px 24px; min-height:200px; display:flex; flex-direction:column; gap:10px; font-family:inherit; text-decoration:none; cursor:pointer; }
+   a.tile:hover{ transform:translateY(-2px); }
+   .tile:focus-visible{ outline:3px solid var(--ink); outline-offset:3px; }
+@@ -54,6 +55,8 @@
+   .tile.plan .ic{ background:#EAD7E6; } .tile.plan span.d{ color:#5C554A; } .tile.plan span.go{ color:#963E88; }
+   .tile.rel{ background:#EEF3F3; border:2px solid #1F5C63; color:#13323A; }
+   .tile.rel .ic{ background:#D3E8E9; } .tile.rel span.d{ color:#3E555B; } .tile.rel span.go{ color:#1F5C63; }
++  .tile.mvt{ background:#F1F4EC; border:2px solid #4E6647; color:#24361F; }
++  .tile.mvt .ic{ background:#DCE6D3; } .tile.mvt span.d{ color:#4A5A44; } .tile.mvt span.go{ color:#4E6647; }
+   .tile.adm{ background:#fff; border:2px solid #2B2620; color:#2B2620; }
+   .tile.adm .ic{ background:#ECE8DE; } .tile.adm span.d{ color:#5C554A; } .tile.adm span.go{ color:#2B2620; }
+   .tile.off{ opacity:.5; cursor:not-allowed; }
+@@ -123,7 +126,7 @@
+   async function lireFiche(ref){
+     let c = null; try{ c = await ref.get({ source: 'cache' }); }catch(e){}
+     if (c && c.exists){
+-      const cle = x => [x.role || '', x.roleReleves || ''].join('|');
++      const cle = x => [x.role || '', x.roleReleves || '', x.roleMouvements || ''].join('|');
+       ref.get({ source: 'server' }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
+       return c;
+     }
+@@ -141,16 +144,21 @@
+   const ICONES = {
+     plan: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#963E88" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg>',
+     rel: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F5C63" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/><path d="M12 9v7"/></svg>',
++    mvt: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4E6647" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="7" width="13" height="10" rx="1"/><path d="M14 10h4l3 3v4h-7"/><circle cx="6" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+     adm: '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2B2620" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M17 11h4M19 9v4"/></svg>'
+   };
+ 
+-  function renderHome(user, role, roleReleves){
+-    const okR = roleReleves !== 'none', okP = role !== 'none';
+-    const okA = role === 'admin' || roleReleves === 'admin';
++  function renderHome(user, role, roleReleves, roleMouvements){
++    const okR = roleReleves !== 'none', okP = role !== 'none', okM = roleMouvements !== 'none' || role === 'admin';
++    const okA = role === 'admin' || roleReleves === 'admin' || roleMouvements === 'admin';
++    const dM = 'Chargements d\'ail, d\'oignons et d\'échalotes vers les prestataires (fiche E14.3) : saisie, historique et export Excel.';
+     const bloque = '<span class="go">Accès non autorisé – à demander à un admin</span>';
+     const el = document.getElementById('homeScreen');
+     el.innerHTML = '<div><h1>Que voulez-vous faire ?</h1><p class="who">Connecté : ' + esc(user.email || '') + ' – La Légumière</p></div>' +
+       '<div class="tiles">' +
++        (okM
++          ? '<a class="tile mvt" href="mouvements.html?v=' + VERSION + '"><span class="ic">' + ICONES.mvt + '</span><b>Mouvements prestation</b><span class="d">' + dM + '</span><span class="go">Ouvrir les mouvements</span></a>'
++          : '<div class="tile mvt off" aria-disabled="true"><span class="ic">' + ICONES.mvt + '</span><b>Mouvements prestation</b><span class="d">' + dM + '</span>' + bloque + '</div>') +
+         (okP
+           ? '<a class="tile plan" href="plan.html?v=' + VERSION + '"><span class="ic">' + ICONES.plan + '</span><b>Plan de stockage</b>' +
+             '<span class="d">Échalotes et oignons : cellules, lignes, palox. Entrées, sorties, déplacements, recherche et stock global.</span><span class="go">Ouvrir le plan</span></a>'
+@@ -163,7 +171,7 @@
+             '<span class="d">Tournée des chambres froides (T° et hygrométrie), contrôles à cœur des produits, historique du mois et export STOC E12.1.</span>' + bloque + '</div>') +
+         (okA
+           ? '<a class="tile adm" href="admin.html?v=' + VERSION + '"><span class="ic">' + ICONES.adm + '</span><b>Administration</b>' +
+-            '<span class="d">Comptes et accès, réglages du plan de stockage et des relevés, archives et durées de conservation.</span><span id="archBadge"></span><span class="go">Ouvrir l\'administration</span></a>'
++            '<span class="d">Comptes et accès, réglages du plan de stockage, des relevés et des mouvements, archives et durées de conservation.</span><span id="archBadge"></span><span class="go">Ouvrir l\'administration</span></a>'
+           : '') +
+       '</div>' +
+       '<div class="foot"><span>Un seul compte. Chaque module s\'ouvre selon les accès donnés à votre compte ; les comptes et réglages se gèrent dans Administration. On revient ici avec le bouton « Accueil ».</span>' +
+@@ -212,7 +220,7 @@
+       return;
+     }
+     show('loadingScreen');
+-    let role = 'viewer', roleReleves = 'none';
++    let role = 'viewer', roleReleves = 'none', roleMouvements = 'none';
+     try{
+       const d = await lireFiche(db.collection('users').doc(user.uid));
+       if (!d.exists){
+@@ -224,8 +232,9 @@
+       const u = d.data();
+       role = ['none', 'viewer', 'editor', 'admin'].indexOf(u.role) >= 0 ? u.role : 'viewer';
+       roleReleves = ['viewer', 'editor', 'admin'].indexOf(u.roleReleves) >= 0 ? u.roleReleves : 'none';
++      roleMouvements = ['viewer', 'editor', 'admin'].indexOf(u.roleMouvements) >= 0 ? u.roleMouvements : 'none';
+     }catch(e){ console.warn('Lecture du rôle impossible', e); }
+-    renderHome(user, role, roleReleves);
++    renderHome(user, role, roleReleves, roleMouvements);
+   });
+ })();
+ </script>
+diff --git a/mouvements.html b/mouvements.html
+new file mode 100644
+index 0000000..8ee50a5
+--- /dev/null
++++ b/mouvements.html
+@@ -0,0 +1,554 @@
++<!DOCTYPE html>
++<html lang="fr">
++<head>
++<meta charset="UTF-8">
++<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
++<title>Mouvements alliums prestation – La Légumière</title>
++<link rel="preconnect" href="https://fonts.googleapis.com">
++<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
++<style>
++  :root{
++    --bg:#E3DECF; --panel:#FBF9F3; --ink:#2B2620; --ink-soft:#6B6355; --line:#D2C9B4;
++    --vert:#4E6647; --vert-bg:#E4ECDF; --warn:#A13B2F; --warn-bg:#F1D6CC; --ok:#1F7444; --ok-bg:#DCEFE3;
++    --radius:12px; --shadow:0 1px 2px rgba(43,38,32,.06),0 4px 14px rgba(43,38,32,.06);
++  }
++  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
++  html,body{margin:0;padding:0}
++  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:15px;line-height:1.5;min-height:100vh}
++  .hidden{display:none!important}
++  .mod-bar{position:sticky;top:0;z-index:39;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:8px 16px;padding-top:calc(8px + env(safe-area-inset-top,0px));background:#2B2620;color:#fff}
++  .mod-bar .mod-t{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
++  .mod-bar .mod-dot{width:12px;height:12px;border-radius:3px;flex:none}
++  .mod-home{display:inline-flex;align-items:center;gap:8px;flex:none;background:#fff;color:#2B2620;border-radius:10px;padding:0 14px;min-height:44px;font:600 14px 'Inter',sans-serif;text-decoration:none}
++  .mod-home:focus-visible{outline:3px solid #fff;outline-offset:2px}
++  .wrap{max-width:900px;margin:0 auto;padding:18px 16px 60px}
++  body.hist .wrap{max-width:1400px}
++  header.top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:14px}
++  header.top h1{font-family:'Fraunces',Georgia,serif;font-size:24px;font-weight:600;margin:0}
++  header.top .ref{color:var(--ink-soft);font-size:13px}
++  nav.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
++  nav.tabs button{min-height:48px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font:600 15px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
++  nav.tabs button[aria-selected="true"]{background:var(--vert);border-color:var(--vert);color:#fff}
++  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:12px}
++  .card h2{font-size:15px;margin:0 0 10px;font-weight:700}
++  .card h2 .req{color:var(--warn)}
++  .hint{color:var(--ink-soft);font-size:13px;margin:0 0 8px}
++  .chips{display:flex;flex-wrap:wrap;gap:8px}
++  .chip{min-height:44px;padding:8px 14px;border:1.5px solid var(--line);background:#fff;border-radius:10px;font:600 14px 'Inter',sans-serif;color:var(--ink);cursor:pointer;text-align:left}
++  .chip[aria-pressed="true"]{border-color:var(--vert);background:var(--vert-bg);color:#24361F}
++  input[type=text],input[type=date],input[type=search],select,textarea{font:500 16px 'Inter',sans-serif;color:var(--ink);background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:9px 10px;min-height:44px;width:100%;min-width:0}
++  textarea{min-height:70px;resize:vertical}
++  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--vert)}
++  .autre{margin-top:8px}
++  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
++  .pesees{display:flex;flex-direction:column;gap:8px}
++  .pesee{display:flex;gap:8px;align-items:center}
++  .pesee span.n{width:72px;flex:none;color:var(--ink-soft);font-size:13px}
++  .pesee input{max-width:220px}
++  .pesee .kg{color:var(--ink-soft)}
++  .x{min-width:44px;min-height:44px;border:1.5px solid var(--line);background:#fff;border-radius:8px;cursor:pointer;font-size:18px}
++  .total{margin-top:10px;font-weight:700;font-size:17px}
++  .btn{font:700 15px 'Inter',sans-serif;cursor:pointer;border:none;border-radius:10px;padding:12px 18px;min-height:48px}
++  .btn-main{background:var(--vert);color:#fff;width:100%}
++  .btn-main:disabled{opacity:.6}
++  .btn-sec{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
++  .btn-link{background:none;border:none;color:var(--vert);font:600 14px 'Inter',sans-serif;cursor:pointer;min-height:44px;padding:0 4px;text-align:left}
++  .err{color:var(--warn);font-weight:600;margin:8px 0 0}
++  .empty{color:var(--ink-soft);text-align:center;padding:30px 0}
++  .banner{border-radius:10px;padding:12px 14px;margin-bottom:12px;background:var(--warn-bg);color:#6E1F17;font-weight:600}
++  .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2B2620;color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50;max-width:calc(100% - 32px)}
++  .toast.on{opacity:1}
++  .filters{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end}
++  .filters label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)}
++  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
++  .sum{font-size:14px;margin:0 0 10px}
++  .sum b{font-size:15px}
++  .scroll{overflow-x:auto}
++  table.mv{border-collapse:collapse;width:100%;font-size:13.5px;background:#fff}
++  table.mv th,table.mv td{border-bottom:1px solid #ECE8DE;padding:8px;text-align:left;vertical-align:top}
++  table.mv th{background:#F3F0E8;font-size:12px;color:var(--ink-soft);white-space:nowrap}
++  table.mv td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
++  table.mv td.num small{display:block;color:var(--ink-soft);font-size:11.5px}
++  table.mv td.acts{white-space:nowrap;position:sticky;right:0;background:#fff;box-shadow:-6px 0 8px -6px rgba(43,38,32,.25)}
++  table.mv th.acts{position:sticky;right:0}
++  table.mv tr.imp td:first-child{border-left:3px solid #B88A1B}
++  .mini{min-height:40px;padding:0 12px;border:1.5px solid var(--line);background:#fff;border-radius:8px;font:600 13px 'Inter',sans-serif;cursor:pointer;color:var(--ink)}
++  .mini.del{color:var(--warn)}
++  .tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 6px;border-radius:5px;background:#F4E9CF;color:#7A5A12;margin-left:4px}
++  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
++  .seg button{min-height:44px;border:1.5px solid var(--line);background:#fff;border-radius:9px;font:600 14px 'Inter',sans-serif;color:var(--ink);cursor:pointer}
++  .seg button[aria-pressed="true"]{background:var(--vert-bg);border-color:var(--vert);color:#24361F}
++  table.sy{border-collapse:collapse;width:100%;font-size:14px;background:#fff}
++  table.sy th,table.sy td{padding:9px 10px;text-align:left;border-bottom:1px solid #ECE8DE;vertical-align:top}
++  table.sy thead th{background:#F3F0E8;font-size:12px;color:var(--ink-soft)}
++  table.sy .num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
++  table.sy tr.pr th{background:#E9EFE4;color:#24361F;font-size:14.5px;border-top:2px solid var(--vert)}
++  table.sy tr.pd{cursor:pointer}
++  table.sy tr.pd:hover td,table.sy tr.lt:hover td{background:#F7F9F4}
++  table.sy tr.pd td:first-child{padding-left:14px;font-weight:600}
++  table.sy tr.pd small{color:var(--ink-soft);font-weight:500;margin-left:4px}
++  table.sy .chev{display:inline-block;width:18px;color:var(--vert)}
++  table.sy tr.lt{cursor:pointer;font-size:13.5px}
++  table.sy tr.lt td:first-child{padding-left:40px}
++  table.sy tr.lt td small{display:block;color:var(--ink-soft);font-size:12px}
++  table.sy tr.lt.focus td{background:#FFF4D6}
++  table.sy tfoot th{background:#F3F0E8;font-size:14.5px}
++  table.sy tr:focus-visible{outline:2px solid var(--vert);outline-offset:-2px}
++  table.sy .sm{display:none}
++  @media (max-width:700px){ table.sy{font-size:13px} table.sy th,table.sy td{padding:8px 5px} table.sy tr.pd td:first-child{padding-left:6px} table.sy tr.lt td:first-child{padding-left:16px}
++    table.sy thead th{font-size:11px} table.sy .c-lots{display:none} table.sy .lg{display:none} table.sy .sm{display:inline} table.sy tr.pr th{font-size:13.5px} }
++  .edit .row2{margin-bottom:10px}
++  .edit label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink-soft)}
++  @media (max-width:700px){
++    .filters{grid-template-columns:repeat(2,minmax(0,1fr))}
++    table.mv thead{display:none}
++    table.mv,table.mv tbody,table.mv tr,table.mv td{display:block;width:100%}
++    table.mv tr{border:1px solid var(--line);border-radius:10px;margin-bottom:10px;padding:8px 10px;background:#fff;position:relative}
++    table.mv td{border:none;padding:2px 0}
++    table.mv td[data-l]::before{content:attr(data-l) " : ";color:var(--ink-soft);font-size:12px}
++    table.mv td.num{text-align:left}
++    table.mv td.acts{position:static;box-shadow:none;padding-top:8px;display:flex;gap:8px;justify-content:flex-end}
++    table.mv tr.imp td:first-child{border-left:none}
++  }
++  @media (max-width:640px){
++    .mod-bar{padding:8px 12px;padding-top:calc(8px + env(safe-area-inset-top,0px))}.mod-bar .mod-t{font-size:14px}
++    .row2{grid-template-columns:1fr}
++    header.top h1{font-size:20px}
++  }
++</style>
++</head>
++<body>
++<div class="mod-bar"><span class="mod-t"><span class="mod-dot" style="background:#7C9A6E"></span>Mouvements prestation</span><a class="mod-home" href="index.html"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Accueil</a></div>
++<div class="wrap">
++  <header class="top">
++    <h1 id="titre">Mouvements alliums prestation</h1>
++    <span class="ref">Réf. E14.3 – La Légumière</span>
++  </header>
++  <div id="banner" class="banner hidden" role="status"></div>
++  <nav class="tabs" id="tabs" role="tablist" aria-label="Rubriques">
++    <button role="tab" data-tab="saisie" aria-selected="true">Saisie</button>
++    <button role="tab" data-tab="hist" aria-selected="false">Historique</button>
++  </nav>
++  <main id="view"><p class="empty">Chargement…</p></main>
++</div>
++<div id="toast" class="toast" role="status" aria-live="polite"></div>
++
++<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
++<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
++<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
++<script src="xlsx-releves.js"></script>
++<script>
++(function(){
++  "use strict";
++  const firebaseConfig = {
++    // CONFIG_FIREBASE : recopier ici, à l'identique, les 6 lignes de firebaseConfig de plan.html (projet de production)
++  };
++  firebase.initializeApp(firebaseConfig);
++  const auth = firebase.auth();
++  const db = firebase.firestore();
++  // Cache local Firestore : affichage immédiat des données déjà vues, mises à jour ensuite par le serveur.
++  db.enablePersistence({ synchronizeTabs: true }).catch(e => console.warn("Cache local indisponible", e && e.code));
++  async function lireFiche(ref){
++    let c = null; try{ c = await ref.get({ source: "cache" }); }catch(e){}
++    if (c && c.exists){
++      const cle = x => [x.role || "", x.roleReleves || "", x.roleMouvements || ""].join("|");
++      ref.get({ source: "server" }).then(s => { if (!s.exists || cle(s.data()) !== cle(c.data())) location.reload(); }).catch(() => {});
++      return c;
++    }
++    return ref.get();
++  }
++
++  // Collections du module (jamais planStockage/main ni les relevés) :
++  //   mouvements         : un document par mouvement (chargement vers un prestataire)
++  //   prestation/config  : listes proposées à la saisie (gérées dans Administration)
++  // planStockage/main est seulement LU, si le compte y a accès, pour proposer les calibres de la famille du produit.
++  const MVT = db.collection("mouvements");
++  const CONFIG_REF = db.collection("prestation").doc("config");
++  const PRODUITS = [["Ail","Ail"],["Oignon","Oignon"],["Echalote","Échalote"]];
++  const CONFIG_DEFAUT = {
++    prestataires: ["SAS CONGAR", "EARL FERME DE KERIDER"],
++    varietes: { Ail: ["AIL BLANC", "AIL VIOLET", "AIL ROSE"],
++      Oignon: ["Oignon de Roscoff AOP", "Oignon Rosé de Bretagne", "Oignon Rosé", "Oignon Rouge", "Oignon Jaune", "Oignon Doux"],
++      Echalote: ["Echalote traditionnelle longue", "Echalote traditionnelle 1/2 longue"] },
++    origines: ["FRANCE", "ESPAGNE", "ARGENTINE"],
++    conditionnements: ["TRESSE", "TUBE", "NETTOYE MAINS", "LITE"],
++    responsables: ["MAXIME KERANGUEVEN", "ROMAIN GUILLERM", "NICOLAS GUEGUEN"]
++  };
++  function normConfig(d){
++    d = d || {}; const l = (a, def) => Array.isArray(a) ? a.filter(x => String(x || "").trim()) : def.slice();
++    const v = d.varietes || {};
++    return { prestataires: l(d.prestataires, CONFIG_DEFAUT.prestataires),
++      varietes: { Ail: l(v.Ail, CONFIG_DEFAUT.varietes.Ail), Oignon: l(v.Oignon, CONFIG_DEFAUT.varietes.Oignon), Echalote: l(v.Echalote, CONFIG_DEFAUT.varietes.Echalote) },
++      origines: l(d.origines, CONFIG_DEFAUT.origines), conditionnements: l(d.conditionnements, CONFIG_DEFAUT.conditionnements), responsables: l(d.responsables, CONFIG_DEFAUT.responsables) };
++  }
++
++  let me = null, roleMvt = "none", rolePlan = "viewer";
++  let config = normConfig(null), configLoaded = false;
++  let calibresPlan = null;   // { calibres, calibreFamilles } si le plan est lisible
++  let tab = "saisie";
++  let cleResp = "";
++  const S = { date: aujourdhui(), prestataire: "", prestAutre: "", produit: "", variete: "", varAutre: "", lot: "", origine: "", origAutre: "",
++    calibre: "", pesees: [""], conditionnement: "", condAutre: "", responsable: "", respAutre: "", commentaire: "" };
++  const H = { du: debutMois(), au: aujourdhui(), prestataire: "", produit: "", lot: "", lotExact: false, docs: null, err: "", unsub: null, edit: null,
++    vue: "synthese", ouverts: new Set(), retour: null, focusLot: null };
++
++  // ---------- utilitaires ----------
++  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
++  function aujourdhui(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
++  function debutMois(){ return aujourdhui().slice(0, 8) + "01"; }
++  function frDate(j){ const p = String(j || "").split("-"); return p.length === 3 ? p[2] + "/" + p[1] + "/" + p[0] : String(j || ""); }
++  function kg(n){ return n == null || !isFinite(n) ? "–" : (Math.round(n * 100) / 100).toLocaleString("fr-FR"); }
++  function cle(s){ return String(s || "").trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
++  function libProduit(p){ const x = PRODUITS.find(q => q[0] === p); return x ? x[1] : (p || ""); }
++  // Pesées : « 1086 + 1097 », « 1086/1097 », « 1 086,5 » … -> [1086, 1097] (null si illisible)
++  function lirePesees(txt){
++    const parts = String(txt == null ? "" : txt).split(/[+;\/\n]/).map(x => x.replace(/\s|kg/gi, "").replace(",", ".")).filter(x => x !== "");
++    if (!parts.length) return null;
++    const v = parts.map(Number);
++    return v.every(n => isFinite(n) && n > 0) ? v : null;
++  }
++  // Calibre « 7080 » -> « 70/80 » (comme dans le plan) ; « +70 » inchangé
++  function calibreNorm(s){ s = String(s || "").trim().replace(/\s*\/\s*/g, "/"); return /^\d{4}$/.test(s) ? s.slice(0, 2) + "/" + s.slice(2) : s; }
++  function total(v){ return Math.round(v.reduce((a, b) => a + b, 0) * 1000) / 1000; }
++  function toast(m){ const t = document.getElementById("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove("on"), 3200); }
++  function banner(m){ const b = document.getElementById("banner"); b.textContent = m; b.classList.toggle("hidden", !m); }
++  function errMsg(e){ return e && e.code === "permission-denied" ? "Action refusée par les règles Firebase (droits insuffisants)." : "Enregistrement impossible : " + ((e && e.message) || "erreur inconnue") + "."; }
++  function telecharger(nom, data, type){ const b = new Blob([data], { type }), a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = nom; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
++  function peutSaisir(){ return roleMvt === "editor" || roleMvt === "admin"; }
++  function estAdmin(){ return roleMvt === "admin" || rolePlan === "admin"; }
++  // Modification / suppression : l'auteur pendant 24 h (rôle Gestion ou Admin), ou un admin à tout moment
++  function peutGerer(m){
++    if (estAdmin()) return true;
++    if (!peutSaisir() || !me || m.uid !== me.uid || !m.creeLe || typeof m.creeLe.toMillis !== "function") return false;
++    return Date.now() - m.creeLe.toMillis() < 24 * 3600 * 1000;
++  }
++  function choixHtml(attr, liste, actuel, avecAutre){
++    return '<div class="chips">' + liste.map(v => '<button type="button" class="chip" data-' + attr + '="' + esc(v) + '" aria-pressed="' + (actuel === v) + '">' + esc(v) + '</button>').join("") +
++      (avecAutre ? '<button type="button" class="chip" data-' + attr + '="__autre" aria-pressed="' + (actuel === "__autre") + '">Autre</button>' : "") + "</div>";
++  }
++  function valeurChoix(v, autre){ return v === "__autre" ? String(autre || "").trim() : v; }
++
++  // ---------- Saisie ----------
++  function famillePlan(p){ return p === "Ail" ? "Ail" : p === "Oignon" ? "Oignon" : p === "Echalote" ? "Echalote" : ""; }
++  function calibresProposes(){
++    if (!calibresPlan) return [];
++    const f = famillePlan(S.produit), fam = calibresPlan.calibreFamilles || {};
++    return (calibresPlan.calibres || []).filter(c => !f || !fam[c] || !fam[c].length || fam[c].indexOf(f) >= 0).sort((a, b) => a.localeCompare(b, "fr"));
++  }
++  function renderSaisie(){
++    const v = document.getElementById("view");
++    if (!peutSaisir()){ v.innerHTML = '<div class="card"><p class="hint">Votre rôle « Consultation » permet seulement de consulter l\'historique.</p></div>'; return; }
++    const vars = S.produit ? (config.varietes[S.produit] || []) : [];
++    const pes = S.pesees.map((p, i) => '<div class="pesee"><span class="n">Pesée ' + (i + 1) + '</span><input type="text" inputmode="decimal" autocomplete="off" data-pesee="' + i + '" value="' + esc(p) + '" placeholder="kg" aria-label="Pesée ' + (i + 1) + ' en kg"><span class="kg">kg</span>' +
++      (S.pesees.length > 1 ? '<button type="button" class="x" data-delpesee="' + i + '" aria-label="Retirer la pesée ' + (i + 1) + '">×</button>' : "") + "</div>").join("");
++    const cal = calibresProposes();
++    v.innerHTML =
++      '<div class="card"><div class="row2"><div><h2>Date de chargement <span class="req">*</span></h2><input type="date" id="sDate" value="' + esc(S.date) + '"></div>' +
++        '<div><h2>Responsable</h2><input type="text" id="sResp" list="lResp" value="' + esc(S.responsable) + '" autocomplete="off"><datalist id="lResp">' + config.responsables.map(r => '<option value="' + esc(r) + '">').join("") + '</datalist></div></div></div>' +
++      '<div class="card"><h2>Prestataire <span class="req">*</span></h2>' + choixHtml("presta", config.prestataires, S.prestataire, true) +
++        (S.prestataire === "__autre" ? '<input class="autre" type="text" id="sPrestAutre" value="' + esc(S.prestAutre) + '" placeholder="Nom du prestataire">' : "") + '</div>' +
++      '<div class="card"><h2>Produit <span class="req">*</span></h2>' + choixHtml("produit", PRODUITS.map(p => p[0]), S.produit, false).replace(/>Echalote</, ">Échalote<") +
++        (S.produit ? '<h2 style="margin-top:14px">Variété ' + esc(libProduit(S.produit).toLowerCase()) + (S.produit === "Ail" ? ' <span class="req">*</span>' : "") + '</h2>' + choixHtml("variete", vars, S.variete, true) +
++          (S.variete === "__autre" ? '<input class="autre" type="text" id="sVarAutre" value="' + esc(S.varAutre) + '" placeholder="Variété">' : "") : "") + '</div>' +
++      '<div class="card"><h2>Détail marchandise</h2><div class="row2"><div><h2>Lot <span class="req">*</span></h2><input type="text" id="sLot" value="' + esc(S.lot) + '" autocomplete="off" autocapitalize="characters"></div>' +
++        '<div><h2>Calibre</h2><input type="text" id="sCal" list="lCal" value="' + esc(S.calibre) + '" autocomplete="off" placeholder="ex. 70/80"><datalist id="lCal">' + cal.map(c => '<option value="' + esc(c) + '">').join("") + '</datalist></div></div>' +
++        '<h2 style="margin-top:14px">Origine <span class="req">*</span></h2>' + choixHtml("origine", config.origines, S.origine, true) +
++        (S.origine === "__autre" ? '<input class="autre" type="text" id="sOrigAutre" value="' + esc(S.origAutre) + '" placeholder="Origine">' : "") + '</div>' +
++      '<div class="card"><h2>Quantité (kg) <span class="req">*</span></h2><p class="hint">Une ligne par pesée : le total est calculé automatiquement.</p><div class="pesees">' + pes + '</div>' +
++        '<button type="button" class="btn-link" id="addPesee">+ Ajouter une pesée</button><div class="total" id="sTotal"></div></div>' +
++      '<div class="card"><h2>Conditionnement prévu</h2>' + choixHtml("cond", config.conditionnements, S.conditionnement, true) +
++        (S.conditionnement === "__autre" ? '<input class="autre" type="text" id="sCondAutre" value="' + esc(S.condAutre) + '" placeholder="Conditionnement">' : "") + '</div>' +
++      '<div class="card"><h2>Remarques</h2><textarea id="sCom">' + esc(S.commentaire) + '</textarea></div>' +
++      '<button type="button" class="btn btn-main" id="sSave">Enregistrer le mouvement</button><p class="err hidden" id="sErr"></p>';
++    majTotal();
++    const on = (sel, ev, f) => v.querySelectorAll(sel).forEach(e => e.addEventListener(ev, () => f(e)));
++    on("#sDate", "input", e => { S.date = e.value; });
++    on("#sResp", "input", e => { S.responsable = e.value; });
++    on("#sPrestAutre", "input", e => { S.prestAutre = e.value; });
++    on("#sVarAutre", "input", e => { S.varAutre = e.value; });
++    on("#sOrigAutre", "input", e => { S.origAutre = e.value; });
++    on("#sCondAutre", "input", e => { S.condAutre = e.value; });
++    on("#sLot", "input", e => { S.lot = e.value; });
++    on("#sCal", "input", e => { S.calibre = e.value; });
++    on("#sCom", "input", e => { S.commentaire = e.value; });
++    on("[data-pesee]", "input", e => { S.pesees[+e.dataset.pesee] = e.value; majTotal(); });
++    const choix = (attr, champ, focusId, apres) => on("[data-" + attr + "]", "click", e => { const val = e.getAttribute("data-" + attr); S[champ] = S[champ] === val ? "" : val; if (apres) apres(); renderSaisie(); if (S[champ] === "__autre" && focusId){ const f = document.getElementById(focusId); if (f) f.focus(); } });
++    choix("presta", "prestataire", "sPrestAutre");
++    choix("produit", "produit", null, () => { S.variete = ""; S.varAutre = ""; });
++    choix("variete", "variete", "sVarAutre");
++    choix("origine", "origine", "sOrigAutre");
++    choix("cond", "conditionnement", "sCondAutre");
++    on("#addPesee", "click", () => { S.pesees.push(""); renderSaisie(); const l = v.querySelectorAll("[data-pesee]"); l[l.length - 1].focus(); });
++    on("[data-delpesee]", "click", e => { S.pesees.splice(+e.dataset.delpesee, 1); renderSaisie(); });
++    on("#sSave", "click", enregistrer);
++  }
++  function majTotal(){
++    const t = document.getElementById("sTotal"); if (!t) return;
++    const v = S.pesees.filter(x => String(x).trim() !== "");
++    const n = v.map(x => lirePesees(x));
++    if (!v.length){ t.textContent = ""; return; }
++    if (n.some(x => !x)){ t.textContent = "Pesée illisible : saisissez un nombre (ex. 1086 ou 1086,5)."; t.style.color = "var(--warn)"; return; }
++    t.style.color = ""; t.textContent = "Total : " + kg(total([].concat.apply([], n))) + " kg" + (v.length > 1 ? " (" + v.length + " pesées)" : "");
++  }
++  async function enregistrer(){
++    const err = document.getElementById("sErr"), btn = document.getElementById("sSave");
++    const show = m => { err.textContent = m; err.classList.remove("hidden"); };
++    err.classList.add("hidden");
++    const prestataire = valeurChoix(S.prestataire, S.prestAutre), variete = valeurChoix(S.variete, S.varAutre);
++    const origine = valeurChoix(S.origine, S.origAutre), conditionnement = valeurChoix(S.conditionnement, S.condAutre);
++    const remplies = S.pesees.filter(x => String(x).trim() !== ""), lues = remplies.map(lirePesees);
++    if (!/^\d{4}-\d{2}-\d{2}$/.test(S.date)) return show("Indiquez la date de chargement.");
++    if (!prestataire) return show("Choisissez le prestataire.");
++    if (!S.produit) return show("Choisissez le produit.");
++    if (S.produit === "Ail" && !variete) return show("Choisissez la variété d'ail.");
++    if (!S.lot.trim()) return show("Indiquez le numéro de lot.");
++    if (!origine) return show("Choisissez l'origine.");
++    if (!remplies.length) return show("Saisissez au moins une pesée (kg).");
++    if (lues.some(x => !x)) return show("Une pesée est illisible : saisissez un nombre (ex. 1086 ou 1086,5).");
++    const pesees = [].concat.apply([], lues);
++    const doc = { date: S.date, prestataire, produit: S.produit, variete, lot: S.lot.trim().toUpperCase(), origine, calibre: calibreNorm(S.calibre),
++      pesees, quantite: total(pesees), conditionnement, responsable: S.responsable.trim(), commentaire: S.commentaire.trim(),
++      uid: me.uid, creeLe: firebase.firestore.FieldValue.serverTimestamp() };
++    btn.disabled = true;
++    try{
++      await MVT.add(doc);
++      try{ localStorage.setItem(cleResp, S.responsable.trim()); }catch(e){}
++      toast("Mouvement enregistré : " + doc.lot + " – " + kg(doc.quantite) + " kg");
++      // On garde la date, le prestataire, le produit, l'origine et le responsable (souvent identiques sur un même chargement)
++      Object.assign(S, { lot: "", calibre: "", pesees: [""], commentaire: "" });
++      renderSaisie(); window.scrollTo(0, 0);
++    }catch(e){ show(errMsg(e)); btn.disabled = false; }
++  }
++
++  // ---------- Historique ----------
++  function ecouterHist(){
++    if (H.unsub) H.unsub();
++    H.docs = null; H.err = "";
++    H.unsub = MVT.where("date", ">=", H.du).where("date", "<=", H.au).orderBy("date", "desc").limit(5000).onSnapshot(s => {
++      H.docs = s.docs.map(d => Object.assign({ _id: d.id }, d.data())); H.err = "";
++      if (tab === "hist" && !saisieHistEnCours()) drawHist();
++    }, e => { console.warn(e); H.docs = []; H.err = e && e.code === "permission-denied" ? "Lecture refusée : votre compte n'a pas accès à l'historique des mouvements." : "Lecture impossible : " + ((e && e.message) || ""); if (tab === "hist") drawHist(); });
++  }
++  function saisieHistEnCours(){ const a = document.activeElement; return !!(a && a.closest && a.closest("#hEdit")); }
++  function filtres(){
++    const l = cle(H.lot);
++    return (H.docs || []).filter(m => (!H.prestataire || m.prestataire === H.prestataire) && (!H.produit || m.produit === H.produit) && (!l || (H.lotExact ? cle(m.lot) === l : cle(m.lot).indexOf(l) >= 0)))
++      .sort((a, b) => a.date === b.date ? ((b.creeLe && b.creeLe.toMillis ? b.creeLe.toMillis() : 0) - (a.creeLe && a.creeLe.toMillis ? a.creeLe.toMillis() : 0)) : (a.date < b.date ? 1 : -1));
++  }
++  function renderHist(){
++    const v = document.getElementById("view");
++    const prestas = Array.from(new Set(config.prestataires.concat((H.docs || []).map(m => m.prestataire)).filter(Boolean))).sort((a, b) => a.localeCompare(b, "fr"));
++    v.innerHTML = '<div class="card"><div class="seg" role="tablist"><button type="button" data-vue="synthese" aria-pressed="' + (H.vue === "synthese") + '">Synthèse</button><button type="button" data-vue="liste" aria-pressed="' + (H.vue === "liste") + '">Liste détaillée</button></div>' +
++      (H.vue === "liste" && H.retour ? '<p class="hint" style="margin:8px 0 0">Mouvements du lot <b>' + esc(H.lot) + '</b> – ' + esc(H.prestataire) + ' – ' + esc(libProduit(H.produit)) + '. <button type="button" class="btn-link" id="hRetour">← Revenir à la synthèse</button></p>' : '') +
++      '<div class="filters">' +
++      '<label>Du<input type="date" id="hDu" value="' + esc(H.du) + '"></label><label>Au<input type="date" id="hAu" value="' + esc(H.au) + '"></label>' +
++      '<label>Prestataire<select id="hPresta"><option value="">Tous</option>' + prestas.map(p => '<option' + (H.prestataire === p ? " selected" : "") + ' value="' + esc(p) + '">' + esc(p) + '</option>').join("") + '</select></label>' +
++      '<label>Produit<select id="hProd"><option value="">Tous</option>' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (H.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label>' +
++      '<label>Lot<input type="search" id="hLot" value="' + esc(H.lot) + '" placeholder="Rechercher"></label></div>' +
++      '<div class="actions"><button type="button" class="btn btn-sec" id="hXlsx">Exporter en Excel</button>' + (H.vue === "synthese" ? '<button type="button" class="btn btn-sec" id="hTout">Tout déplier</button>' : '') + '</div></div>' +
++      '<div id="hEditBox"></div><div class="card"><div id="hSum" class="sum"></div><div class="scroll" id="hTab"></div></div>';
++    const maj = () => drawHist();
++    document.getElementById("hDu").addEventListener("change", e => { if (e.target.value){ H.du = e.target.value; if (H.au < H.du) H.au = H.du; ecouterHist(); renderHist(); } });
++    document.getElementById("hAu").addEventListener("change", e => { if (e.target.value){ H.au = e.target.value; if (H.au < H.du) H.du = H.au; ecouterHist(); renderHist(); } });
++    document.getElementById("hPresta").addEventListener("change", e => { H.prestataire = e.target.value; maj(); });
++    document.getElementById("hProd").addEventListener("change", e => { H.produit = e.target.value; maj(); });
++    document.getElementById("hLot").addEventListener("input", e => { H.lot = e.target.value; H.lotExact = false; maj(); });
++    v.querySelectorAll("[data-vue]").forEach(b => b.addEventListener("click", () => { if (b.dataset.vue === "synthese") revenirSynthese(); else { H.vue = "liste"; H.retour = null; renderHist(); } }));
++    const r = document.getElementById("hRetour"); if (r) r.addEventListener("click", revenirSynthese);
++    const tt = document.getElementById("hTout"); if (tt) tt.addEventListener("click", () => { const g = groupes(filtres()); const tous = g.every(p => p.produits.every(x => H.ouverts.has(x.cle))); H.ouverts = new Set(tous ? [] : [].concat.apply([], g.map(p => p.produits.map(x => x.cle)))); drawHist(); });
++    document.getElementById("hXlsx").addEventListener("click", exporter);
++    drawHist();
++  }
++  function drawHist(){
++    const t = document.getElementById("hTab"), s = document.getElementById("hSum"); if (!t) return;
++    drawEdit();
++    if (H.err){ s.textContent = ""; t.innerHTML = '<p class="empty">' + esc(H.err) + '</p>'; return; }
++    if (H.docs === null){ s.textContent = ""; t.innerHTML = '<p class="empty">Chargement…</p>'; return; }
++    const l = filtres();
++    const parProd = PRODUITS.map(p => [p[1], l.filter(m => m.produit === p[0]).reduce((a, m) => a + (m.quantite || 0), 0)]).filter(x => x[1] > 0);
++    s.innerHTML = "<b>" + l.length + " mouvement" + (l.length > 1 ? "s" : "") + " – " + kg(l.reduce((a, m) => a + (m.quantite || 0), 0)) + " kg</b>" +
++      (parProd.length ? " (" + parProd.map(x => x[0] + " : " + kg(x[1]) + " kg").join(" · ") + ")" : "") + " du " + frDate(H.du) + " au " + frDate(H.au) + ".";
++    if (!l.length){ t.innerHTML = '<p class="empty">Aucun mouvement sur cette période.</p>'; return; }
++    if (H.vue === "synthese") return drawSynthese(t, l);
++    t.innerHTML = '<table class="mv"><thead><tr><th>Date</th><th>Prestataire</th><th>Produit</th><th>Variété</th><th>Lot</th><th>Origine</th><th>Calibre</th><th>Quantité</th><th>Conditionnement</th><th>Responsable</th><th class="acts"></th></tr></thead><tbody>' +
++      l.map(m => '<tr' + (m.import ? ' class="imp"' : "") + '><td data-l="Date">' + frDate(m.date) + (m.import ? '<span class="tag" title="Importé de la Google Sheet">Sheet</span>' : "") + (m.modifications && m.modifications.length ? '<span class="tag" title="Modifié">Modifié</span>' : "") + '</td>' +
++        '<td data-l="Prestataire">' + esc(m.prestataire) + '</td><td data-l="Produit">' + esc(libProduit(m.produit)) + '</td><td data-l="Variété">' + esc(m.variete || "") + '</td><td data-l="Lot"><b>' + esc(m.lot) + '</b></td>' +
++        '<td data-l="Origine">' + esc(m.origine || "") + '</td><td data-l="Calibre">' + esc(calibreNorm(m.calibre)) + '</td>' +
++        '<td class="num" data-l="Quantité">' + kg(m.quantite) + ' kg' + (m.pesees && m.pesees.length > 1 ? "<small>" + m.pesees.map(kg).join(" + ") + "</small>" : "") + '</td>' +
++        '<td data-l="Conditionnement">' + esc(m.conditionnement || "") + '</td><td data-l="Responsable">' + esc(m.responsable || "") + (m.commentaire ? '<br><small class="hint">' + esc(m.commentaire) + '</small>' : "") + '</td>' +
++        '<td class="acts">' + (peutGerer(m) ? '<button type="button" class="mini" data-edit="' + esc(m._id) + '">Modifier</button> <button type="button" class="mini del" data-del="' + esc(m._id) + '">Supprimer</button>' : "") + '</td></tr>').join("") + '</tbody></table>';
++    t.querySelectorAll("[data-edit]").forEach(b => b.addEventListener("click", () => { H.edit = b.dataset.edit; drawEdit(); const e = document.getElementById("hEdit"); if (e) e.scrollIntoView({ block: "start", behavior: "smooth" }); }));
++    t.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", () => supprimer(b.dataset.del)));
++  }
++  // ---------- Synthèse : prestataire > produit > lot ----------
++  function plage(a, b){ return a === b ? frDate(a) : frDate(a) + " → " + frDate(b); }
++  function groupes(l){
++    const pr = new Map();
++    l.forEach(m => {
++      const p = m.prestataire || "(sans prestataire)";
++      if (!pr.has(p)) pr.set(p, new Map());
++      const pd = pr.get(p); if (!pd.has(m.produit)) pd.set(m.produit, new Map());
++      const lots = pd.get(m.produit), k = m.lot || "(sans lot)";
++      if (!lots.has(k)) lots.set(k, { lot: k, n: 0, kg: 0, varietes: new Set(), calibres: new Set(), du: m.date, au: m.date });
++      const x = lots.get(k); x.n++; x.kg += m.quantite || 0;
++      if (m.variete) x.varietes.add(m.variete); if (m.calibre) x.calibres.add(calibreNorm(m.calibre));
++      if (m.date < x.du) x.du = m.date; if (m.date > x.au) x.au = m.date;
++    });
++    const ordre = PRODUITS.map(p => p[0]);
++    return Array.from(pr.entries()).map(([p, pd]) => {
++      const produits = Array.from(pd.entries()).sort((a, b) => ordre.indexOf(a[0]) - ordre.indexOf(b[0])).map(([prod, lots]) => {
++        const ls = Array.from(lots.values()).map(x => Object.assign(x, { kg: Math.round(x.kg * 1000) / 1000 })).sort((a, b) => b.kg - a.kg);
++        return { produit: prod, cle: p + "|" + prod, lots: ls, n: ls.reduce((a, x) => a + x.n, 0), kg: Math.round(ls.reduce((a, x) => a + x.kg, 0) * 1000) / 1000 };
++      });
++      return { prestataire: p, produits, n: produits.reduce((a, x) => a + x.n, 0), kg: Math.round(produits.reduce((a, x) => a + x.kg, 0) * 1000) / 1000 };
++    }).sort((a, b) => b.kg - a.kg);
++  }
++  function drawSynthese(t, l){
++    const g = groupes(l), tot = total(l.map(m => m.quantite || 0));
++    let h = '<table class="sy"><thead><tr><th>Prestataire / produit / lot</th><th class="num"><span class="lg">Mouvements</span><span class="sm">Mvts</span></th><th class="num c-lots">Lots</th><th class="num">Quantité</th></tr></thead><tbody>';
++    g.forEach(p => {
++      h += '<tr class="pr"><th>' + esc(p.prestataire) + '</th><th class="num">' + p.n + '</th><th class="num c-lots">' + p.produits.reduce((a, x) => a + x.lots.length, 0) + '</th><th class="num">' + kg(p.kg) + ' kg</th></tr>';
++      p.produits.forEach(x => {
++        const ouvert = H.ouverts.has(x.cle);
++        h += '<tr class="pd" tabindex="0" role="button" aria-expanded="' + ouvert + '" data-k="' + esc(x.cle) + '"><td><span class="chev" aria-hidden="true">' + (ouvert ? "▾" : "▸") + '</span>' + esc(libProduit(x.produit)) +
++          ' <small>' + Math.round(x.kg / (p.kg || 1) * 100) + ' %</small></td><td class="num">' + x.n + '</td><td class="num c-lots">' + x.lots.length + '</td><td class="num"><b>' + kg(x.kg) + ' kg</b></td></tr>';
++        if (ouvert) x.lots.forEach(o => {
++          h += '<tr class="lt' + (H.focusLot === p.prestataire + "|" + x.produit + "|" + o.lot ? " focus" : "") + '" tabindex="0" role="button" data-lp="' + esc(p.prestataire) + '" data-lprod="' + esc(x.produit) + '" data-lot="' + esc(o.lot) + '" title="Voir les mouvements de ce lot">' +
++            '<td><b>' + esc(o.lot) + '</b><small>' + esc([Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "), plage(o.du, o.au)].filter(Boolean).join(" · ")) + '</small></td>' +
++            '<td class="num">' + o.n + '</td><td class="num c-lots"></td><td class="num">' + kg(o.kg) + ' kg</td></tr>';
++        });
++      });
++    });
++    h += '</tbody><tfoot><tr><th>Total</th><th class="num">' + l.length + '</th><th class="num c-lots">' + g.reduce((a, p) => a + p.produits.reduce((b, x) => b + x.lots.length, 0), 0) + '</th><th class="num">' + kg(tot) + ' kg</th></tr></tfoot></table>' +
++      '<p class="hint" style="margin-top:8px">Touchez un produit pour voir le détail par lot, puis un lot pour voir ses mouvements.</p>';
++    t.innerHTML = h;
++    const act = (sel, f) => t.querySelectorAll(sel).forEach(e => { e.addEventListener("click", () => f(e)); e.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " "){ ev.preventDefault(); f(e); } }); });
++    act("tr.pd", e => { const k = e.dataset.k; if (H.ouverts.has(k)) H.ouverts.delete(k); else H.ouverts.add(k); drawHist(); });
++    act("tr.lt", e => {
++      H.retour = { prestataire: H.prestataire, produit: H.produit, lot: H.lot, lotExact: H.lotExact, y: window.scrollY };
++      H.focusLot = e.dataset.lp + "|" + e.dataset.lprod + "|" + e.dataset.lot;
++      H.prestataire = e.dataset.lp; H.produit = e.dataset.lprod; H.lot = e.dataset.lot; H.lotExact = true; H.vue = "liste";
++      renderHist(); window.scrollTo(0, 0);
++    });
++  }
++  function revenirSynthese(){
++    const r = H.retour; H.vue = "synthese";
++    if (r){ H.prestataire = r.prestataire; H.produit = r.produit; H.lot = r.lot; H.lotExact = r.lotExact; }
++    H.retour = null; renderHist();
++    if (r) requestAnimationFrame(() => { const f = document.querySelector("tr.lt.focus"); if (f) f.scrollIntoView({ block: "center" }); else window.scrollTo(0, r.y); });
++  }
++  function drawEdit(){
++    const box = document.getElementById("hEditBox"); if (!box) return;
++    const m = H.edit && (H.docs || []).find(x => x._id === H.edit);
++    if (!m){ box.innerHTML = ""; return; }
++    if (document.getElementById("hEdit") && document.getElementById("hEdit").dataset.id === m._id) return;
++    const dl = (id, l) => '<datalist id="' + id + '">' + l.map(x => '<option value="' + esc(x) + '">').join("") + "</datalist>";
++    box.innerHTML = '<div class="card edit" id="hEdit" data-id="' + esc(m._id) + '"><h2>Modifier le mouvement du ' + frDate(m.date) + ' – lot ' + esc(m.lot) + '</h2>' +
++      '<div class="row2"><label>Date de chargement<input type="date" id="eDate" value="' + esc(m.date) + '"></label><label>Prestataire<input type="text" id="ePresta" list="eLP" value="' + esc(m.prestataire) + '">' + dl("eLP", config.prestataires) + '</label></div>' +
++      '<div class="row2"><label>Produit<select id="eProd">' + PRODUITS.map(p => '<option value="' + p[0] + '"' + (m.produit === p[0] ? " selected" : "") + '>' + p[1] + '</option>').join("") + '</select></label><label>Variété<input type="text" id="eVar" list="eLV" value="' + esc(m.variete || "") + '">' + dl("eLV", [].concat(config.varietes.Ail, config.varietes.Oignon, config.varietes.Echalote)) + '</label></div>' +
++      '<div class="row2"><label>Lot<input type="text" id="eLot" value="' + esc(m.lot) + '"></label><label>Origine<input type="text" id="eOrig" list="eLO" value="' + esc(m.origine || "") + '">' + dl("eLO", config.origines) + '</label></div>' +
++      '<div class="row2"><label>Calibre<input type="text" id="eCal" value="' + esc(m.calibre || "") + '"></label><label>Pesées (kg, séparées par + ou /)<input type="text" id="ePes" inputmode="decimal" value="' + esc((m.pesees || [m.quantite]).map(x => String(x).replace(".", ",")).join(" + ")) + '"></label></div>' +
++      '<div class="row2"><label>Conditionnement<input type="text" id="eCond" list="eLC" value="' + esc(m.conditionnement || "") + '">' + dl("eLC", config.conditionnements) + '</label><label>Responsable<input type="text" id="eResp" list="eLR" value="' + esc(m.responsable || "") + '">' + dl("eLR", config.responsables) + '</label></div>' +
++      '<label>Remarques<textarea id="eCom">' + esc(m.commentaire || "") + '</textarea></label>' +
++      '<label style="margin-top:10px">Raison de la modification (obligatoire)<input type="text" id="eRaison"></label>' +
++      '<div class="actions"><button type="button" class="btn btn-main" id="eSave" style="width:auto">Enregistrer la modification</button><button type="button" class="btn btn-sec" id="eNon">Annuler</button></div><p class="err hidden" id="eErr"></p></div>';
++    document.getElementById("eNon").addEventListener("click", () => { H.edit = null; drawEdit(); });
++    document.getElementById("eSave").addEventListener("click", () => modifier(m));
++  }
++  const CHAMPS = ["date", "prestataire", "produit", "variete", "lot", "origine", "calibre", "pesees", "quantite", "conditionnement", "responsable", "commentaire"];
++  async function modifier(m){
++    const err = document.getElementById("eErr"), show = x => { err.textContent = x; err.classList.remove("hidden"); };
++    const g = id => document.getElementById(id).value.trim();
++    const pes = lirePesees(g("ePes"));
++    const n = { date: g("eDate"), prestataire: g("ePresta"), produit: g("eProd"), variete: g("eVar"), lot: g("eLot").toUpperCase(), origine: g("eOrig"), calibre: calibreNorm(g("eCal")),
++      pesees: pes, quantite: pes ? total(pes) : null, conditionnement: g("eCond"), responsable: g("eResp"), commentaire: g("eCom") };
++    if (!/^\d{4}-\d{2}-\d{2}$/.test(n.date)) return show("Date de chargement invalide.");
++    if (!n.prestataire || !n.lot || !n.origine) return show("Prestataire, lot et origine sont obligatoires.");
++    if (!pes) return show("Pesées illisibles : saisissez des nombres séparés par + (ex. 1086 + 1097).");
++    const raison = g("eRaison"); if (!raison) return show("Indiquez la raison de la modification.");
++    const avant = {}, maj = {};
++    CHAMPS.forEach(k => { if (JSON.stringify(m[k] == null ? "" : m[k]) !== JSON.stringify(n[k] == null ? "" : n[k])){ avant[k] = m[k] == null ? "" : m[k]; maj[k] = n[k]; } });
++    if (!Object.keys(maj).length) return show("Aucune modification.");
++    maj.modifications = firebase.firestore.FieldValue.arrayUnion({ le: new Date().toISOString(), par: me.email, raison, avant });
++    try{ await MVT.doc(m._id).update(maj); H.edit = null; toast("Mouvement modifié."); drawEdit(); }
++    catch(e){ show(errMsg(e)); }
++  }
++  async function supprimer(id){
++    const m = (H.docs || []).find(x => x._id === id); if (!m) return;
++    if (!confirm("Supprimer définitivement le mouvement du " + frDate(m.date) + " (lot " + m.lot + ", " + kg(m.quantite) + " kg) ?")) return;
++    try{ await MVT.doc(id).delete(); toast("Mouvement supprimé."); }catch(e){ alert(errMsg(e)); }
++  }
++  function exporter(){
++    const l = filtres().slice().reverse();
++    if (!window.XlsxReleves || !window.XlsxReleves.tableau){ toast("Export Excel indisponible"); return; }
++    const h = s => ({ v: s, s: 5 });
++    const lignes = [[{ v: "MOUVEMENTS ALLIUMS PRESTATION – E14.3", s: 4 }], ["Période : du " + frDate(H.du) + " au " + frDate(H.au) +
++      (H.prestataire ? " – prestataire : " + H.prestataire : "") + (H.produit ? " – produit : " + libProduit(H.produit) : "") + (H.lot ? " – lot : " + H.lot : "")], [],
++      ["Date de chargement", "Prestataire", "Produit", "Variété", "Lot", "Origine", "Calibre", "Quantité (kg)", "Détail des pesées", "Conditionnement prévu", "Responsable", "Remarques", "Saisi le", "Modifications"].map(h)];
++    l.forEach(m => lignes.push([{ v: window.XlsxReleves.dateExcel(m.date), s: 8 }, m.prestataire, libProduit(m.produit), m.variete || "", m.lot, m.origine || "", calibreNorm(m.calibre), { v: m.quantite, s: 2 },
++      (m.pesees || []).map(x => String(x).replace(".", ",")).join(" + "), m.conditionnement || "", m.responsable || "", m.commentaire || "",
++      m.import && m.import.horodateur ? m.import.horodateur + " (Google Sheet)" : (m.creeLe && m.creeLe.toDate ? m.creeLe.toDate().toLocaleString("fr-FR") : ""),
++      (m.modifications || []).map(x => new Date(x.le).toLocaleString("fr-FR") + " par " + (x.par || "?") + " : " + (x.raison || "")).join(" ; ")]));
++    lignes.push([]);
++    lignes.push([{ v: "TOTAL", s: 1 }, "", "", "", l.length + " mouvement" + (l.length > 1 ? "s" : ""), "", "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
++    PRODUITS.forEach(p => { const q = l.filter(m => m.produit === p[0]); if (q.length) lignes.push(["", "", p[1], "", q.length + " mouvement" + (q.length > 1 ? "s" : ""), "", "", { v: total(q.map(m => m.quantite || 0)), s: 2 }]); });
++    const periode = lignes[1];
++    const g = groupes(l);
++    const syn = [[{ v: "SYNTHÈSE PAR PRESTATAIRE ET PRODUIT", s: 4 }], periode, [], ["Prestataire", "Produit", "Mouvements", "Lots", "Quantité (kg)"].map(h)];
++    g.forEach(p => { p.produits.forEach(x => syn.push([p.prestataire, libProduit(x.produit), { v: x.n, s: 6 }, { v: x.lots.length, s: 6 }, { v: x.kg, s: 2 }]));
++      syn.push([{ v: "Total " + p.prestataire, s: 1 }, "", { v: p.n, s: 6 }, { v: p.produits.reduce((a, x) => a + x.lots.length, 0), s: 6 }, { v: p.kg, s: 2 }]); syn.push([]); });
++    syn.push([{ v: "TOTAL", s: 1 }, "", { v: l.length, s: 6 }, "", { v: total(l.map(m => m.quantite || 0)), s: 2 }]);
++    const parLot = [[{ v: "DÉTAIL PAR LOT", s: 4 }], periode, [], ["Prestataire", "Produit", "Lot", "Variété(s)", "Calibre(s)", "Mouvements", "Quantité (kg)", "Premier chargement", "Dernier chargement"].map(h)];
++    g.forEach(p => p.produits.forEach(x => x.lots.forEach(o => parLot.push([p.prestataire, libProduit(x.produit), o.lot, Array.from(o.varietes).join(", "), Array.from(o.calibres).sort().join(", "),
++      { v: o.n, s: 6 }, { v: o.kg, s: 2 }, { v: window.XlsxReleves.dateExcel(o.du), s: 8 }, { v: window.XlsxReleves.dateExcel(o.au), s: 8 }]))));
++    const data = window.XlsxReleves.tableau([
++      { nom: "Synthèse", lignes: syn, largeurs: [30, 12, 13, 8, 15], gel: [0, 4] },
++      { nom: "Par lot", lignes: parLot, largeurs: [26, 11, 14, 28, 16, 12, 14, 14, 14], gel: [0, 4] },
++      { nom: "Mouvements", lignes, largeurs: [12, 24, 10, 28, 14, 12, 10, 13, 22, 18, 22, 30, 20, 40], gel: [0, 4] }], { titre: "Mouvements alliums prestation E14.3" });
++    telecharger("E14.3_Mouvements_alliums_prestation_" + H.du + "_au_" + H.au + ".xlsx", data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
++  }
++
++  // ---------- navigation ----------
++  function setTab(t){
++    tab = t; document.body.classList.toggle("hist", t === "hist");
++    document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
++    render(); window.scrollTo(0, 0);
++  }
++  function render(){ if (tab === "saisie") renderSaisie(); else renderHist(); }
++  document.querySelectorAll("#tabs button").forEach(b => b.addEventListener("click", () => setTab(b.dataset.tab)));
++  function bloquer(titre, texte){ document.getElementById("tabs").classList.add("hidden"); document.getElementById("view").innerHTML = '<div class="card"><h2>' + esc(titre) + '</h2><p class="hint">' + esc(texte) + '</p><a class="btn btn-sec" style="display:inline-flex;align-items:center;text-decoration:none" href="index.html">Retour à l\'accueil</a></div>'; }
++
++  function demarrer(){
++    if (!peutSaisir()){ tab = "hist"; document.body.classList.add("hist"); document.querySelector('#tabs [data-tab="saisie"]').classList.add("hidden"); document.getElementById("tabs").style.gridTemplateColumns = "1fr"; document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === "hist"))); }
++    render();
++    CONFIG_REF.onSnapshot(s => { config = normConfig(s.exists ? s.data() : null); configLoaded = true; if (tab === "saisie") renderSaisie(); }, e => { console.warn(e); banner("Listes de saisie illisibles : listes par défaut affichées."); });
++    ecouterHist();
++    // Calibres du plan (lecture seule, si le compte a accès au plan) : proposés selon la famille du produit
++    const lirePlan = s => { if (s && s.exists){ try{ const p = JSON.parse(s.data().data || "{}"); calibresPlan = { calibres: p.calibres || [], calibreFamilles: p.calibreFamilles || {} }; if (tab === "saisie" && document.getElementById("lCal")) document.getElementById("lCal").innerHTML = calibresProposes().map(c => '<option value="' + esc(c) + '">').join(""); }catch(e){} } };
++    db.collection("planStockage").doc("main").get({ source: "cache" }).then(lirePlan).catch(() => {})
++      .then(() => db.collection("planStockage").doc("main").get()).then(lirePlan).catch(() => {});
++  }
++
++  let compteRefuse = false;
++  auth.onAuthStateChanged(async user => {
++    if (!user){ if (!compteRefuse) location.replace("index.html"); return; }
++    me = { uid: user.uid, email: user.email || "" };
++    let u = {};
++    try{
++      const d = await lireFiche(db.collection("users").doc(user.uid));
++      if (!d.exists){ compteRefuse = true; bloquer("Compte non autorisé", "Compte non autorisé, contactez un administrateur."); await auth.signOut(); location.replace("index.html#non-autorise"); return; }
++      u = d.data();
++      roleMvt = ["viewer", "editor", "admin"].indexOf(u.roleMouvements) >= 0 ? u.roleMouvements : "none";
++      rolePlan = (u.role === "admin" || u.role === "editor") ? u.role : "viewer";
++    }catch(e){ console.warn(e); }
++    // Responsable par défaut : la dernière valeur saisie sur ce poste par ce compte, sinon le nom du compte
++    cleResp = "ll-responsable-" + user.uid;
++    let r = ""; try{ r = localStorage.getItem(cleResp) || ""; }catch(e){}
++    S.responsable = r || u.nom || String(user.email || "").split("@")[0];
++    if (roleMvt === "none" && rolePlan !== "admin"){ bloquer("Accès non autorisé", "Votre compte n'a pas accès au module mouvements prestation. Demandez l'accès à un admin."); return; }
++    demarrer();
++  });
++})();
++</script>
++</body>
++</html>
+diff --git a/xlsx-releves.js b/xlsx-releves.js
+index 0753219..e52dd56 100644
+--- a/xlsx-releves.js
++++ b/xlsx-releves.js
+@@ -1,5 +1,5 @@
+ // Générateur Excel des relevés de température (window.XlsxReleves), repris du prototype.
+-// Utilisé par releves.html, admin.html et plan.html (tableau simple). Sans dépendance : produit un .xlsx (Uint8Array)
++// Utilisé par releves.html, admin.html, plan.html et mouvements.html (tableau simple). Sans dépendance : produit un .xlsx (Uint8Array)
+ // avec les onglets Tableau (STOC E12.1), Graphiques, Données graphiques et Détail.
+ (function(root){
+   'use strict';
