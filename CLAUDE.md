@@ -28,6 +28,7 @@ HTML + CSS + JavaScript vanilla, un fichier par page, script en IIFE. Multi-util
 | `prototype-plan-stockage-releves.html` | Maquette validée (démo avec Firebase simulé). **Référence seulement**, aucun lien depuis l'application. |
 | `docs/index.html` | Ancienne démo autonome du plan seul, sans Firebase, non maintenue. |
 | `SETUP-FIREBASE.md` | Guide de configuration Firebase. |
+| `production/` | Correctif `historique-plan.patch` (historique en documents séparés, fait sur la production au commit `22b59eb`, sans configuration Firebase) et `PROCEDURE-HISTORIQUE.md` (étapes et consigne pour la session de production). |
 | `BASCULE.md` | Procédure de bascule vers la production (Plan_stockage_allium) : choix retenu, points d'attention sur les comptes, étapes, consigne pour la session Claude Code de production, retour arrière, feuille de bascule. |
 
 **Cache local Firestore** (accueil, relevés, administration ; pas `plan.html`) : `enablePersistence({ synchronizeTabs: true })`. Les données déjà vues s'affichent tout de suite au changement de page, puis le serveur les met à jour. La fiche `users` est lue d'abord dans le cache, puis vérifiée auprès du serveur (`lireFiche`) : si le rôle a changé, la page se recharge. La déconnexion (accueil) vide le cache du poste. Dans l'Administration, le document du plan n'est chargé qu'à l'ouverture des rubriques Plan de stockage et Archives.

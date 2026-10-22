@@ -1,0 +1,559 @@
+diff --git a/admin.html b/admin.html
+index cc630fa..8dcc502 100644
+--- a/admin.html
++++ b/admin.html
+@@ -312,6 +312,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+     return ref.get();
+   }
+   const DOC_REF = db.collection('planStockage').doc('main');
++  const HIST = db.collection('planHistorique');   // historique du plan : un document par ligne
+   const CONFIG_REF = db.collection('temperatures').doc('config');
+   const CONS_REF = db.collection('parametres').doc('conservation');
+   const RELEVES = db.collection('releves');
+@@ -564,7 +565,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+ 
+   function viewPlan(){
+     const backupSection = '<div class="card"><h2>Sauvegarde manuelle</h2>'+
+-      '<p class="sub">En cas de souci avec la sauvegarde automatique, exporte un fichier de secours régulièrement, et importe-le pour restaurer tes données.</p>'+
++      '<p class="sub">En cas de souci avec la sauvegarde automatique, exporte un fichier de secours régulièrement, et importe-le pour restaurer tes données. Une fois l\'historique transféré, il n\'est plus dans ce fichier : exporte-le en Excel depuis l\'onglet Historique du plan.</p>'+
+       '<div class="btn-row" style="margin-top:0;">'+
+         '<button class="btn btn-blue btn-sm" id="exportBackupBtn"' + (planDoc.exists ? '' : ' disabled') + '>Exporter une sauvegarde (.json)</button>'+
+         '<label class="btn btn-ghost btn-sm" style="margin:0;cursor:pointer;">Importer une sauvegarde<input type="file" id="importBackupInput" accept="application/json" style="display:none;"></label>'+
+@@ -591,7 +592,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+         '<button class="btn btn-ghost btn-sm" style="margin-top:8px;" data-add-ligne="'+c.id+'">+ Ajouter une ligne</button>'+
+       '</div>';
+     }).join('');
+-    return statut + backupSection+'<div class="card"><h2>Structure des cellules</h2><p class="sub">Configure les cellules, leurs lignes et la capacité de chaque ligne (en nombre de palox). Une cellule ou ligne contenant encore du stock ne peut pas être supprimée.</p>'+
++    return statut + carteHisto() + backupSection+'<div class="card"><h2>Structure des cellules</h2><p class="sub">Configure les cellules, leurs lignes et la capacité de chaque ligne (en nombre de palox). Une cellule ou ligne contenant encore du stock ne peut pas être supprimée.</p>'+
+       blocks+
+       '<button class="btn btn-copper" id="addCellule" style="margin-top:6px;">+ Nouvelle cellule</button></div>' +
+       viewProduitsAdmin(state) + viewCalibresAdmin(state);
+@@ -666,6 +667,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+     const imp = document.getElementById('importBackupInput');
+     if (imp) imp.addEventListener('change', (ev)=>{ if(ev.target.files && ev.target.files[0]) importBackup(ev.target.files[0]); ev.target.value = ''; });
+     const exp = document.getElementById('exportBackupBtn'); if (exp) exp.addEventListener('click', exportBackup);
++    const th = document.getElementById('admTransHisto'); if (th) th.addEventListener('click', transfererHistorique);
+     if (!planDoc.exists) return;
+     q('[data-cellule-nom]').forEach(inp=>{
+       inp.addEventListener('change', ()=>{
+@@ -916,11 +918,6 @@ label.adm-sec{display:inline-flex;align-items:center}
+   function monthKey(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+   function expire(a){ return !!(a.expireLe && a.expireLe.toDate && a.expireLe.toDate() < new Date()); }
+   function limiteReleves(){ return cons.relArchiveApresMois ? ajoutMois(new Date(), -cons.relArchiveApresMois).toISOString() : null; }
+-  function aArchiverMouvements(){
+-    if (!cons.planArchiveApresMois || !planDoc.exists) return [];
+-    var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
+-    return ((planDoc.raw && planDoc.raw.transactions) || []).filter(function(t){ return String(t.date || '') < lim; });
+-  }
+   async function chargerArchivage(){
+     relAnciens = null; archives = null; archErr = '';
+     var lim = limiteReleves();
+@@ -935,23 +932,81 @@ label.adm-sec{display:inline-flex;align-items:center}
+     }catch(e){ archives = []; archErr = (archErr ? archErr + ' ' : '') + 'Lecture des archives impossible : ' + errTxt(e); }
+     if (A.tab === 'arch') draw();
+   }
++  // ---------- Transfert de l'historique du plan vers planHistorique (un document par ligne) ----------
++  // Même identifiant et même contenu que dans plan.html : un transfert relancé ne crée pas de doublon.
++  function hashTxt(txt){ var h = 2166136261; for (var i = 0; i < txt.length; i++){ h ^= txt.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } return h.toString(36); }
++  function idHisto(t){ return t.id ? String(t.id).replace(/\//g, '_') : 'x' + hashTxt(JSON.stringify(t)); }
++  function docHisto(t){
++    var d = {}; Object.keys(t).forEach(function(k){ if (k !== 'id' && t[k] !== undefined) d[k] = t[k]; });
++    d.uid = me.uid; d.creeLe = firebase.firestore.FieldValue.serverTimestamp(); return d;
++  }
++  function idsHisto(tx){
++    var vus = {};
++    return tx.map(function(t){ var id = idHisto(t); if (vus[id]) id = id + '-' + hashTxt(JSON.stringify(t)); vus[id] = true; return id; });
++  }
++  function carteHisto(){
++    // Après le transfert, la carte disparaît ; elle revient seulement si des lignes reviennent dans le plan (ancienne sauvegarde réimportée).
++    var n = ((planDoc.raw && planDoc.raw.transactions) || []).length;
++    if (!n) return '';
++    return '<div class="card"><h2>Historique des mouvements</h2>' +
++      '<p class="sub"><b>' + n.toLocaleString('fr-FR') + ' ligne' + (n > 1 ? 's' : '') + ' d\'historique</b> ' + (n > 1 ? 'sont' : 'est') + ' encore dans le document du plan. Transférez-les : chaque ligne devient un document à part, et le plan ne grossit plus avec le temps. ' +
++      'Avant, exportez une sauvegarde du plan (bouton ci-dessous) et gardez-la sur ce poste. Les lignes sont copiées, vérifiées une à une, puis retirées du plan seulement si la copie est complète. Les palox en stock ne changent pas, et le transfert peut être relancé sans créer de doublon.</p>' +
++      '<button class="btn btn-copper btn-sm" id="admTransHisto">Transférer l\'historique</button></div>';
++  }
++  async function transfererHistorique(){
++    if (!isPlanAdmin()) return;
++    if (!confirm('Transférer l\'historique du plan ?\n\nAvez-vous exporté une sauvegarde du plan ? Si non, annulez et exportez-la d\'abord.\n\nLes lignes sont copiées, vérifiées, puis retirées du plan seulement si la copie est complète. Les palox en stock ne changent pas.')) return;
++    var b = document.getElementById('admTransHisto'); if (b){ b.disabled = true; b.textContent = 'Transfert en cours…'; }
++    try{
++      var snap = await DOC_REF.get(); if (!snap.exists) throw ErrU(NO_PLAN);
++      var tx = JSON.parse(snap.data().data || '{}').transactions || [];
++      if (!tx.length){ A.err = ''; A.msg = 'Aucune ligne d\'historique à transférer.'; return draw(); }
++      var ids = idsHisto(tx);
++      // 1. Copie, par lots de 400
++      for (var i = 0; i < tx.length; i += 400){
++        var lot = db.batch();
++        tx.slice(i, i + 400).forEach(function(t, j){ lot.set(HIST.doc(ids[i + j]), docHisto(t)); });
++        await lot.commit();
++        if (b) b.textContent = 'Copie : ' + Math.min(i + 400, tx.length) + ' / ' + tx.length + '…';
++      }
++      // 2. Vérification, ligne par ligne, sur le serveur
++      var ok = new Set();
++      for (var k = 0; k < tx.length; k += 100){
++        var lus = await Promise.all(ids.slice(k, k + 100).map(function(id){ return HIST.doc(id).get({ source: 'server' }); }));
++        lus.forEach(function(d, j){ var t = tx[k + j]; if (d.exists && d.data().type === t.type && d.data().date === t.date) ok.add(ids[k + j]); });
++        if (b) b.textContent = 'Vérification : ' + Math.min(k + 100, tx.length) + ' / ' + tx.length + '…';
++      }
++      if (ok.size !== tx.length) throw ErrU('Copie incomplète : ' + ok.size + ' lignes vérifiées sur ' + tx.length + '. Rien n\'a été retiré du plan ; relancez le transfert.');
++      // 3. Retrait des lignes vérifiées, sur les données fraîches du plan (les palox ne changent pas)
++      var retirees = 0;
++      await db.runTransaction(async function(t){
++        var s2 = await t.get(DOC_REF); if (!s2.exists) throw ErrU(NO_PLAN);
++        var cur = JSON.parse(s2.data().data || '{}'), tous = cur.transactions || [], ids2 = idsHisto(tous);
++        cur.transactions = tous.filter(function(x, j){ return !ok.has(ids2[j]); });
++        retirees = tous.length - cur.transactions.length;
++        cur.histoSepare = true;
++        t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
++      });
++      A.err = ''; A.msg = retirees + ' lignes d\'historique transférées et vérifiées. Les palox en stock n\'ont pas changé.';
++    }catch(e){
++      A.msg = ''; A.err = e.userMsg || ('Transfert interrompu : ' + errTxt(e) + '. Rien n\'est perdu : relancez le transfert.');
++    }
++    draw();
++  }
+   function optMois(sel, liste, zero){ return (zero ? '<option value="0"' + (sel === 0 ? ' selected' : '') + '>' + zero + '</option>' : '') + liste.map(function(n){ return '<option value="' + n + '"' + (sel === n ? ' selected' : '') + '>' + n + ' mois</option>'; }).join(''); }
+   function optAns(sel, liste, zero){ return (zero ? '<option value="0"' + (sel === 0 ? ' selected' : '') + '>' + zero + '</option>' : '') + liste.map(function(n){ return '<option value="' + n + '"' + (sel === n ? ' selected' : '') + '>' + n + ' an' + (n > 1 ? 's' : '') + '</option>'; }).join(''); }
+   function viewArch(){
+     var c = cons, planAdmin = isPlanAdmin(), h = '';
+-    var nr = relAnciens ? relAnciens.length : null, nm = planAdmin ? aArchiverMouvements().length : 0;
++    var nr = relAnciens ? relAnciens.length : null;
+     if (archErr) h += '<div class="adm-err" role="alert">' + esc(archErr) + '</div>';
+     h += '<section class="adm-card"><h2>Durées de conservation</h2><p class="adm-muted">Après le délai d\'archivage, les données quittent les écrans du module et passent dans les archives, où elles restent consultables et exportables. À la fin de la durée de conservation, l\'archive peut être supprimée définitivement. Vérifiez les durées exigées par votre démarche qualité et vos clients avant de les fixer.</p>' +
+       '<h3 class="adm-h3">Relevés de température</h3><div class="adm-pair">' +
+       '<label>Archiver les relevés après<select id="cRelA">' + optMois(c.relArchiveApresMois, [6, 12, 13, 18, 24, 36], 'Jamais') + '</select></label>' +
+       '<label>Durée de conservation totale<select id="cRelC">' + optAns(c.relConservationAns, [1, 2, 3, 5, 10], 'Illimitée') + '</select></label></div>';
+-    if (planAdmin) h += '<h3 class="adm-h3">Historique des mouvements du plan de stockage</h3><p class="adm-muted">Par défaut « Jamais » : l\'historique du plan reste tel quel. C\'est le seul réglage qui peut modifier les données du plan ; il ne s\'applique qu\'à l\'historique des mouvements, jamais aux palox en stock.</p><div class="adm-pair">' +
+-      '<label>Archiver les mouvements après<select id="cPlanA">' + optMois(c.planArchiveApresMois, [12, 24, 36, 60], 'Jamais (par défaut)') + '</select></label>' +
+-      '<label>Durée de conservation totale<select id="cPlanC">' + optAns(c.planConservationAns, [3, 5, 10], 'Illimitée') + '</select></label></div>';
++    if (planAdmin) h += '<h3 class="adm-h3">Historique des mouvements du plan de stockage</h3><p class="adm-muted">Plus d\'archivage nécessaire : chaque ligne est enregistrée à part et ne remplit plus le plan. Consultation et export Excel dans l\'onglet Historique du plan.</p>';
+     h += '<div class="adm-actions"><button type="button" class="adm-save" id="admSaveCons">Enregistrer les durées</button></div></section>';
+     h += '<section class="adm-card"><h2>À archiver</h2>' +
+       '<div class="adm-row"><span style="flex:1 1 220px">Relevés de température plus anciens que ' + (c.relArchiveApresMois ? c.relArchiveApresMois + ' mois' : '— (jamais)') + ' : <b>' + (nr == null ? '…' : nr) + '</b></span><button type="button" class="adm-sec" id="admArchRel"' + (nr ? '' : ' disabled') + '>Archiver maintenant</button></div>' +
+-      (planAdmin ? '<div class="adm-row"><span style="flex:1 1 220px">Mouvements du plan plus anciens que ' + (c.planArchiveApresMois ? c.planArchiveApresMois + ' mois' : '— (jamais)') + ' : <b>' + nm + '</b></span><button type="button" class="adm-sec" id="admArchPlan"' + (nm ? '' : ' disabled') + '>Archiver maintenant</button></div>' : '') +
+       '<p class="adm-muted">Firebase gratuit ne permet pas de tâche automatique : l\'archivage se lance ici. Quand il y a des données à archiver, un rappel apparaît sur la tuile Administration de l\'accueil.</p></section>';
+     var liste = archives;
+     h += '<section class="adm-card"><h2>Archives</h2>' + (liste === null ? '<p class="adm-muted">Chargement des archives…</p>' : liste.length ? '<div class="adm-scroll"><table class="adm-arch"><thead><tr><th>Contenu</th><th>Période</th><th>Créée le</th><th>Conserver jusqu\'au</th><th></th></tr></thead><tbody>' +
+@@ -992,42 +1047,6 @@ label.adm-sec{display:inline-flex;align-items:center}
+     }
+     chargerArchivage(); draw();
+   }
+-  // Historique du plan : même principe, une archive par mois (plusieurs si le mois dépasse MAX_ARCHIVE mouvements).
+-  // Chaque archive est une transaction sur planStockage/main : création de l'archive et retrait de ses mouvements
+-  // ensemble (tout ou rien). Seul le champ transactions change, les palox restent identiques.
+-  async function archiverMouvements(){
+-    if (!confirm('Archiver les anciens mouvements de l\'historique du plan ?\n\nIls quittent l\'onglet Historique du plan et restent consultables dans les archives. Les palox en stock ne changent pas.')) return;
+-    var lim = ajoutMois(new Date(), -cons.planArchiveApresMois).toISOString().slice(0, 10);
+-    var fait = 0, nbArch = 0, fini = false;
+-    try{
+-      while (!fini){
+-        var nb = 0;
+-        await db.runTransaction(async function(t){
+-          nb = 0;
+-          var snap = await t.get(DOC_REF); if (!snap.exists) throw ErrU(NO_PLAN);
+-          var cur = JSON.parse(snap.data().data || '{}');
+-          var tous = cur.transactions || [];
+-          var vieux = tous.filter(function(x){ return String(x.date || '') < lim; }).sort(function(a, b){ return String(a.date) < String(b.date) ? -1 : 1; });
+-          if (!vieux.length) return;
+-          var mk = String(vieux[0].date).slice(0, 7);
+-          var tranche = vieux.filter(function(x){ return String(x.date).slice(0, 7) === mk; }).slice(0, MAX_ARCHIVE);
+-          var d = tranche.map(function(x){ return String(x.date); });
+-          t.set(ARCHIVES.doc(), { type: 'mouvements', mois: [mk], du: d[0], au: d[d.length - 1], nb: tranche.length, creeLe: new Date().toISOString(), par: me.email || me.uid,
+-            expireLe: expireLe(d[d.length - 1], cons.planConservationAns), donnees: JSON.stringify(tranche) });
+-          var retires = new Set(tranche);
+-          cur.transactions = tous.filter(function(x){ return !retires.has(x); });
+-          t.set(DOC_REF, { data: JSON.stringify(cur), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+-          nb = tranche.length;
+-        });
+-        if (!nb) fini = true; else { fait += nb; nbArch++; }
+-      }
+-      if (fait){ A.err = ''; A.msg = fait + ' mouvements archivés (' + nbArch + ' archive' + (nbArch > 1 ? 's' : '') + '). Les palox en stock ne changent pas.'; }
+-      else { A.err = 'Aucun mouvement à archiver.'; A.msg = ''; }
+-    }catch(e){
+-      A.msg = ''; A.err = (e.userMsg || ('Archivage interrompu : ' + errTxt(e))) + (fait ? ' (' + fait + ' mouvements déjà archivés correctement ; relancez pour le reste).' : '');
+-    }
+-    chargerArchivage(); draw();
+-  }
+   function nomArchive(a){ return 'archive-' + (a.type === 'releves' ? 'releves' : 'mouvements') + '-' + String(a.du).slice(0, 10) + '_' + String(a.au).slice(0, 10); }
+   function enClair(v){
+     if (v && typeof v.toDate === 'function') return v.toDate().toISOString();
+@@ -1106,7 +1125,7 @@ label.adm-sec{display:inline-flex;align-items:center}
+       telecharger(nomArchive(a) + '.xlsx', window.XlsxReleves.construire(data, cf, { titre: 'ARCHIVE – RELEVÉS DE TEMPÉRATURE CHAMBRES FROIDES – STOC E12.1', periode: 'du ' + fd(a.du) + ' au ' + fd(a.au) }), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+       return;
+     }
+-    var cols = ['date', 'type', 'produit', 'lot', 'quantite', 'poids', 'label', 'fromLabel', 'toLabel', 'commentaire', 'responsable'];
++    var cols = ['date', 'type', 'produit', 'lot', 'lot2', 'quantite', 'poids', 'label', 'fromLabel', 'toLabel', 'commentaire', 'responsable'];
+     var q = function(v){ v = v == null ? '' : (typeof v === 'number' ? String(v).replace('.', ',') : String(v)); return '"' + v.replace(/"/g, '""') + '"'; };
+     telecharger(nomArchive(a) + '.csv', '﻿' + cols.join(';') + '\r\n' + data.map(function(r){ return cols.map(function(k){ return q(r[k]); }).join(';'); }).join('\r\n'), 'text/csv;charset=utf-8');
+   }
+@@ -1122,7 +1141,6 @@ label.adm-sec{display:inline-flex;align-items:center}
+       draw();
+     };
+     if (g('admArchRel')) g('admArchRel').onclick = function(){ this.disabled = true; archiverReleves(); };
+-    if (g('admArchPlan')) g('admArchPlan').onclick = function(){ archiverMouvements(); };
+     var trouve = function(id){ return (archives || []).filter(function(x){ return x.id === id; })[0]; };
+     o.querySelectorAll('[data-axp]').forEach(function(b){ b.onclick = function(){ var a = trouve(b.dataset.axp); if (a) exporterArchive(a); }; });
+     o.querySelectorAll('[data-axj]').forEach(function(b){ b.onclick = function(){ var a = trouve(b.dataset.axj); if (a) telecharger(nomArchive(a) + '.json', JSON.stringify({ type: a.type, du: a.du, au: a.au, nb: a.nb, creeLe: a.creeLe, par: a.par, expireLe: a.expireLe ? a.expireLe.toDate().toISOString() : null, donnees: donneesArchive(a) }, null, 2), 'application/json'); }; });
+diff --git a/firestore.rules b/firestore.rules
+index bcc7443..137de24 100644
+--- a/firestore.rules
++++ b/firestore.rules
+@@ -37,6 +37,25 @@ service cloud.firestore {
+       allow write: if canManageStock();
+     }
+ 
++    // Historique du plan : un document par ligne (entrée, sortie, déplacement, modification),
++    // écrit dans le même lot que planStockage/main. Lecture : comme le plan. Création : Gestion ou Admin du plan,
++    // avec uid = auteur et creeLe = heure serveur. Une ligne n'est jamais modifiée : seule une réécriture
++    // identique est acceptée (transfert relancé, enregistrement répété), qui ne change que uid et creeLe.
++    // Suppression : admin du plan seulement.
++    function ligneHistoValide() {
++      return request.resource.data.type in ['entree', 'sortie', 'deplacement', 'modification']
++        && request.resource.data.date is string && request.resource.data.date.size() == 10
++        && request.resource.data.uid == request.auth.uid
++        && request.resource.data.creeLe == request.time;
++    }
++    match /planHistorique/{ligneId} {
++      allow read: if estConnu() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'viewer') != 'none';
++      allow create: if canManageStock() && ligneHistoValide();
++      allow update: if canManageStock() && ligneHistoValide()
++        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'creeLe']);
++      allow delete: if isAdmin();
++    }
++
+     // ===================================================================
+     // Module relevés de température (ajouté ; les règles ci-dessus sont inchangées).
+     // Rôle relevés : champ roleReleves de users/{uid} — none / viewer / editor / admin.
+diff --git a/index.html b/index.html
+index 3a08927..baf536b 100644
+--- a/index.html
++++ b/index.html
+@@ -185,12 +185,6 @@
+         const q = await db.collection('releves').where('at', '<', lim).limit(1).get();
+         if (!q.empty) afaire = true;
+       }
+-      if (!afaire && role === 'admin' && c.planArchiveApresMois > 0){
+-        const lim = ajoutMois(new Date(), -c.planArchiveApresMois).toISOString().slice(0, 10);
+-        const snap = await db.collection('planStockage').doc('main').get();
+-        const p = snap.exists ? JSON.parse(snap.data().data || '{}') : {};
+-        if ((p.transactions || []).some(t => String(t.date || '') < lim)) afaire = true;
+-      }
+       const b = document.getElementById('archBadge');
+       if (b && afaire){ b.className = 'badge'; b.textContent = 'Archivage à faire'; }
+     }catch(e){ console.warn('Rappel d\'archivage indisponible', e); }
+diff --git a/plan.html b/plan.html
+index 7d1ca82..8282119 100644
+--- a/plan.html
++++ b/plan.html
+@@ -258,6 +258,7 @@
+ <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+ <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+ <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
++<script src="xlsx-releves.js"></script>
+ <script>
+ (function(){
+   // Remplace ces valeurs par la config de ton projet Firebase
+@@ -274,6 +275,8 @@
+   const auth = firebase.auth();
+   const db = firebase.firestore();
+   const DOC_REF = db.collection('planStockage').doc('main');
++  // Historique du plan : un document par ligne dans planHistorique (plus dans planStockage/main, limité à 1 Mio).
++  const HIST = db.collection('planHistorique');
+   let currentRole = 'viewer';
+   function canManageStock(){ return currentRole==='editor' || currentRole==='admin'; }
+   function isAdmin(){ return currentRole==='admin'; }
+@@ -297,6 +300,7 @@
+ 
+   function applyIncomingState(raw){
+     if(raw){ try{ state = JSON.parse(raw); }catch(e){ state = { cellules:[], lots:[], transactions:[], produits:[], calibres:[] }; } }
++    if(!Array.isArray(state.transactions)) state.transactions = [];
+     migrate();
+     if(!currentCelluleId || !getCellule(currentCelluleId)) currentCelluleId = state.cellules[0] ? state.cellules[0].id : null;
+   }
+@@ -341,12 +345,37 @@
+     saveChain = saveChain.then(()=>doSaveWithRetry(4));
+     return saveChain;
+   }
++  // Le plan et ses nouvelles lignes d'historique sont écrits dans le même lot (tout ou rien).
++  // Une fois l'historique transféré (state.histoSepare), les lignes restées dans le plan (écrites par une
++  // ancienne version de la page) sont déplacées vers planHistorique au passage, 400 au plus par enregistrement.
+   async function doSaveWithRetry(retriesLeft, delay){
+     delay = delay || 1000;
+     setSaveStatus('saving');
+     try{
+-      await DOC_REF.set({ data: JSON.stringify(state), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
++      const nouvelles = txAttente.slice(0, 400);
++      const anciennes = state.histoSepare ? state.transactions.slice(0, 400 - nouvelles.length) : [];
++      const deplacees = new Set(anciennes.map(t=>t.id));
++      const aEcrire = deplacees.size ? Object.assign({}, state, { transactions: state.transactions.filter(t=>!deplacees.has(t.id)) }) : state;
++      const lot = db.batch();
++      lot.set(DOC_REF, { data: JSON.stringify(aEcrire), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
++      nouvelles.concat(anciennes).forEach(t=> lot.set(HIST.doc(idHisto(t)), docHisto(t)));
++      try{ await lot.commit(); }
++      catch(e){
++        // Règles de planHistorique pas encore publiées : l'historique reste dans le plan, comme avant.
++        if(e && e.code==='permission-denied' && (nouvelles.length || anciennes.length)){
++          console.warn("Historique séparé refusé, enregistrement à l'ancienne", e);
++          state.transactions = nouvelles.slice().reverse().concat(state.transactions);
++          txAttente = txAttente.filter(t=>!nouvelles.includes(t));
++          await DOC_REF.set({ data: JSON.stringify(state), updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
++          setSaveStatus('ok');
++          return;
++        }
++        throw e;
++      }
++      txAttente = txAttente.filter(t=>!nouvelles.includes(t));
++      if(deplacees.size) state.transactions = state.transactions.filter(t=>!deplacees.has(t.id));
+       setSaveStatus('ok');
++      if(txAttente.length || (state.histoSepare && state.transactions.length)) saveState();
+     }catch(e){
+       console.error("Erreur de sauvegarde", e);
+       if(retriesLeft>0){
+@@ -486,9 +515,25 @@
+     const c = getCellule(celluleId), l = getLigne(celluleId, ligneId);
+     return (c?c.nom:'?') + " — " + (l?l.nom:'?');
+   }
++  // Les nouvelles lignes d'historique attendent le prochain enregistrement du plan (voir doSaveWithRetry).
++  let txAttente = [];
+   function addTx(type, data){
+     const responsable = (auth.currentUser && auth.currentUser.email) || '?';
+-    state.transactions.unshift(Object.assign({ id: uid(), type, date: data.date || today(), responsable }, data));
++    txAttente.push(Object.assign({ id: HIST.doc().id, type, date: data.date || today(), responsable }, data));
++  }
++  // Ligne sans identifiant (très ancienne) : identifiant tiré de son contenu, pour qu'un transfert relancé ne la double pas.
++  function idHisto(t){
++    if(t.id) return String(t.id).replace(/\//g, '_');
++    const txt = JSON.stringify(t); let h = 2166136261;
++    for(let i=0;i<txt.length;i++){ h ^= txt.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
++    return 'x' + h.toString(36);
++  }
++  function docHisto(t){
++    const d = {};
++    Object.keys(t).forEach(k=>{ if(k!=='id' && t[k]!==undefined) d[k] = t[k]; });
++    d.uid = auth.currentUser ? auth.currentUser.uid : '';
++    d.creeLe = firebase.firestore.FieldValue.serverTimestamp();
++    return d;
+   }
+   function totalPalox(){ return state.lots.length; }
+   const FAMILLES = ['Echalote','Oignon','Ail'];
+@@ -564,6 +609,7 @@
+     if(tab==='cellules' && !isAdmin()) tab = 'stockage';
+     if(tab==='comptes' && !isAdmin()) tab = 'stockage';
+     currentTab = tab;
++    if(tab!=='historique') arreterHisto();
+     document.querySelectorAll('nav.tabs button').forEach(b=> b.classList.toggle('active', b.dataset.tab===tab));
+     const app = document.getElementById('app');
+     if(tab==='stockage') app.innerHTML = viewStockage();
+@@ -1358,41 +1404,75 @@
+   }
+ 
+   // ---------- HISTORIQUE ----------
++  // Lignes lues dans planHistorique sur la période affichée (30 derniers jours par défaut),
++  // plus celles qui seraient encore dans le document du plan (avant le transfert, ou écrites par une ancienne version).
++  const histo = { du: '', au: '', cle: '', docs: null, err: '', unsub: null };
++  function histoDefaut(){ const d = new Date(); d.setDate(d.getDate()-30); histo.du = d.toISOString().slice(0,10); histo.au = ''; }
++  function arreterHisto(){ if(histo.unsub){ histo.unsub(); histo.unsub = null; } histo.cle = ''; }
++  function ecouterHisto(){
++    const cle = histo.du+'|'+histo.au;
++    if(histo.unsub && histo.cle===cle) return;
++    arreterHisto(); histo.cle = cle; histo.docs = null; histo.err = '';
++    let q = HIST;
++    if(histo.du) q = q.where('date', '>=', histo.du);
++    if(histo.au) q = q.where('date', '<=', histo.au);
++    histo.unsub = q.orderBy('date', 'desc').onSnapshot(snap=>{
++      histo.docs = snap.docs.map(d=>{ const x = d.data(); x.id = d.id; x._ms = x.creeLe && x.creeLe.toMillis ? x.creeLe.toMillis() : Date.now(); return x; });
++      histo.err = '';
++      if(currentTab==='historique') refreshHistorique();
++    }, err=>{
++      console.error(err);
++      histo.docs = []; histo.err = err && err.code==='permission-denied' ? "Lecture de l'historique refusée : les règles Firestore de planHistorique ne sont peut-être pas encore publiées." : "Historique illisible pour le moment : "+(err && err.message || err);
++      if(currentTab==='historique') refreshHistorique();
++    });
++  }
+   function viewHistorique(){
+-    return '<div class="card"><h2>Historique des mouvements</h2><p class="sub">Toutes les entrées, sorties et déplacements enregistrés.</p>'+
++    if(!histo.du && !histo.au && !histo.cle) histoDefaut();
++    return '<div class="card"><h2>Historique des mouvements</h2><p class="sub">Toutes les entrées, sorties et déplacements enregistrés. Par défaut, les 30 derniers jours : changez les dates pour remonter plus loin.</p>'+
+       '<div class="grid-form" style="margin-bottom:14px;max-width:420px;">'+
+-        '<label class="field">Du<input type="date" id="historiqueFrom"></label>'+
+-        '<label class="field">Au<input type="date" id="historiqueTo"></label>'+
++        '<label class="field">Du<input type="date" id="historiqueFrom" value="'+escapeHtml(histo.du)+'"></label>'+
++        '<label class="field">Au<input type="date" id="historiqueTo" value="'+escapeHtml(histo.au)+'"></label>'+
+       '</div>'+
+-      '<div id="txTableWrap">'+txTable(state.transactions)+'</div></div>';
++      '<div class="btn-row" style="margin:0 0 14px;"><button class="btn btn-ghost btn-sm" id="exportHistoBtn">Exporter en Excel</button></div>'+
++      '<div id="txTableWrap">'+txTableWrap()+'</div></div>';
+   }
+   function filteredTransactions(){
+-    const from = (document.getElementById('historiqueFrom')||{}).value || '';
+-    const to = (document.getElementById('historiqueTo')||{}).value || '';
+-    let txs = state.transactions;
+-    if(from) txs = txs.filter(t=>t.date>=from);
+-    if(to) txs = txs.filter(t=>t.date<=to);
+-    return txs;
++    const from = histo.du, to = histo.au;
++    let anciennes = state.transactions || [];
++    if(from) anciennes = anciennes.filter(t=>t.date>=from);
++    if(to) anciennes = anciennes.filter(t=>t.date<=to);
++    const vus = new Set((histo.docs||[]).map(t=>t.id));
++    const toutes = (histo.docs||[]).concat(anciennes.filter(t=>!vus.has(idHisto(t))).map((t,i)=>Object.assign({ _ms: -i }, t)));
++    // Plus récent en premier : par date, puis par heure d'enregistrement
++    return toutes.sort((a,b)=> a.date<b.date ? 1 : a.date>b.date ? -1 : (b._ms||0)-(a._ms||0));
++  }
++  function txTableWrap(){
++    if(histo.docs===null) return '<div class="loading">Chargement de l\'historique…</div>';
++    return (histo.err ? '<p class="msg err" role="alert">'+escapeHtml(histo.err)+'</p>' : '')+txTable(filteredTransactions());
+   }
+   function refreshHistorique(){
+-    document.getElementById('txTableWrap').innerHTML = txTable(filteredTransactions());
++    const w = document.getElementById('txTableWrap'); if(!w) return;
++    w.innerHTML = txTableWrap();
+     bindHistoriqueDeleteEvents();
+   }
+   function bindHistoriqueDeleteEvents(){
+     document.querySelectorAll('[data-del-tx]').forEach(btn=>{
+       btn.addEventListener('click', async ()=>{
+         if(!confirm('Supprimer cette ligne d\'historique ? Cette action ne peut pas être annulée. Le stock associé n\'est pas modifié.')) return;
+-        state.transactions = state.transactions.filter(t=>t.id!==btn.dataset.delTx);
+-        await saveState();
++        const id = btn.dataset.delTx;
++        try{
++          if((histo.docs||[]).some(t=>t.id===id)) await HIST.doc(id).delete();
++          if(state.transactions.some(t=>t.id===id)){ state.transactions = state.transactions.filter(t=>t.id!==id); await saveState(); }
++        }catch(e){ alert('Suppression impossible : '+(e && e.message || e)); }
+         refreshHistorique();
+       });
+     });
+   }
++  const TYPE_LABELS = { entree:'Entrée', sortie:'Sortie', deplacement:'Déplacement', modification:'Modification' };
+   function txTable(txs){
+-    if(txs.length===0) return emptyState("Aucun mouvement enregistré", "L'historique se remplit à chaque entrée, sortie ou déplacement.");
+-    const typeLabels = { entree:'Entrée', sortie:'Sortie', deplacement:'Déplacement', modification:'Modification' };
++    if(txs.length===0) return emptyState("Aucun mouvement sur cette période", "L'historique se remplit à chaque entrée, sortie ou déplacement. Changez les dates pour remonter plus loin.");
+     const rows = txs.map(t=>{
+-      const typeLabel = typeLabels[t.type] || t.type;
++      const typeLabel = TYPE_LABELS[t.type] || t.type;
+       const posHtml = t.type==='deplacement' ? ('<span class="mono">'+escapeHtml(t.fromLabel)+'</span> → <span class="mono">'+escapeHtml(t.toLabel)+'</span>') : ('<span class="mono">'+escapeHtml(t.label)+'</span>');
+       return '<tr><td>'+fmtDate(t.date)+'</td><td><span class="tag '+t.type+'">'+typeLabel+'</span></td>'+
+         '<td>'+escapeHtml(t.produit||'—')+(t.lot? ' ('+escapeHtml(t.lot)+(t.lot2?' + '+escapeHtml(t.lot2):'')+')':'')+'</td>'+
+@@ -1400,11 +1480,31 @@
+         '<td class="mono">'+(t.poids!=null? fmt(t.poids)+' kg':'—')+'</td>'+
+         '<td>'+escapeHtml(t.commentaire||'—')+'</td>'+
+         '<td>'+escapeHtml(t.responsable||'—')+'</td>'+
+-        (isAdmin() ? '<td><button class="del-btn" data-del-tx="'+t.id+'">supprimer</button></td>' : '')+
++        (isAdmin() ? '<td><button class="del-btn" data-del-tx="'+escapeHtml(t.id)+'">supprimer</button></td>' : '')+
+       '</tr>';
+     }).join('');
+     return '<div class="table-scroll"><table class="data"><thead><tr><th>Date</th><th>Type</th><th>Produit</th><th>Emplacement</th><th>Palox</th><th>Poids</th><th>Commentaire</th><th>Responsable</th>'+(isAdmin()?'<th></th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table></div>';
+   }
++  function exportHistoXlsx(){
++    if(!window.XlsxReleves || !window.XlsxReleves.tableau){ alert('Export Excel indisponible'); return; }
++    if(histo.docs===null){ alert('Historique en cours de chargement, réessayez dans un instant.'); return; }
++    const txs = filteredTransactions().slice().reverse();
++    const X = window.XlsxReleves, h = v=>({ v, s: 5 }), fr = d=> d ? d.split('-').reverse().join('/') : '';
++    const periode = 'Période : ' + (histo.du ? 'du '+fr(histo.du) : 'depuis le début') + (histo.au ? ' au '+fr(histo.au) : " à aujourd'hui");
++    const lignes = [[{ v: 'HISTORIQUE DES MOUVEMENTS DU PLAN DE STOCKAGE', s: 4 }], [periode], [],
++      ['Date', 'Type', 'Produit', 'Lot', 'Lot 2', 'Emplacement', 'Vers', 'Palox', 'Poids (kg)', 'Commentaire', 'Responsable'].map(h)];
++    txs.forEach(t=> lignes.push([{ v: X.dateExcel(t.date), s: 8 }, TYPE_LABELS[t.type] || t.type || '', t.produit || '', t.lot || '', t.lot2 || '',
++      (t.type==='deplacement' ? t.fromLabel : t.label) || '', t.type==='deplacement' ? (t.toLabel || '') : '',
++      { v: Number(t.quantite) || 0, s: 6 }, t.poids!=null ? { v: Number(t.poids), s: 2 } : '', t.commentaire || '', t.responsable || '']));
++    lignes.push([]);
++    lignes.push([{ v: 'TOTAL', s: 1 }, txs.length + ' ligne' + (txs.length>1?'s':'')]);
++    const data = X.tableau([{ nom: 'Historique', lignes, largeurs: [12, 14, 22, 14, 14, 26, 26, 8, 11, 30, 28], gel: [0, 4] }], { titre: 'Historique du plan de stockage' });
++    const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
++    const url = URL.createObjectURL(blob), a = document.createElement('a');
++    a.href = url; a.download = 'historique-plan-stockage_' + (histo.du || 'debut') + '_au_' + (histo.au || today()) + '.xlsx';
++    document.body.appendChild(a); a.click(); document.body.removeChild(a);
++    setTimeout(()=>URL.revokeObjectURL(url), 2000);
++  }
+ 
+   // ---------- CELLULES (config) ----------
+   function viewCellules(){
+@@ -1563,8 +1663,11 @@
+       bindHistoriqueDeleteEvents();
+       const fromInp = document.getElementById('historiqueFrom');
+       const toInp = document.getElementById('historiqueTo');
+-      if(fromInp) fromInp.addEventListener('change', refreshHistorique);
+-      if(toInp) toInp.addEventListener('change', refreshHistorique);
++      const changer = ()=>{ histo.du = fromInp.value || ''; histo.au = toInp.value || ''; ecouterHisto(); refreshHistorique(); };
++      if(fromInp) fromInp.addEventListener('change', changer);
++      if(toInp) toInp.addEventListener('change', changer);
++      document.getElementById('exportHistoBtn').addEventListener('click', exportHistoXlsx);
++      ecouterHisto();
+     }
+     if(tab==='global'){
+       document.querySelectorAll('[data-global-mode]').forEach(btn=>{
+@@ -1756,6 +1859,7 @@
+ 
+   auth.onAuthStateChanged(async (user)=>{
+     if(unsubscribeSnapshot){ unsubscribeSnapshot(); unsubscribeSnapshot = null; }
++    arreterHisto(); histo.du = ''; histo.au = ''; histo.docs = null; txAttente = [];
+     if(user){
+       try{
+         const roleDoc = await db.collection('users').doc(user.uid).get();
+diff --git a/xlsx-releves.js b/xlsx-releves.js
+index 0e29045..0753219 100644
+--- a/xlsx-releves.js
++++ b/xlsx-releves.js
+@@ -1,5 +1,5 @@
+ // Générateur Excel des relevés de température (window.XlsxReleves), repris du prototype.
+-// Utilisé par releves.html et admin.html. Sans dépendance : produit un .xlsx (Uint8Array)
++// Utilisé par releves.html, admin.html et plan.html (tableau simple). Sans dépendance : produit un .xlsx (Uint8Array)
+ // avec les onglets Tableau (STOC E12.1), Graphiques, Données graphiques et Détail.
+ (function(root){
+   'use strict';
+@@ -42,13 +42,14 @@
+       (opts.landscape ? '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' : '') + freeze + cols + '<sheetData>' + data + '</sheetData>' + (opts.merges && opts.merges.length ? '<mergeCells count="' + opts.merges.length + '">' + opts.merges.map(function(m){ return '<mergeCell ref="' + m + '"/>'; }).join('') + '</mergeCells>' : '') +
+       '<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/>' + (opts.landscape ? '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>' : '') + (opts.drawing ? '<drawing r:id="rId1"/>' : '') + '</worksheet>';
+   }
+-  // styles : 0 normal, 1 gras, 2 nombre 0,0, 3 nombre 0,0 sur fond rouge (écart), 4 titre, 5 en-tête (gras, fond gris), 6 nombre entier, 7 texte rouge gras
++  // styles : 0 normal, 1 gras, 2 nombre 0,0, 3 nombre 0,0 sur fond rouge (écart), 4 titre, 5 en-tête (gras, fond gris), 6 nombre entier, 7 texte rouge gras,
++  // 8 date (valeur = numéro de série Excel, voir dateExcel)
+   var STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+     '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.0"/></numFmts>' +
+     '<fonts count="4"><font><sz val="10"/><name val="Arial"/></font><font><b/><sz val="10"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font><font><b/><sz val="10"/><color rgb="FFB0302A"/><name val="Arial"/></font></fonts>' +
+     '<fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFF8DFDB"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFE4EDEE"/><bgColor indexed="64"/></patternFill></fill></fills>' +
+     '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color rgb="FFC7D5D7"/></left><right style="thin"><color rgb="FFC7D5D7"/></right><top style="thin"><color rgb="FFC7D5D7"/></top><bottom style="thin"><color rgb="FFC7D5D7"/></bottom><diagonal/></border></borders>' +
+-    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8">' +
++    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="9">' +
+     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+     '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>' +
+@@ -57,6 +58,7 @@
+     '<xf numFmtId="0" fontId="1" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment wrapText="1" vertical="center"/></xf>' +
+     '<xf numFmtId="1" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>' +
+     '<xf numFmtId="0" fontId="3" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' +
++    '<xf numFmtId="14" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"/>' +
+     '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+   var COULEURS = ['1F5C63', '963E88', 'C0464A', '3E5C76', 'B88A1B', '4E6647', '6F8FB0', '8A5A44', '2B2620', 'D9772B', '5B2A66', '1F7444', '7E7468', 'A13B2F', '2E86AB'];
+   function fmtNum(v){ return v == null ? '' : String(v); }
+@@ -201,5 +203,27 @@
+     }
+     return zip(files);
+   }
+-  root.XlsxReleves = { construire: construire };
++  // Classeur simple (sans graphique) : feuilles = [{ nom, lignes, largeurs, gel:[col, ligne] }].
++  // Chaque cellule = valeur ou { v, s } (styles ci-dessus). Utilisé par l'historique du plan.
++  function tableau(feuilles, options){
++    options = options || {};
++    var files = [], sheets = feuilles.map(function(f){ return { name: String(f.nom).slice(0, 31), xml: sheet(f.lignes, { widths: f.largeurs, freeze: f.gel, landscape: true }) }; });
++    var ct = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>' +
++      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
++      sheets.map(function(s, i){ return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') +
++      '<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>';
++    files.push({ name: '[Content_Types].xml', data: ct });
++    files.push({ name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/></Relationships>' });
++    var now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
++    files.push({ name: 'docProps/core.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>' + x(options.titre || 'Export') + '</dc:title><dc:creator>La Légumière</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF">' + now + '</dcterms:created></cp:coreProperties>' });
++    files.push({ name: 'docProps/app.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Microsoft Excel</Application></Properties>' });
++    files.push({ name: 'xl/workbook.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets>' + sheets.map(function(s, i){ return '<sheet name="' + x(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') + '</sheets></workbook>' });
++    files.push({ name: 'xl/_rels/workbook.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map(function(s, i){ return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') + '<Relationship Id="rId' + (sheets.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' });
++    files.push({ name: 'xl/styles.xml', data: STYLES });
++    sheets.forEach(function(s, i){ files.push({ name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: s.xml }); });
++    return zip(files);
++  }
++  // 'AAAA-MM-JJ' -> numéro de série Excel (affiché en date avec le style 8)
++  function dateExcel(j){ var p = String(j || '').split('-'); if (p.length !== 3) return null; return Math.round((Date.UTC(+p[0], +p[1] - 1, +p[2]) - Date.UTC(1899, 11, 30)) / 86400000); }
++  root.XlsxReleves = { construire: construire, tableau: tableau, dateExcel: dateExcel };
+ })(typeof window !== 'undefined' ? window : globalThis);
